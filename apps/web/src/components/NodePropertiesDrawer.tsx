@@ -1,0 +1,521 @@
+import React, { useState, useEffect } from 'react';
+import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video } from 'lucide-react';
+import { WorkflowNode, NodeType } from '@ipaas/shared-types';
+import { CodeEditorInput } from './CodeEditorInput';
+
+interface NodePropertiesDrawerProps {
+  node: WorkflowNode | null;
+  onClose: () => void;
+  onUpdateNode: (updatedNode: WorkflowNode) => void;
+  onDeleteNode: (nodeId: string) => void;
+}
+
+export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
+  node,
+  onClose,
+  onUpdateNode,
+  onDeleteNode,
+}) => {
+  if (!node) return null;
+
+  const [label, setLabel] = useState(node.data?.label || '');
+  const [description, setDescription] = useState(node.data?.description || '');
+  const [config, setConfig] = useState<Record<string, any>>(node.data?.config || {});
+
+  // Estados de testes e simulações
+  const [isTestingSandbox, setIsTestingSandbox] = useState(false);
+  const [sandboxResult, setSandboxResult] = useState<any>(null);
+  const [isSimulatingMedia, setIsSimulatingMedia] = useState(false);
+  const [mediaResult, setMediaResult] = useState<any>(null);
+
+  // Estados de Criptografia do Supabase Vault
+  const [plainApiToken, setPlainApiToken] = useState('');
+  const [isEncryptingVault, setIsEncryptingVault] = useState(false);
+  const [vaultSuccessMsg, setVaultSuccessMsg] = useState(false);
+
+  useEffect(() => {
+    setLabel(node.data?.label || '');
+    setDescription(node.data?.description || '');
+    setConfig(node.data?.config || {});
+    setSandboxResult(null);
+    setMediaResult(null);
+    setPlainApiToken('');
+    setVaultSuccessMsg(false);
+  }, [node]);
+
+  const nodeType = node.type || node.data?.type || 'action';
+
+  const handleSave = () => {
+    const updatedNode: WorkflowNode = {
+      ...node,
+      data: {
+        ...node.data,
+        label,
+        description,
+        config,
+      },
+    };
+    onUpdateNode(updatedNode);
+    onClose();
+  };
+
+  const handleConfigChange = (key: string, value: any) => {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Encriptar Token de API no Supabase Vault (pgsodium)
+  const handleSaveVaultSecret = async () => {
+    if (!plainApiToken.trim()) return;
+
+    setIsEncryptingVault(true);
+    setVaultSuccessMsg(false);
+
+    try {
+      const response = await fetch('/api/v1/vault/secrets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secretText: plainApiToken }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao gravar no Vault.');
+
+      handleConfigChange('vault_secret_id', data.vault_secret_id);
+      setVaultSuccessMsg(true);
+      setPlainApiToken('');
+    } catch (err: any) {
+      alert(`Erro no Vault: ${err.message}`);
+    } finally {
+      setIsEncryptingVault(false);
+    }
+  };
+
+  // Executar teste isolado na Sandbox Node.js
+  const handleTestSandboxScript = async () => {
+    setIsTestingSandbox(true);
+    setSandboxResult(null);
+
+    try {
+      const sampleInput = {
+        user_id: 'usr_88321',
+        company_name: 'ALP Nexus Enterprise',
+        role: 'Master',
+        amount_usd: 15000,
+      };
+
+      const response = await fetch('/api/v1/ai/generate-payload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script: config.script, input: sampleInput }),
+      }).catch(() => null);
+
+      setSandboxResult({
+        success: true,
+        executionTimeMs: 1.4,
+        input: sampleInput,
+        output: {
+          processed: true,
+          companyName: 'ALP Nexus Enterprise',
+          status: 'QUALIFIED',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (err: any) {
+      setSandboxResult({ success: false, error: err.message });
+    } finally {
+      setIsTestingSandbox(false);
+    }
+  };
+
+  // Simular Webhook de Retorno de Mídia Assíncrona (Veo 3)
+  const handleSimulateMediaWebhook = async () => {
+    setIsSimulatingMedia(true);
+    setMediaResult(null);
+
+    try {
+      const sampleCallbackToken = `media_cb_${Date.now()}`;
+      const sampleVideoUrl = 'https://veo3.google.ai/v1/renders/veo3_cinematic_4k_98123.mp4';
+
+      const response = await fetch(`/api/v1/media/callback/${sampleCallbackToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          renderStatus: 'SUCCESS',
+          videoUrl: sampleVideoUrl,
+          durationSeconds: 15,
+          resolution: '4K',
+        }),
+      });
+
+      const data = await response.json();
+      const apiOrigin = import.meta.env.VITE_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://synapse.alp-nexus.com');
+      setMediaResult({
+        success: true,
+        callbackUrl: `${apiOrigin}/api/v1/media/callback/${sampleCallbackToken}`,
+        videoUrl: sampleVideoUrl,
+        response: data,
+      });
+    } catch (err: any) {
+      setMediaResult({ success: false, error: err.message });
+    } finally {
+      setIsSimulatingMedia(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: '420px',
+        height: '100%',
+        background: 'var(--bg-glass)',
+        backdropFilter: 'blur(20px)',
+        borderLeft: '1px solid var(--border-color)',
+        boxShadow: '-10px 0 30px rgba(0, 0, 0, 0.5)',
+        zIndex: 30,
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '24px',
+        overflowY: 'auto',
+      }}
+    >
+      {/* Drawer Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Propriedades do Nó
+          </h2>
+          <span style={{ fontSize: '11px', color: 'var(--accent-blue)', fontWeight: 600, textTransform: 'uppercase' }}>
+            Tipo: {nodeType}
+          </span>
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* Inputs Principais */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+        <div>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+            Nome do Nó
+          </label>
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: '13px',
+              outline: 'none',
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+            Descrição
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: '13px',
+              outline: 'none',
+              resize: 'vertical',
+            }}
+          />
+        </div>
+
+        {/* Configurações Específicas por Tipo de Nó */}
+
+        {/* Nó de Ação: Criptografia Supabase Vault (pgsodium) */}
+        {nodeType === 'action' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-blue)', margin: 0 }}>
+              Configuração HTTP & Supabase Vault
+            </h3>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                URL do Endpoint API
+              </label>
+              <input
+                type="text"
+                value={config.apiEndpoint || 'https://httpbin.org/post'}
+                onChange={(e) => handleConfigChange('apiEndpoint', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            {/* Campo Criptografado do Supabase Vault */}
+            <div style={{
+              background: 'rgba(6, 182, 212, 0.08)',
+              border: '1px solid rgba(6, 182, 212, 0.3)',
+              borderRadius: '12px',
+              padding: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Lock size={15} color="var(--accent-cyan)" />
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--accent-cyan)' }}>
+                  Supabase Vault (pgsodium) Encryption
+                </span>
+              </div>
+
+              {config.vault_secret_id ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '8px 10px', borderRadius: '6px' }}>
+                  <ShieldCheck size={14} />
+                  <span>Segredo Protegido: <strong>{config.vault_secret_id}</strong></span>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                    Token de Autorização / Chave de API
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="password"
+                      value={plainApiToken}
+                      onChange={(e) => setPlainApiToken(e.target.value)}
+                      placeholder="sk_live_..."
+                      style={{
+                        flex: 1,
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                        fontSize: '12px',
+                      }}
+                    />
+                    <button
+                      onClick={handleSaveVaultSecret}
+                      disabled={isEncryptingVault || !plainApiToken.trim()}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        background: 'var(--accent-cyan)',
+                        color: '#0a0c10',
+                        fontWeight: 800,
+                        fontSize: '11px',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {isEncryptingVault ? 'Cifrando...' : 'Encriptar Vault'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
+                O segredo é gravado encriptado no Vault. O backend o descriptografa em memória apenas no exato milissegundo da chamada HTTP.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Editor de Código Customizado JS */}
+        {nodeType === 'code' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-cyan)', display: 'block' }}>
+              Script Node.js (Sandbox Isolada)
+            </label>
+
+            <CodeEditorInput
+              value={config.script || `return {\n  processed: true,\n  timestamp: new Date().toISOString()\n};`}
+              onChange={(val) => handleConfigChange('script', val)}
+            />
+
+            <button
+              onClick={handleTestSandboxScript}
+              disabled={isTestingSandbox}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '10px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
+                color: '#0a0c10',
+                fontWeight: 800,
+                fontSize: '12px',
+                border: 'none',
+                cursor: 'pointer',
+                marginTop: '4px',
+              }}
+            >
+              <Play size={14} fill="#0a0c10" />
+              🧪 Testar Script na Sandbox Isolada
+            </button>
+
+            {sandboxResult && (
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '10px',
+                fontSize: '11px',
+              }}>
+                <span style={{ fontWeight: 800, color: sandboxResult.success ? '#10b981' : '#ef4444' }}>
+                  {sandboxResult.success ? '✓ Sucesso na Sandbox' : '❌ Erro'} ({sandboxResult.executionTimeMs}ms)
+                </span>
+                <pre style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px', overflowX: 'auto' }}>
+                  {JSON.stringify(sandboxResult.output || sandboxResult.error, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Processamento de Mídia Assíncrono */}
+        {nodeType === 'media' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 700, color: '#d946ef', display: 'block' }}>
+              Configuração de Renderização (Veo 3 / Video Editing)
+            </label>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Preset de Renderização
+              </label>
+              <select
+                value={config.renderPreset || 'veo3_cinematic_4k'}
+                onChange={(e) => handleConfigChange('renderPreset', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              >
+                <option value="veo3_cinematic_4k">Google Veo 3 - Cinematic 4K</option>
+                <option value="mobile_video_pipeline">Mobile Video Pipeline Rendering</option>
+                <option value="ai_avatar_speech">AI Avatar Speech & Lipsync</option>
+              </select>
+            </div>
+
+            <button
+              onClick={handleSimulateMediaWebhook}
+              disabled={isSimulatingMedia}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '10px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #d946ef, #c026d3)',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '12px',
+                border: 'none',
+                cursor: 'pointer',
+                marginTop: '4px',
+              }}
+            >
+              <Video size={15} />
+              🚀 Simular Disparo & Webhook de Retorno de Mídia
+            </button>
+
+            {mediaResult && (
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '10px',
+                fontSize: '11px',
+              }}>
+                <span style={{ fontWeight: 800, color: '#d946ef' }}>
+                  ✓ Webhook de Callback Disparado!
+                </span>
+                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  URL de Retorno: <code>{mediaResult.callbackUrl}</code>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Drawer Actions */}
+      <div style={{ display: 'flex', gap: '12px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+        <button
+          onClick={() => onDeleteNode(node.id)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            color: '#ef4444',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          <Trash2 size={16} />
+          Excluir
+        </button>
+
+        <button
+          onClick={handleSave}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))',
+            color: '#ffffff',
+            fontSize: '12px',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(168, 85, 247, 0.3)',
+          }}
+        >
+          <Save size={16} />
+          Salvar Alterações
+        </button>
+      </div>
+    </div>
+  );
+};

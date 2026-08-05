@@ -1,0 +1,19 @@
+{
+  "name": "embedded-ipaas-workflow",
+  "private": true,
+  "scripts": {
+    "dev:all": "npx -y supabase@latest start && pnpm dev",
+    "setup:local": "bash setup-local.sh",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.14"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
