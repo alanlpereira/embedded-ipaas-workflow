@@ -19,6 +19,8 @@ export interface Profile {
   email: string;
   full_name?: string;
   avatar_url?: string;
+  phone?: string;
+  professional_id?: string; // Ex: OAB, CREA, CRM
   role: UserRole;
   created_at: string;
   updated_at: string;
@@ -61,9 +63,19 @@ export interface WorkflowEdge {
   style?: Record<string, any>;
 }
 
+export interface Folder {
+  id: string;
+  organization_id?: string;
+  user_id?: string;
+  name: string;
+  icon?: string;
+  created_at?: string;
+}
+
 export interface Flowchart {
   id: string;
   organization_id: string;
+  folder_id?: string;
   name: string;
   description?: string;
   nodes: WorkflowNode[];

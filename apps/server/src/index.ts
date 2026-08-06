@@ -7,6 +7,7 @@ import { auditRouter } from './routes/audit.js';
 import { approvalRouter } from './routes/approvals.js';
 import { vaultRouter } from './routes/vault.js';
 import { demoRouter } from './routes/demo.js';
+import { folderRouter } from './routes/folders.js';
 import { setupWebSocketServer } from './websocket.js';
 
 const app = express();
@@ -21,6 +22,7 @@ app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/audit', auditRouter);
 app.use('/api/approvals', approvalRouter);
 app.use('/api/v1/vault', vaultRouter);
+app.use('/api/v1/folders', folderRouter);
 app.use('/api/v1', demoRouter);
 
 app.get('/health', (_req, res) => {

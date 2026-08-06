@@ -22,6 +22,7 @@ import { MobileNodeListView } from './components/MobileNodeListView';
 import { ZeroFrictionDecidePage } from './components/ZeroFrictionDecidePage';
 import { MagicDemoPage } from './components/MagicDemoPage';
 import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
+import { UserSettingsPage } from './components/UserSettingsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
 import { supabase } from './lib/supabase';
@@ -337,7 +338,6 @@ function WorkflowAppContent() {
     broadcastStateChange(optimizedNodes, optimizedEdges);
     alert('Melhorias de arquitetura aplicadas com sucesso no canvas!');
   };
-
   // Alternar Organização Ativa (Impersonate)
   const handleImpersonateSuccess = (org: ExtendedOrganization) => {
     if (currentProfile) {
@@ -346,7 +346,7 @@ function WorkflowAppContent() {
     setCurrentTab('dashboard');
   };
 
-  const handleCreateFlowchart = () => {
+  const handleCreateFlowchart = (folderId?: string) => {
     if (!canEdit) {
       alert(t.messages.accessDenied);
       return;
@@ -355,6 +355,7 @@ function WorkflowAppContent() {
     const newFlow: Flowchart = {
       id: `flow-${Date.now()}`,
       organization_id: currentProfile?.organization_id || 'org-alp-nexus',
+      folder_id: folderId || undefined,
       name: `Novo Fluxograma #${flowcharts.length + 1}`,
       description: 'Descrição do novo processo automatizado.',
       nodes: [
@@ -378,6 +379,18 @@ function WorkflowAppContent() {
     setFlowcharts((prev) => [newFlow, ...prev]);
     handleOpenFlowchart(newFlow);
     alert(t.messages.flowCreated);
+  };
+
+  const handleMoveFlowchart = (flowchartId: string, targetFolderId: string) => {
+    setFlowcharts((prev) =>
+      prev.map((f) => (f.id === flowchartId ? { ...f, folder_id: targetFolderId, updated_at: new Date().toISOString() } : f))
+    );
+  };
+
+  const handleUpdateProfile = (updatedFields: Partial<Profile>) => {
+    if (currentProfile) {
+      setCurrentProfile((prev) => (prev ? { ...prev, ...updatedFields } : prev));
+    }
   };
 
   const handleUseTemplate = async (template: WorkflowTemplate) => {
@@ -674,6 +687,7 @@ function WorkflowAppContent() {
           onOpenFlowchart={handleOpenFlowchart}
           onCreateFlowchart={handleCreateFlowchart}
           onDeleteFlowchart={handleDeleteFlowchart}
+          onMoveFlowchart={handleMoveFlowchart}
         />
       )}
 
@@ -716,6 +730,13 @@ function WorkflowAppContent() {
 
       {currentTab === 'integrations' && (
         <IntegrationsVaultPage currentProfile={currentProfile} />
+      )}
+
+      {currentTab === 'settings' && (
+        <UserSettingsPage
+          currentProfile={currentProfile}
+          onUpdateProfile={handleUpdateProfile}
+        />
       )}
 
       {currentTab === 'editor' && (

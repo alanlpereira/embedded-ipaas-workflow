@@ -54,7 +54,7 @@ router.post('/', requireAuth, requireRole(['Master', 'Admin']), async (req: Auth
   try {
     const orgId = req.profile!.organization_id;
     const userEmail = req.profile!.email || 'alan.pereira@alp-nexus.com';
-    const { name, description, nodes, edges, is_published } = req.body;
+    const { name, description, nodes, edges, is_published, folder_id } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'O nome do fluxo é obrigatório.' });
@@ -64,6 +64,7 @@ router.post('/', requireAuth, requireRole(['Master', 'Admin']), async (req: Auth
       .from('flowcharts')
       .insert({
         organization_id: orgId,
+        folder_id: folder_id || null,
         name,
         description: description || '',
         nodes: nodes || [],
@@ -92,7 +93,7 @@ router.put('/:id', requireAuth, requireRole(['Master', 'Admin']), async (req: Au
     const orgId = req.profile!.organization_id;
     const userEmail = req.profile!.email || 'alan.pereira@alp-nexus.com';
     const { id } = req.params;
-    const { name, description, nodes, edges, viewport, is_published } = req.body;
+    const { name, description, nodes, edges, viewport, is_published, folder_id } = req.body;
 
     const updatePayload: Record<string, any> = {};
     if (name !== undefined) updatePayload.name = name;
@@ -101,6 +102,7 @@ router.put('/:id', requireAuth, requireRole(['Master', 'Admin']), async (req: Au
     if (edges !== undefined) updatePayload.edges = edges;
     if (viewport !== undefined) updatePayload.viewport = viewport;
     if (is_published !== undefined) updatePayload.is_published = is_published;
+    if (folder_id !== undefined) updatePayload.folder_id = folder_id;
 
     const { data, error } = await supabaseAdmin
       .from('flowcharts')
@@ -120,6 +122,31 @@ router.put('/:id', requireAuth, requireRole(['Master', 'Admin']), async (req: Au
     return res.json({ flowchart: data, version: newVersion });
   } catch (err: any) {
     return res.status(500).json({ error: 'Erro ao atualizar flowchart', details: err.message });
+  }
+});
+
+// PUT /api/flowcharts/:id/move - Mover fluxo para outra pasta/área
+router.put('/:id/move', requireAuth, requireRole(['Master', 'Admin']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const orgId = req.profile!.organization_id;
+    const { id } = req.params;
+    const { folder_id } = req.body;
+
+    const { data, error } = await supabaseAdmin
+      .from('flowcharts')
+      .update({ folder_id: folder_id || null, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.json({ flowchart: data });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Erro ao mover fluxo', details: err.message });
   }
 });
 

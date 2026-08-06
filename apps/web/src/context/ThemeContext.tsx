@@ -15,6 +15,9 @@ export interface ExtendedOrganization {
 }
 
 interface ThemeContextType {
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
+  toggleTheme: () => void;
   currentOrg: ExtendedOrganization;
   availableOrgs: ExtendedOrganization[];
   primaryColor: string;
@@ -74,6 +77,26 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentOrg, setCurrentOrg] = useState<ExtendedOrganization>(defaultOrg);
   const [availableOrgs, setAvailableOrgs] = useState<ExtendedOrganization[]>(mockOrganizations);
+  const [theme, setThemeState] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('synapse_theme') as 'dark' | 'light') || 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('synapse_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const setTheme = (newTheme: 'dark' | 'light') => {
+    setThemeState(newTheme);
+  };
+
+  const toggleTheme = () => {
+    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   const switchOrganization = (orgId: string) => {
     const found = availableOrgs.find((o) => o.id === orgId);
@@ -96,6 +119,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ThemeContext.Provider
       value={{
+        theme,
+        setTheme,
+        toggleTheme,
         currentOrg,
         availableOrgs,
         primaryColor,

@@ -1,12 +1,12 @@
 import React from 'react';
-import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock } from 'lucide-react';
+import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { CollaboratorInfo } from '../collaboration/useYjsCollaboration';
 import { EditionBadge } from './EditionBadge';
 
-export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations';
+export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings';
 
 interface NavbarProps {
   currentProfile: Profile | null;
@@ -185,6 +185,28 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Lock size={15} />
             Integrações
+          </button>
+
+          <button
+            onClick={() => onNavigate('settings')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              background: currentTab === 'settings' ? 'var(--bg-tertiary)' : 'transparent',
+              color: currentTab === 'settings' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Settings size={15} />
+            Configurações
           </button>
 
           {isAdminOrMaster && (
