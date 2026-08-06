@@ -604,6 +604,11 @@ function WorkflowAppContent() {
   };
 
   const handleFlowGeneratedByAI = (newNodes: WorkflowNode[], newEdges: WorkflowEdge[]) => {
+    if (!Array.isArray(newNodes) || !Array.isArray(newEdges)) {
+      console.error('🚨 [FLOW GENERATOR] Formato de fluxo inválido recebido da IA:', { newNodes, newEdges });
+      alert('Formato de fluxo inválido recebido da IA');
+      return;
+    }
     setNodes(newNodes);
     setEdges(newEdges);
     broadcastStateChange(newNodes, newEdges);

@@ -50,11 +50,11 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-      const fullPrompt = `Você é um arquiteto especialista em automação de processos e iPaaS corporativo.
-Crie um fluxograma de automação em formato JSON válido para a seguinte solicitação do usuário:
+      const fullPrompt = `Você deve retornar APENAS um objeto JSON válido com a exata estrutura: { "nodes": [], "edges": [] }. Não inclua marcações markdown.
+Solicitação de automação do usuário:
 "${promptText}"
 
-Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais ou introduções, na seguinte estrutura:
+Estrutura JSON obrigatória:
 {
   "nodes": [
     { "id": "n1", "type": "trigger", "position": { "x": 250, "y": 50 }, "data": { "label": "Nome do Gatilho", "type": "trigger", "description": "Descrição" } },
@@ -65,23 +65,23 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais ou 
   ]
 }`;
 
-      // 3. Forçar a resposta em texto puro passando generationConfig: { responseMimeType: "text/plain" }
+      // 1. Na chamada do Gemini, altere o generationConfig para forçar o JSON Mode: { responseMimeType: "application/json" }
       const result = await model.generateContent({
         prompt: fullPrompt,
         generationConfig: {
-          responseMimeType: 'text/plain',
+          responseMimeType: 'application/json',
         },
       } as any);
 
       const response = await result.response;
-      const responseText = response.text();
+      // 3. Ao receber a resposta, faça o parse seguro
+      const textResponse = response.text();
 
-      if (!responseText || responseText.trim() === '') {
-        throw new Error('A resposta gerada pelo modelo Gemini 1.5 Flash retornou vazia.');
+      if (!textResponse || textResponse.trim() === '') {
+        throw new Error('Formato de fluxo inválido recebido da IA');
       }
 
-      // Tratar a string de texto puro removendo eventuais marcadores markdown de blocos json
-      const cleanJsonString = responseText
+      const cleanJsonString = textResponse
         .replace(/```json/gi, '')
         .replace(/```/g, '')
         .trim();
@@ -90,17 +90,21 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais ou 
       try {
         parsedData = JSON.parse(cleanJsonString);
       } catch (jsonErr: any) {
-        throw new Error(`Erro ao interpretar estrutura JSON da IA: ${jsonErr.message}`);
+        throw new Error('Formato de fluxo inválido recebido da IA');
       }
 
-      if (parsedData && Array.isArray(parsedData.nodes) && Array.isArray(parsedData.edges) && onFlowGenerated) {
+      // 4. Antes de injetar os dados no estado do React Flow, faça uma validação de iterabilidade
+      if (!parsedData || typeof parsedData !== 'object' || !Array.isArray(parsedData.nodes) || !Array.isArray(parsedData.edges)) {
+        // 5. Se não forem iteráveis, dispare um throw new Error("Formato de fluxo inválido recebido da IA");
+        throw new Error('Formato de fluxo inválido recebido da IA');
+      }
+
+      if (onFlowGenerated) {
         onFlowGenerated(parsedData.nodes, parsedData.edges);
         if (textareaRef.current) {
           textareaRef.current.value = '';
           textareaRef.current.style.height = 'auto';
         }
-      } else {
-        throw new Error('O JSON gerado pela IA não contém a estrutura esperada de nodes e edges.');
       }
     } catch (err: any) {
       // 4. console.error com o objeto de erro completo (message e status) para depuração no DevTools
