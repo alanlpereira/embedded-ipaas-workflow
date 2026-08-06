@@ -55,15 +55,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 24px',
-      background: 'var(--bg-glass)',
-      backdropFilter: 'blur(16px)',
-      zIndex: 20
+      gap: '16px',
+      padding: '0 20px',
+      background: '#090d16',
+      backdropFilter: 'blur(20px)',
+      position: 'relative',
+      zIndex: 100,
+      width: '100%',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
         {/* Espaço Reservado no Topo para a Logomarca Oficial Synapse e Selo de Edição */}
         <div
-          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexShrink: 0 }}
           onClick={() => onNavigate('dashboard')}
         >
           <img
@@ -72,19 +75,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
-            style={{ height: '36px', objectFit: 'contain' }}
+            style={{ height: '32px', objectFit: 'contain' }}
           />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontSize: '16px', fontWeight: 900, letterSpacing: '-0.3px', color: 'var(--text-primary)', margin: 0 }}>
+            <h1 style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '-0.3px', color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap' }}>
               {t.appTitle}
             </h1>
             <EditionBadge edition={currentOrg?.plan_tier || 'Synapse'} size="small" />
           </div>
         </div>
 
-        {/* Abas de Navegação Principal */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Abas de Navegação Principal com Overflow Horizontal Limpo */}
+        <nav style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          whiteSpace: 'nowrap',
+          padding: '4px 0',
+          flex: 1,
+          minWidth: 0,
+        }}>
           <button
             onClick={() => onNavigate('dashboard')}
             style={{
@@ -99,6 +113,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             <LayoutDashboard size={15} />
@@ -119,6 +135,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             <LayoutTemplate size={15} />
@@ -139,6 +157,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             <Activity size={15} />
@@ -159,6 +179,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             <Lock size={15} />
@@ -180,6 +202,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
               }}
             >
               <Building size={15} color="var(--accent-cyan)" />
@@ -203,6 +227,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 <Building2 size={15} />
@@ -223,6 +249,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 <ShieldCheck size={15} color="var(--accent-purple)" />
@@ -244,6 +272,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 border: 'none',
                 fontSize: '12px',
                 fontWeight: 600,
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
               }}
             >
               <Workflow size={15} />

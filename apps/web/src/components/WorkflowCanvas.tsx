@@ -190,8 +190,9 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
           maxWidth: '680px',
           display: 'flex',
           justifyContent: 'center',
+          pointerEvents: 'none',
         }}>
-          <CopilotPromptBar onFlowGenerated={onFlowGenerated} />
+          <CopilotPromptBar onFlowGenerated={onFlowGenerated} style={{ pointerEvents: 'auto' }} />
         </div>
       )}
 
@@ -209,7 +210,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         snapGrid={[15, 15]}
         zoomOnPinch={true}
         panOnScroll={false}
-        panOnDrag={[1, 2]}
+        panOnDrag={true}
       >
         <Background color="rgba(255, 255, 255, 0.05)" gap={20} size={1} />
         <Controls style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />

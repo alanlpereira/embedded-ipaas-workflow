@@ -14,7 +14,7 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
   const { t } = useLanguage();
   
   // Captura do input via useRef (zero re-renderizações ao digitar)
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -34,7 +34,7 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const promptText = inputRef.current?.value?.trim() || '';
+    const promptText = textareaRef.current?.value?.trim() || '';
     if (!promptText || isGenerating) return;
 
     if (!hasApiKey || !apiKey) {
@@ -95,8 +95,9 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais ou 
 
       if (parsedData && Array.isArray(parsedData.nodes) && Array.isArray(parsedData.edges) && onFlowGenerated) {
         onFlowGenerated(parsedData.nodes, parsedData.edges);
-        if (inputRef.current) {
-          inputRef.current.value = '';
+        if (textareaRef.current) {
+          textareaRef.current.value = '';
+          textareaRef.current.style.height = 'auto';
         }
       } else {
         throw new Error('O JSON gerado pela IA não contém a estrutura esperada de nodes e edges.');
@@ -183,14 +184,24 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais ou 
           {t.copilot.badge}
         </div>
 
-        <input
-          ref={inputRef}
-          type="text"
+        <textarea
+          ref={textareaRef}
           defaultValue=""
           placeholder={t.copilot.placeholder}
           disabled={isGenerating}
-          autoComplete="off"
           spellCheck="false"
+          rows={1}
+          onInput={(e) => {
+            const target = e.currentTarget;
+            target.style.height = 'auto';
+            target.style.height = `${Math.min(target.scrollHeight, 160)}px`;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleGenerate(e);
+            }
+          }}
           style={{
             flex: 1,
             background: 'transparent',
@@ -199,6 +210,12 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais ou 
             fontSize: '13px',
             outline: 'none',
             fontFamily: 'var(--font-sans)',
+            resize: 'none',
+            minHeight: '38px',
+            maxHeight: '160px',
+            overflowY: 'auto',
+            lineHeight: '1.4',
+            padding: '8px 4px',
           }}
         />
 
