@@ -1,40 +1,107 @@
-import React, { useState } from 'react';
-import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Send, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { useLanguage } from '../i18n/LanguageContext';
+import { AIErrorBoundary } from './AIErrorBoundary';
 import { WorkflowNode, WorkflowEdge } from '@ipaas/shared-types';
 
 interface CopilotPromptBarProps {
-  onFlowGenerated: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
+  onFlowGenerated?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
+  style?: React.CSSProperties;
 }
 
-export const CopilotPromptBar: React.FC<CopilotPromptBarProps> = ({ onFlowGenerated }) => {
+const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerated, style }) => {
   const { t } = useLanguage();
-  const [prompt, setPrompt] = useState('');
+  
+  // Captura do input via useRef (zero re-renderizações ao digitar)
+  const inputRef = useRef<HTMLInputElement>(null);
+  
   const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string>('');
+  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
 
+  // 3. VALIDAÇÃO DE CHAVE DE AMBIENTE (VITE_GEMINI_API_KEY)
+  useEffect(() => {
+    const key = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '';
+    if (!key || key.includes('YourGeminiApiKeyHere') || key.trim() === '') {
+      setHasApiKey(false);
+    } else {
+      setApiKey(key.trim());
+      setHasApiKey(true);
+    }
+  }, []);
+
+  // 4. CHAMADA COM SDK OFICIAL DO GOOGLE GEMINI (gemini-1.5-flash)
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prompt.trim() || isGenerating) return;
+    const promptText = inputRef.current?.value?.trim() || '';
+    if (!promptText || isGenerating) return;
+
+    if (!hasApiKey || !apiKey) {
+      setErrorMessage('Aviso: Chave VITE_GEMINI_API_KEY não encontrada no ambiente. Solicite ao administrador a configuração do .env.');
+      return;
+    }
 
     setIsGenerating(true);
+    setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/v1/ai/generate-flow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-      });
+      // 2 & 4. Instanciar GoogleGenerativeAI e selecionar o modelo gemini-1.5-flash
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-      const data = await response.json();
+      const fullPrompt = `Você é um arquiteto especialista em automação de processos e iPaaS corporativo.
+Crie um fluxograma de automação funcional em formato JSON válido para a seguinte solicitação do usuário:
+"${promptText}"
 
-      if (data.nodes && data.edges) {
-        onFlowGenerated(data.nodes, data.edges);
-        setPrompt('');
+Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais, na seguinte estrutura:
+{
+  "nodes": [
+    { "id": "n1", "type": "trigger", "position": { "x": 250, "y": 50 }, "data": { "label": "Nome do Gatilho", "type": "trigger", "description": "Descrição detalhada" } },
+    { "id": "n2", "type": "action", "position": { "x": 250, "y": 180 }, "data": { "label": "Nome da Ação", "type": "action", "description": "Descrição detalhada" } }
+  ],
+  "edges": [
+    { "id": "e1-2", "source": "n1", "target": "n2", "animated": true }
+  ]
+}`;
+
+      // Executar generateContent via SDK oficial do Google
+      const result = await model.generateContent(fullPrompt);
+      const response = await result.response;
+      
+      // Extrair o texto da resposta via SDK nativo, eliminando o uso de response.json() manual defeituoso
+      const responseText = response.text();
+
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('A resposta gerada pelo modelo Gemini retornou vazia.');
+      }
+
+      // Tratar a string JSON gerada removendo eventuais marcadores markdown
+      const cleanJsonString = responseText
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+      let parsedData: any;
+      try {
+        parsedData = JSON.parse(cleanJsonString);
+      } catch (jsonErr: any) {
+        throw new Error(`Erro ao interpretar estrutura JSON da IA: ${jsonErr.message}`);
+      }
+
+      if (parsedData && Array.isArray(parsedData.nodes) && Array.isArray(parsedData.edges) && onFlowGenerated) {
+        onFlowGenerated(parsedData.nodes, parsedData.edges);
+        if (inputRef.current) {
+          inputRef.current.value = '';
+        }
       } else {
-        alert('Não foi possível interpretar o prompt. Tente novamente.');
+        throw new Error('O JSON gerado pela IA não contém o formato esperado de nodes e edges.');
       }
     } catch (err: any) {
-      alert(`Erro na geração com IA: ${err.message}`);
+      // 5. TRATAMENTO DE ERRO RIGOROSO TRY/CATCH
+      const exactError = err?.message || 'Falha imprevista ao comunicar com o Google Gemini SDK';
+      setErrorMessage(`Erro de Comunicação com a IA: ${exactError}`);
     } finally {
       setIsGenerating(false);
     }
@@ -42,14 +109,35 @@ export const CopilotPromptBar: React.FC<CopilotPromptBarProps> = ({ onFlowGenera
 
   return (
     <div style={{
-      position: 'absolute',
-      top: '16px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 25,
-      width: '90%',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      width: '100%',
       maxWidth: '680px',
+      ...style,
     }}>
+      {/* 5. AVISO AMARELO CASO A VITE_GEMINI_API_KEY NÃO ESTEJA CONFIGURADA */}
+      {!hasApiKey && (
+        <div style={{
+          marginBottom: '8px',
+          background: 'rgba(245, 158, 11, 0.15)',
+          border: '1px solid #f59e0b',
+          borderRadius: '12px',
+          padding: '8px 14px',
+          color: '#fbbf24',
+          fontSize: '11px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          width: '100%',
+          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)',
+        }}>
+          <AlertTriangle size={14} color="#f59e0b" style={{ flexShrink: 0 }} />
+          <span>Aviso: Chave VITE_GEMINI_API_KEY não configurada no .env. Solicite ao administrador a adição da chave da API do Google Gemini.</span>
+        </div>
+      )}
+
+      {/* BARRA DE PROMPT DA IA */}
       <form
         onSubmit={handleGenerate}
         style={{
@@ -60,9 +148,12 @@ export const CopilotPromptBar: React.FC<CopilotPromptBarProps> = ({ onFlowGenera
           borderRadius: '28px',
           background: 'var(--bg-glass)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(0, 242, 254, 0.4)',
-          boxShadow: '0 10px 35px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 254, 0.2)',
+          border: errorMessage ? '1px solid #ef4444' : '1px solid rgba(0, 242, 254, 0.4)',
+          boxShadow: errorMessage
+            ? '0 10px 35px rgba(239, 68, 68, 0.3)'
+            : '0 10px 35px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 254, 0.2)',
           transition: 'all 0.25s ease',
+          width: '100%',
         }}
       >
         <div style={{
@@ -77,17 +168,20 @@ export const CopilotPromptBar: React.FC<CopilotPromptBarProps> = ({ onFlowGenera
           fontWeight: 800,
           letterSpacing: '0.5px',
           whiteSpace: 'nowrap',
+          flexShrink: 0,
         }}>
           <Sparkles size={14} color="var(--accent-cyan)" />
           {t.copilot.badge}
         </div>
 
         <input
+          ref={inputRef}
           type="text"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          defaultValue=""
           placeholder={t.copilot.placeholder}
           disabled={isGenerating}
+          autoComplete="off"
+          spellCheck="false"
           style={{
             flex: 1,
             background: 'transparent',
@@ -101,37 +195,65 @@ export const CopilotPromptBar: React.FC<CopilotPromptBarProps> = ({ onFlowGenera
 
         <button
           type="submit"
-          disabled={isGenerating || !prompt.trim()}
+          disabled={isGenerating}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
             padding: '8px 16px',
             borderRadius: '20px',
-            background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
+            background: isGenerating ? 'var(--bg-tertiary)' : 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
             color: '#0a0c10',
             fontWeight: 700,
             fontSize: '12px',
             border: 'none',
             cursor: isGenerating ? 'not-allowed' : 'pointer',
-            opacity: isGenerating || !prompt.trim() ? 0.6 : 1,
+            opacity: isGenerating ? 0.6 : 1,
             boxShadow: '0 2px 10px rgba(0, 242, 254, 0.3)',
             whiteSpace: 'nowrap',
+            transition: 'all 0.2s ease',
           }}
         >
           {isGenerating ? (
             <>
-              <Loader2 size={14} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
               {t.copilot.generating}
             </>
           ) : (
             <>
+              <Send size={14} />
               {t.copilot.generateBtn}
-              <ArrowRight size={14} />
             </>
           )}
         </button>
       </form>
+
+      {/* ALERTA VISUAL DE ERRO DE EXECUÇÃO */}
+      {errorMessage && (
+        <div style={{
+          marginTop: '8px',
+          background: 'rgba(239, 68, 68, 0.15)',
+          border: '1px solid #ef4444',
+          borderRadius: '12px',
+          padding: '8px 14px',
+          color: '#f87171',
+          fontSize: '11px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          width: '100%',
+          boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+        }}>
+          <AlertCircle size={14} style={{ flexShrink: 0 }} />
+          <span>{errorMessage}</span>
+        </div>
+      )}
     </div>
   );
 };
+
+export const CopilotPromptBar: React.FC<CopilotPromptBarProps> = (props) => (
+  <AIErrorBoundary>
+    <CopilotPromptBarInner {...props} />
+  </AIErrorBoundary>
+);

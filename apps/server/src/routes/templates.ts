@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabaseAdmin.js';
-import { corporate20Templates, WorkflowTemplateItem } from '../seed-templates.js';
+import { corporate21Templates } from '../seed-templates.js';
 
 export const templatesRouter = Router();
 
 /**
  * GET /api/templates
- * Retorna todos os 20 templates corporativos divididos em 6 departamentos
+ * Retorna todos os 21 templates corporativos divididos em 6 departamentos
  */
 templatesRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -15,7 +15,7 @@ templatesRouter.get('/', async (_req: Request, res: Response): Promise<void> => 
       .select('*')
       .order('category', { ascending: true });
 
-    const templates = dbTemplates && dbTemplates.length > 0 ? dbTemplates : corporate20Templates;
+    const templates = dbTemplates && dbTemplates.length > 0 ? dbTemplates : corporate21Templates;
 
     res.json({
       total: templates.length,
@@ -23,8 +23,8 @@ templatesRouter.get('/', async (_req: Request, res: Response): Promise<void> => 
     });
   } catch (err: any) {
     res.json({
-      total: corporate20Templates.length,
-      templates: corporate20Templates,
+      total: corporate21Templates.length,
+      templates: corporate21Templates,
     });
   }
 });
@@ -37,7 +37,7 @@ templatesRouter.post('/:id/clone', async (req: Request, res: Response): Promise<
   const { id } = req.params;
   const orgId = (req.headers['x-organization-id'] as string) || 'org-alp-nexus';
 
-  const tpl = corporate20Templates.find((t) => t.id === id) || corporate20Templates[0];
+  const tpl = corporate21Templates.find((t) => t.id === id) || corporate21Templates[0];
 
   const clonedFlowchart = {
     id: `flow-clone-${Date.now()}`,
