@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Play, GitFork, UserCheck, Send, Code2, Video } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe } from 'lucide-react';
 import { NodeType } from '@ipaas/shared-types';
 import { EditionBadge } from './EditionBadge';
 import { useTheme } from '../context/ThemeContext';
@@ -21,9 +21,16 @@ const blocks: SidebarBlock[] = [
     color: '#10b981',
   },
   {
+    type: 'http',
+    label: 'Requisição HTTP / Webhook',
+    description: 'Dispara chamadas REST/Webhook reais com tokens do Cofre.',
+    icon: <Globe size={18} color="#00f2fe" />,
+    color: '#00f2fe',
+  },
+  {
     type: 'action',
-    label: 'Ação / HTTP API',
-    description: 'Dispara requisições HTTP REST com Vault pgsodium.',
+    label: 'Ação / Processamento',
+    description: 'Executa ações automatizadas nos sistemas conectados.',
     icon: <Play size={18} color="#3b82f6" />,
     color: '#3b82f6',
   },

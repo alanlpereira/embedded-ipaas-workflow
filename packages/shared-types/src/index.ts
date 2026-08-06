@@ -24,13 +24,22 @@ export interface Profile {
   updated_at: string;
 }
 
-export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media';
+export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http';
+
+export interface HttpNodeConfig {
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  url: string;
+  credential_id?: string;
+  headers?: Record<string, string> | string;
+  body?: string;
+}
 
 export interface WorkflowNodeData {
   label: string;
   type: NodeType;
   description?: string;
   config?: Record<string, any>;
+  httpConfig?: HttpNodeConfig;
   [key: string]: any;
 }
 
@@ -81,4 +90,15 @@ export interface ExecutionResult {
     level: 'INFO' | 'WARN' | 'ERROR';
     message: string;
   }>;
+}
+
+export interface CredentialVaultItem {
+  id: string;
+  organization_id: string;
+  name: string;
+  service_type: 'whatsapp' | 'sendgrid' | 'slack' | 'custom_bearer' | 'api_key';
+  masked_value: string;
+  secret_value?: string;
+  created_at: string;
+  updated_at: string;
 }

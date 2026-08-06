@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 
 interface NodeColorConfig {
@@ -60,6 +60,13 @@ const nodeTypeConfigs: Record<NodeType, NodeColorConfig> = {
     headerBg: 'rgba(217, 70, 239, 0.15)',
     iconColor: '#d946ef',
     Icon: Video,
+  },
+  http: {
+    bg: 'rgba(0, 242, 254, 0.05)',
+    border: '#00f2fe',
+    headerBg: 'rgba(0, 242, 254, 0.15)',
+    iconColor: '#00f2fe',
+    Icon: Globe,
   },
 };
 

@@ -1,12 +1,12 @@
 import React from 'react';
-import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles } from 'lucide-react';
+import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { CollaboratorInfo } from '../collaboration/useYjsCollaboration';
 import { EditionBadge } from './EditionBadge';
 
-export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin';
+export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations';
 
 interface NavbarProps {
   currentProfile: Profile | null;
@@ -143,6 +143,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Activity size={15} />
             {t.nav.audit}
+          </button>
+
+          <button
+            onClick={() => onNavigate('integrations')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              background: currentTab === 'integrations' ? 'var(--bg-tertiary)' : 'transparent',
+              color: currentTab === 'integrations' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Lock size={15} />
+            Integrações
           </button>
 
           {isAdminOrMaster && (

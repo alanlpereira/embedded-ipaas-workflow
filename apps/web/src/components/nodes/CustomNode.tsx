@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 
 interface NodeColorConfig {
@@ -16,6 +16,12 @@ const nodeConfigs: Record<NodeType, NodeColorConfig> = {
     gradient: 'linear-gradient(135deg, #10b981, #059669)',
     icon: <Zap size={16} color="#ffffff" />,
     badge: 'INPUT',
+  },
+  http: {
+    color: '#00f2fe',
+    gradient: 'linear-gradient(135deg, #00f2fe, #4facfe)',
+    icon: <Globe size={16} color="#ffffff" />,
+    badge: 'HTTP / API',
   },
   action: {
     color: '#3b82f6',

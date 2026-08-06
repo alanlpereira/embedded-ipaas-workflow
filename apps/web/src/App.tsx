@@ -21,6 +21,8 @@ import { AIOptimizationDrawer, AIOptimizationReport } from './components/AIOptim
 import { MobileNodeListView } from './components/MobileNodeListView';
 import { ZeroFrictionDecidePage } from './components/ZeroFrictionDecidePage';
 import { MagicDemoPage } from './components/MagicDemoPage';
+import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
+import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
 import { supabase } from './lib/supabase';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
@@ -487,6 +489,7 @@ function WorkflowAppContent() {
 
       const titles: Record<NodeType, string> = {
         trigger: 'Novo Gatilho / Input',
+        http: 'Requisição HTTP / Webhook',
         action: 'Nova Ação / Processo',
         decision: 'Nova Decisão',
         approval: 'Nova Aprovação',
@@ -706,6 +709,10 @@ function WorkflowAppContent() {
         <TeamPage currentProfile={currentProfile} />
       )}
 
+      {currentTab === 'integrations' && (
+        <IntegrationsVaultPage currentProfile={currentProfile} />
+      )}
+
       {currentTab === 'editor' && (
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
           {/* Se estiver em modo smartphone retrato, renderizar a Visão Linear Adaptativa de Nós */}
@@ -778,6 +785,18 @@ function WorkflowAppContent() {
         onRestoreVersion={handleRestoreVersion}
         canEdit={canEdit}
       />
+
+      {/* Modal de Configuração do Nó & Teste HTTP / Webhook */}
+      {selectedNode && (
+        <NodeConfigModal
+          node={selectedNode}
+          onSave={(updatedNode) => {
+            setNodes((prev) => prev.map((n) => (n.id === updatedNode.id ? updatedNode : n)));
+            setSelectedNode(null);
+          }}
+          onClose={() => setSelectedNode(null)}
+        />
+      )}
     </div>
   );
 }

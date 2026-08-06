@@ -18,6 +18,7 @@ const nodeTypes: any = {
   output: CustomNode,
   code: CustomNode,
   media: CustomNode,
+  http: CustomNode,
 };
 
 interface WorkflowCanvasProps {
