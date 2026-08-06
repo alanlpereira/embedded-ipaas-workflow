@@ -21,7 +21,7 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
   const [apiKey, setApiKey] = useState<string>('');
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
 
-  // 3. VALIDAÇÃO DE CHAVE DE AMBIENTE (VITE_GEMINI_API_KEY)
+  // 1 & 3. VALIDAÇÃO DA VARIÁVEL DE AMBIENTE VITE_GEMINI_API_KEY
   useEffect(() => {
     const key = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '';
     if (!key || key.includes('YourGeminiApiKeyHere') || key.trim() === '') {
@@ -32,14 +32,13 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
     }
   }, []);
 
-  // 4. CHAMADA COM SDK OFICIAL DO GOOGLE GEMINI (gemini-1.5-flash)
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     const promptText = inputRef.current?.value?.trim() || '';
     if (!promptText || isGenerating) return;
 
     if (!hasApiKey || !apiKey) {
-      setErrorMessage('Aviso: Chave VITE_GEMINI_API_KEY não encontrada no ambiente. Solicite ao administrador a configuração do .env.');
+      setErrorMessage('Aviso: Chave VITE_GEMINI_API_KEY não configurada no ambiente. Solicite ao administrador a configuração do .env.');
       return;
     }
 
@@ -47,37 +46,41 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
     setErrorMessage(null);
 
     try {
-      // 2 & 4. Instanciar GoogleGenerativeAI e selecionar o modelo gemini-1.5-flash
+      // 2. Instanciar explicitamente o modelo estavel 'gemini-1.5-flash'
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const fullPrompt = `Você é um arquiteto especialista em automação de processos e iPaaS corporativo.
-Crie um fluxograma de automação funcional em formato JSON válido para a seguinte solicitação do usuário:
+Crie um fluxograma de automação em formato JSON válido para a seguinte solicitação do usuário:
 "${promptText}"
 
-Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais, na seguinte estrutura:
+Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais ou introduções, na seguinte estrutura:
 {
   "nodes": [
-    { "id": "n1", "type": "trigger", "position": { "x": 250, "y": 50 }, "data": { "label": "Nome do Gatilho", "type": "trigger", "description": "Descrição detalhada" } },
-    { "id": "n2", "type": "action", "position": { "x": 250, "y": 180 }, "data": { "label": "Nome da Ação", "type": "action", "description": "Descrição detalhada" } }
+    { "id": "n1", "type": "trigger", "position": { "x": 250, "y": 50 }, "data": { "label": "Nome do Gatilho", "type": "trigger", "description": "Descrição" } },
+    { "id": "n2", "type": "action", "position": { "x": 250, "y": 180 }, "data": { "label": "Nome da Ação", "type": "action", "description": "Descrição" } }
   ],
   "edges": [
     { "id": "e1-2", "source": "n1", "target": "n2", "animated": true }
   ]
 }`;
 
-      // Executar generateContent via SDK oficial do Google
-      const result = await model.generateContent(fullPrompt);
+      // 3. Forçar a resposta em texto puro passando generationConfig: { responseMimeType: "text/plain" }
+      const result = await model.generateContent({
+        prompt: fullPrompt,
+        generationConfig: {
+          responseMimeType: 'text/plain',
+        },
+      } as any);
+
       const response = await result.response;
-      
-      // Extrair o texto da resposta via SDK nativo, eliminando o uso de response.json() manual defeituoso
       const responseText = response.text();
 
       if (!responseText || responseText.trim() === '') {
-        throw new Error('A resposta gerada pelo modelo Gemini retornou vazia.');
+        throw new Error('A resposta gerada pelo modelo Gemini 1.5 Flash retornou vazia.');
       }
 
-      // Tratar a string JSON gerada removendo eventuais marcadores markdown
+      // Tratar a string de texto puro removendo eventuais marcadores markdown de blocos json
       const cleanJsonString = responseText
         .replace(/```json/gi, '')
         .replace(/```/g, '')
@@ -96,11 +99,17 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais, na
           inputRef.current.value = '';
         }
       } else {
-        throw new Error('O JSON gerado pela IA não contém o formato esperado de nodes e edges.');
+        throw new Error('O JSON gerado pela IA não contém a estrutura esperada de nodes e edges.');
       }
     } catch (err: any) {
-      // 5. TRATAMENTO DE ERRO RIGOROSO TRY/CATCH
-      const exactError = err?.message || 'Falha imprevista ao comunicar com o Google Gemini SDK';
+      // 4. console.error com o objeto de erro completo (message e status) para depuração no DevTools
+      console.error('🚨 [GEMINI SDK ERROR] Falha na comunicação com o Google Gemini:', {
+        message: err?.message,
+        status: err?.status || err?.code || 'UNKNOWN_STATUS',
+        errorObject: err,
+      });
+
+      const exactError = err?.message || 'Falha de comunicação com o Google Gemini SDK';
       setErrorMessage(`Erro de Comunicação com a IA: ${exactError}`);
     } finally {
       setIsGenerating(false);
@@ -116,7 +125,7 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais, na
       maxWidth: '680px',
       ...style,
     }}>
-      {/* 5. AVISO AMARELO CASO A VITE_GEMINI_API_KEY NÃO ESTEJA CONFIGURADA */}
+      {/* AVISO AMARELO CASO A CHAVE DE API NÃO ESTEJA CONFIGURADA */}
       {!hasApiKey && (
         <div style={{
           marginBottom: '8px',
@@ -137,7 +146,7 @@ Responda EXCLUSIVAMENTE em formato JSON puro, sem blocos de texto adicionais, na
         </div>
       )}
 
-      {/* BARRA DE PROMPT DA IA */}
+      {/* BARRA DE PROMPT DA IA (ISOLADA COM useRef) */}
       <form
         onSubmit={handleGenerate}
         style={{
