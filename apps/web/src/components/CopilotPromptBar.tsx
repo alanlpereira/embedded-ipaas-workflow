@@ -3,6 +3,7 @@ import { Sparkles, Send, Loader2, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { AIErrorBoundary } from './AIErrorBoundary';
 import { WorkflowNode, WorkflowEdge } from '@ipaas/shared-types';
+import { supabase } from '../lib/supabase';
 
 interface CopilotPromptBarProps {
   onFlowGenerated?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
@@ -18,79 +19,49 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const promptText = textareaRef.current?.value?.trim() || '';
-    if (!promptText || isGenerating) return;
+    const textoDigitadoPeloUsuario = textareaRef.current?.value?.trim() || '';
+    if (!textoDigitadoPeloUsuario || isGenerating) return;
 
     setIsGenerating(true);
     setErrorMessage(null);
 
     try {
-      const apiKey = (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '').trim();
-      let safeNodes: WorkflowNode[] = [];
-      let safeEdges: WorkflowEdge[] = [];
+      // 2. Chamada à Supabase Edge Function 'generate-ai-flow'
+      const { data, error } = await supabase.functions.invoke('generate-ai-flow', {
+        body: { prompt: textoDigitadoPeloUsuario },
+      });
 
-      // ESTRATÉGIA 1: Tenta requisição REST direta se houver chave no ambiente frontend
-      if (apiKey && !apiKey.includes('YourGeminiApiKeyHere')) {
+      let flowData = data;
+
+      // 5. Exibe aviso visual caso a Edge Function retorne erro
+      if (error) {
+        console.error('🚨 Erro retornado pela Supabase Edge Function (generate-ai-flow):', error);
+      }
+
+      // Fallback resiliente para o servidor backend local se a Edge Function não retornar dados
+      if (!flowData || !Array.isArray(flowData.nodes)) {
         try {
-          const seuPromptAqui = `Você é um arquiteto especialista em automação e iPaaS corporativo.
-Crie um fluxograma de automação em formato JSON válido para a seguinte solicitação do usuário:
-"${promptText}"
-
-Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcações markdown:
-{
-  "nodes": [
-    { "id": "n1", "type": "trigger", "position": { "x": 250, "y": 50 }, "data": { "label": "Nome do Gatilho", "type": "trigger", "description": "Descrição" } },
-    { "id": "n2", "type": "action", "position": { "x": 250, "y": 180 }, "data": { "label": "Nome da Ação", "type": "action", "description": "Descrição" } }
-  ],
-  "edges": [
-    { "id": "e1-2", "source": "n1", "target": "n2", "animated": true }
-  ]
-}`;
-
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-          const response = await fetch(url, {
+          const proxyRes = await fetch('/api/v1/ai/generate-flow', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: seuPromptAqui }] }],
-              generationConfig: { responseMimeType: 'application/json' },
-            }),
+            body: JSON.stringify({ prompt: textoDigitadoPeloUsuario }),
           });
 
-          if (response.ok) {
-            const rawResponse = await response.json();
-            const textContent = rawResponse?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            const cleanedJson = textContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(cleanedJson);
-            safeNodes = (parsed && Array.isArray(parsed.nodes)) ? parsed.nodes : [];
-            safeEdges = (parsed && Array.isArray(parsed.edges)) ? parsed.edges : [];
+          if (proxyRes.ok) {
+            flowData = await proxyRes.json();
           }
-        } catch (directErr) {
-          console.warn('⚠️ [REST DIRECT WARN] Chamada direta frontend falhou ou bloqueada por CORS. Alternando para o Proxy Backend Synapse...', directErr);
+        } catch (proxyErr) {
+          console.warn('⚠️ [PROXY FALLBACK WARN] Falha na rota local proxy:', proxyErr);
         }
       }
 
-      // ESTRATÉGIA 2: Fallback transparente para o Proxy Backend (/api/v1/ai/generate-flow)
-      if (safeNodes.length === 0) {
-        const proxyRes = await fetch('/api/v1/ai/generate-flow', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: promptText }),
-        });
-
-        if (proxyRes.ok) {
-          const proxyData = await proxyRes.json();
-          safeNodes = (proxyData && Array.isArray(proxyData.nodes)) ? proxyData.nodes : [];
-          safeEdges = (proxyData && Array.isArray(proxyData.edges)) ? proxyData.edges : [];
-        } else {
-          const errText = await proxyRes.text();
-          throw new Error(`HTTP ${proxyRes.status}: ${errText}`);
-        }
-      }
+      // 3 & 4. Injeta data.nodes e data.edges parseados no estado do React Flow
+      const safeNodes = (flowData && Array.isArray(flowData.nodes)) ? flowData.nodes : [];
+      const safeEdges = (flowData && Array.isArray(flowData.edges)) ? flowData.edges : [];
 
       if (safeNodes.length === 0) {
-        setErrorMessage('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
+        const errorMsg = error?.message || 'A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.';
+        setErrorMessage(errorMsg);
         return;
       }
 
@@ -102,9 +73,9 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcaçõe
         }
       }
     } catch (err: any) {
-      console.error('🚨 [COPILOT AI ERROR] Erro na requisição do Gemini:', err);
-      const exactError = err?.message || 'Falha na requisição da API do Gemini';
-      setErrorMessage(`Erro na Comunicação com a IA: ${exactError}`);
+      console.error('🚨 [SUPABASE EDGE FUNCTION ERROR] Falha de comunicação com a Edge Function:', err);
+      const exactError = err?.message || 'Falha na invocação da Supabase Edge Function';
+      setErrorMessage(`Erro no Processamento da IA: ${exactError}`);
     } finally {
       setIsGenerating(false);
     }
@@ -226,7 +197,7 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcaçõe
         </button>
       </form>
 
-      {/* ALERTA VISUAL DE ERRO DE EXECUÇÃO */}
+      {/* ALERTA VISUAL DE ERRO DE EXECUÇÃO (TOAST/ALERT) */}
       {errorMessage && (
         <div style={{
           marginTop: '8px',
