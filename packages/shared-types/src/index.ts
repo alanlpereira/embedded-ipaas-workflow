@@ -26,7 +26,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http' | 'schedule' | 'email_trigger' | 'email_approval' | 'end' | 'jump';
+export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http' | 'schedule' | 'email_trigger' | 'email_approval' | 'end' | 'jump' | 'whatsapp' | 'teams';
 
 export interface HttpNodeConfig {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -66,16 +66,29 @@ export interface JumpNodeConfig {
   jumpId: string; // Ex: "1", "2", "3" ou "A"
 }
 
+export interface WhatsAppNodeConfig {
+  destinationNumber: string;
+  message: string;
+}
+
+export interface TeamsNodeConfig {
+  webhookUrl: string;
+  cardMessage: string;
+}
+
 export interface WorkflowNodeData {
   label: string;
   type: NodeType;
   description?: string;
   config?: Record<string, any>;
+  settings?: Record<string, any>;
   httpConfig?: HttpNodeConfig;
   scheduleConfig?: ScheduleNodeConfig;
   emailConfig?: EmailTriggerConfig;
   approvalConfig?: EmailApprovalConfig;
   jumpConfig?: JumpNodeConfig;
+  whatsappConfig?: WhatsAppNodeConfig;
+  teamsConfig?: TeamsNodeConfig;
   cronExpression?: string;
   outputs?: Array<{ key: string; label: string; type: string }>;
   [key: string]: any;
@@ -117,6 +130,7 @@ export interface Flowchart {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   is_published: boolean;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }

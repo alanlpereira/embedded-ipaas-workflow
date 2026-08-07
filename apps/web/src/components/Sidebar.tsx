@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Clock, Mail, CheckCircle, StopCircle, CircleDot } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Clock, Mail, CheckCircle, StopCircle, CircleDot, MessageCircle, MessageSquare } from 'lucide-react';
 import { NodeType } from '@ipaas/shared-types';
 import { EditionBadge } from './EditionBadge';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -20,6 +20,8 @@ const blockTranslations = {
     http: { label: 'Requisição HTTP / Webhook', desc: 'Dispara chamadas REST/Webhook reais com tokens do Cofre.' },
     action: { label: 'Ação / Processamento', desc: 'Executa ações automatizadas nos sistemas conectados.' },
     email_approval: { label: 'Aprovação por E-mail', desc: 'Envia e-mail de aprovação interativo (Aprovado / Rejeitado).' },
+    whatsapp: { label: 'Ação WhatsApp', desc: 'Envia mensagens de WhatsApp via Cloud API Oficial.' },
+    teams: { label: 'Ação MS Teams', desc: 'Envia mensagens/cartões interativos em canais do Microsoft Teams.' },
     code: { label: 'Código Customizado JS', desc: 'Executa scripts Node.js isolados via Sandbox VM.' },
     media: { label: 'Processamento de Mídia', desc: 'Renderização de vídeo assíncrona (Veo 3 / Pipeline).' },
     decision: { label: 'Decisão Lógica', desc: 'Bifurca o fluxo de acordo com regras de validação.' },
@@ -35,6 +37,8 @@ const blockTranslations = {
     http: { label: 'HTTP Request / Webhook', desc: 'Fires real REST/Webhook calls with Vault tokens.' },
     action: { label: 'Action / Processing', desc: 'Executes automated actions on connected systems.' },
     email_approval: { label: 'Email Approval Action', desc: 'Sends interactive approval email (Approved / Rejected).' },
+    whatsapp: { label: 'WhatsApp Action', desc: 'Sends WhatsApp messages via Official Cloud API.' },
+    teams: { label: 'MS Teams Action', desc: 'Sends messages/interactive cards into MS Teams channels.' },
     code: { label: 'Custom JS Code', desc: 'Executes isolated Node.js scripts via Sandbox VM.' },
     media: { label: 'Media Processing', desc: 'Async video rendering (Veo 3 / Pipeline).' },
     decision: { label: 'Logical Decision', desc: 'Branches flow according to validation rules.' },
@@ -52,6 +56,8 @@ const blocks: SidebarBlock[] = [
   { type: 'http', labelKey: 'http', icon: <Globe size={18} color="#00f2fe" />, color: '#00f2fe' },
   { type: 'action', labelKey: 'action', icon: <Play size={18} color="#3b82f6" />, color: '#3b82f6' },
   { type: 'email_approval', labelKey: 'email_approval', icon: <CheckCircle size={18} color="#10b981" />, color: '#10b981' },
+  { type: 'whatsapp', labelKey: 'whatsapp', icon: <MessageCircle size={18} color="#25D366" />, color: '#25D366' },
+  { type: 'teams', labelKey: 'teams', icon: <MessageSquare size={18} color="#6264A7" />, color: '#6264A7' },
   { type: 'code', labelKey: 'code', icon: <Code2 size={18} color="#06b6d4" />, color: '#06b6d4' },
   { type: 'media', labelKey: 'media', icon: <Video size={18} color="#d946ef" />, color: '#d946ef' },
   { type: 'decision', labelKey: 'decision', icon: <GitFork size={18} color="#f59e0b" />, color: '#f59e0b' },

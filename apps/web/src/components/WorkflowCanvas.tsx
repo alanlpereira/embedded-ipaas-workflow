@@ -16,6 +16,8 @@ const nodeTypes: any = {
   schedule: CustomNode,
   email_trigger: CustomNode,
   email_approval: CustomNode,
+  whatsapp: CustomNode,
+  teams: CustomNode,
   action: CustomNode,
   decision: CustomNode,
   approval: CustomNode,
@@ -375,6 +377,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               case 'schedule': return '#8b5cf6';
               case 'email_trigger': return '#0284c7';
               case 'email_approval': return '#10b981';
+              case 'whatsapp': return '#25D366';
+              case 'teams': return '#6264A7';
               case 'action': return '#3b82f6';
               case 'decision': return '#f59e0b';
               case 'approval': return '#8b5cf6';

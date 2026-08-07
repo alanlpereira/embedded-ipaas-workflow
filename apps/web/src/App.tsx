@@ -429,6 +429,7 @@ function WorkflowAppContent() {
       ] as any,
       edges: [] as any,
       is_published: false,
+      is_active: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -475,6 +476,37 @@ function WorkflowAppContent() {
     );
   };
 
+  const handleToggleFlowchartActive = async (id: string, isActive: boolean) => {
+    setFlowcharts((prev) =>
+      prev.map((f) =>
+        f.id === id
+          ? { ...f, is_published: isActive, is_active: isActive, updated_at: new Date().toISOString() }
+          : f
+      )
+    );
+
+    if (activeFlowchart && activeFlowchart.id === id) {
+      setActiveFlowchart((prev) => (prev ? { ...prev, is_published: isActive, is_active: isActive } : prev));
+    }
+
+    try {
+      await supabase
+        .from('workflows')
+        .update({ is_published: isActive, is_active: isActive, updated_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch (err) {
+      console.warn('⚠️ [SUPABASE UPDATE WARN] Falha ao atualizar status de ativação do fluxo:', err);
+    }
+
+    try {
+      await fetch(`/api/v1/flowcharts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_published: isActive, is_active: isActive }),
+      });
+    } catch (err) {}
+  };
+
   const handleUpdateProfile = (updatedFields: Partial<Profile>) => {
     if (currentProfile) {
       setCurrentProfile((prev) => (prev ? { ...prev, ...updatedFields } : prev));
@@ -494,7 +526,7 @@ function WorkflowAppContent() {
       });
 
       const data = await response.json();
-      const clonedFlow: Flowchart = data.flowchart || {
+      const clonedFlow: Flowchart = data.flowchart ? { ...data.flowchart, is_published: false, is_active: false } : {
         id: `flow-clone-${Date.now()}`,
         organization_id: currentProfile?.organization_id || 'org-alp-nexus',
         name: `${template.name} (Cópia)`,
@@ -502,6 +534,7 @@ function WorkflowAppContent() {
         nodes: template.nodes,
         edges: template.edges,
         is_published: false,
+        is_active: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -518,6 +551,7 @@ function WorkflowAppContent() {
         nodes: template.nodes,
         edges: template.edges,
         is_published: false,
+        is_active: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -632,6 +666,8 @@ function WorkflowAppContent() {
         schedule: 'Gatilho de Agendamento',
         email_trigger: 'Gatilho de E-mail',
         email_approval: 'Aprovação por E-mail',
+        whatsapp: 'Ação WhatsApp',
+        teams: 'Ação MS Teams',
         http: 'Requisição HTTP / Webhook',
         action: 'Nova Ação / Processo',
         decision: 'Nova Decisão',
@@ -695,6 +731,16 @@ function WorkflowAppContent() {
         jumpId: '1',
       };
 
+      const defaultWhatsAppConfig = {
+        destinationNumber: '+5511999998888',
+        message: 'Olá {{email.from}}, seu pedido foi processado com sucesso!',
+      };
+
+      const defaultTeamsConfig = {
+        webhookUrl: 'https://outlook.office.com/webhook/v2/...',
+        cardMessage: '🔔 Alerta de Fluxo Synapse\n\nUm evento foi disparado pelo usuário {{email.from}}.',
+      };
+
       const newNode: WorkflowNode = {
         id: uniqueId,
         type,
@@ -707,6 +753,10 @@ function WorkflowAppContent() {
               ? 'Encerramento definitivo do fluxo'
               : type === 'jump'
               ? 'Salto / Recomeço #1'
+              : type === 'whatsapp'
+              ? 'Para: +5511999998888'
+              : type === 'teams'
+              ? 'Canal MS Teams'
               : type === 'email_approval'
               ? 'Para: diretoria@empresa.com'
               : type === 'email_trigger'
@@ -723,6 +773,14 @@ function WorkflowAppContent() {
           emailConfig: type === 'email_trigger' ? defaultEmailConfig : undefined,
           approvalConfig: type === 'email_approval' ? defaultApprovalConfig : undefined,
           jumpConfig: type === 'jump' ? defaultJumpConfig : undefined,
+          whatsappConfig: type === 'whatsapp' ? defaultWhatsAppConfig : undefined,
+          teamsConfig: type === 'teams' ? defaultTeamsConfig : undefined,
+          settings:
+            type === 'whatsapp'
+              ? defaultWhatsAppConfig
+              : type === 'teams'
+              ? defaultTeamsConfig
+              : undefined,
           outputs:
             type === 'email_approval'
               ? defaultApprovalOutputs
@@ -951,6 +1009,7 @@ function WorkflowAppContent() {
           onDeleteFlowchart={handleDeleteFlowchart}
           onMoveFlowchart={handleMoveFlowchart}
           onUpdateFlowchart={handleUpdateFlowchartById}
+          onToggleFlowchartActive={handleToggleFlowchartActive}
         />
       )}
 

@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight, Clock, Mail, CheckCircle, StopCircle, CircleDot } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight, Clock, Mail, CheckCircle, StopCircle, CircleDot, MessageCircle, MessageSquare } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { formatScheduleSummary } from '../utils/cronUtils';
@@ -90,6 +90,20 @@ const nodeTypeConfigs: Record<NodeType, NodeColorConfig> = {
     headerBg: 'rgba(16, 185, 129, 0.15)',
     iconColor: '#10b981',
     Icon: CheckCircle,
+  },
+  whatsapp: {
+    bg: 'rgba(37, 211, 102, 0.05)',
+    border: '#25D366',
+    headerBg: 'rgba(37, 211, 102, 0.15)',
+    iconColor: '#25D366',
+    Icon: MessageCircle,
+  },
+  teams: {
+    bg: 'rgba(98, 100, 167, 0.05)',
+    border: '#6264A7',
+    headerBg: 'rgba(98, 100, 167, 0.18)',
+    iconColor: '#6264A7',
+    Icon: MessageSquare,
   },
   jump: {
     bg: 'rgba(234, 179, 8, 0.08)',
@@ -324,6 +338,59 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
           }}>
             <CheckCircle size={12} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Para: {recipients}</span>
+          </div>
+        );
+      })()}
+
+      {/* Badge de WhatsApp */}
+      {nodeType === 'whatsapp' && (() => {
+        const dest = nodeData.whatsappConfig?.destinationNumber || nodeData.settings?.destinationNumber || '+5511999998888';
+        return (
+          <div style={{
+            marginTop: '6px',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            background: 'rgba(37, 211, 102, 0.15)',
+            border: '1px solid rgba(37, 211, 102, 0.4)',
+            color: '#25D366',
+            fontSize: '10px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            <MessageCircle size={12} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Para: {dest}</span>
+          </div>
+        );
+      })()}
+
+      {/* Badge de MS Teams */}
+      {nodeType === 'teams' && (() => {
+        const url = nodeData.teamsConfig?.webhookUrl || nodeData.settings?.webhookUrl || '';
+        const shortUrl = url ? url.replace('https://', '').slice(0, 22) + '...' : 'Canal Webhook MS Teams';
+        return (
+          <div style={{
+            marginTop: '6px',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            background: 'rgba(98, 100, 167, 0.15)',
+            border: '1px solid rgba(98, 100, 167, 0.4)',
+            color: '#a5b4fc',
+            fontSize: '10px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            <MessageSquare size={12} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortUrl}</span>
           </div>
         );
       })()}

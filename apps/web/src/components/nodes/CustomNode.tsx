@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, Clock, Mail, CheckCircle, StopCircle, CircleDot } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, Clock, Mail, CheckCircle, StopCircle, CircleDot, MessageCircle, MessageSquare } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 
 interface NodeColorConfig {
@@ -34,6 +34,18 @@ const nodeConfigs: Record<NodeType, NodeColorConfig> = {
     gradient: 'linear-gradient(135deg, #10b981, #059669)',
     icon: <CheckCircle size={16} color="#ffffff" />,
     badge: 'EMAIL APPROVAL',
+  },
+  whatsapp: {
+    color: '#25D366',
+    gradient: 'linear-gradient(135deg, #25D366, #128C7E)',
+    icon: <MessageCircle size={16} color="#ffffff" />,
+    badge: 'WHATSAPP ACTION',
+  },
+  teams: {
+    color: '#6264A7',
+    gradient: 'linear-gradient(135deg, #6264A7, #464775)',
+    icon: <MessageSquare size={16} color="#ffffff" />,
+    badge: 'MS TEAMS ACTION',
   },
   http: {
     color: '#00f2fe',

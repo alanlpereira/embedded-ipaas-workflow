@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, GitBranch, Edit3, Trash2, Eye, Calendar, Layers, ShieldAlert, Folder as FolderIcon, FolderPlus, MoreVertical, MoveRight, FileText, DollarSign, Key, ShoppingCart, UserPlus, X } from 'lucide-react';
+import { Plus, Search, GitBranch, Edit3, Trash2, Eye, Calendar, Layers, ShieldAlert, Folder as FolderIcon, FolderPlus, MoreVertical, MoveRight, FileText, DollarSign, Key, ShoppingCart, UserPlus, X, Power } from 'lucide-react';
 import { Flowchart, Profile, Folder } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -11,6 +11,7 @@ interface DashboardPageProps {
   onDeleteFlowchart: (id: string) => void;
   onMoveFlowchart?: (flowchartId: string, targetFolderId: string) => void;
   onUpdateFlowchart?: (id: string, name: string, description?: string) => void;
+  onToggleFlowchartActive?: (id: string, isActive: boolean) => void;
 }
 
 const DEFAULT_FOLDERS: Folder[] = [
@@ -29,6 +30,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onDeleteFlowchart,
   onMoveFlowchart,
   onUpdateFlowchart,
+  onToggleFlowchartActive,
 }) => {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
@@ -414,6 +416,49 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         }}>
                           {currentFolderName}
                         </span>
+
+                        {/* Botão Ligar / Desligar Fluxo */}
+                        {(() => {
+                          const isFlowActive = flow.is_active ?? flow.is_published ?? false;
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (canEdit && onToggleFlowchartActive) {
+                                  onToggleFlowchartActive(flow.id, !isFlowActive);
+                                }
+                              }}
+                              disabled={!canEdit}
+                              title={isFlowActive ? "Fluxo LIGADO/ATIVO (Clique para desligar)" : "Fluxo DESLIGADO/INATIVO (Clique para ligar)"}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '3px 8px',
+                                borderRadius: '20px',
+                                background: isFlowActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.1)',
+                                border: isFlowActive ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-color)',
+                                color: isFlowActive ? '#10b981' : 'var(--text-muted)',
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                cursor: canEdit ? 'pointer' : 'default',
+                                transition: 'all 0.2s ease',
+                                boxShadow: isFlowActive ? '0 0 10px rgba(16, 185, 129, 0.25)' : 'none',
+                              }}
+                            >
+                              <Power size={11} color={isFlowActive ? '#10b981' : 'var(--text-muted)'} />
+                              <span>{isFlowActive ? 'LIGADO' : 'DESLIGADO'}</span>
+                              <div style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: isFlowActive ? '#10b981' : 'var(--text-muted)',
+                                boxShadow: isFlowActive ? '0 0 6px #10b981' : 'none',
+                              }} />
+                            </button>
+                          );
+                        })()}
                       </div>
 
                       {/* Menu de 3 Pontos (...) */}

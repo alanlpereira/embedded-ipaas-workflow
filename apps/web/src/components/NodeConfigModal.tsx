@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter, CheckCircle, ThumbsUp, ThumbsDown, Send, StopCircle, CircleDot } from 'lucide-react';
-import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig, EmailApprovalConfig, JumpNodeConfig } from '@ipaas/shared-types';
+import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter, CheckCircle, ThumbsUp, ThumbsDown, Send, StopCircle, CircleDot, MessageCircle, MessageSquare } from 'lucide-react';
+import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig, EmailApprovalConfig, JumpNodeConfig, WhatsAppNodeConfig, TeamsNodeConfig } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
 
@@ -89,6 +89,22 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const initialJump: JumpNodeConfig = node.data.jumpConfig || { jumpId: '1' };
   const [jumpId, setJumpId] = useState(initialJump.jumpId || '1');
 
+  // WhatsApp Action Configuration State
+  const initialWhatsApp: WhatsAppNodeConfig = node.data.whatsappConfig || node.data.settings?.whatsappConfig || {
+    destinationNumber: '+5511999998888',
+    message: 'Olá {{email.from}}, seu pedido foi processado com sucesso!',
+  };
+  const [whatsappDestination, setWhatsappDestination] = useState(node.data.settings?.destinationNumber || initialWhatsApp.destinationNumber || '+5511999998888');
+  const [whatsappMessage, setWhatsappMessage] = useState(node.data.settings?.message || initialWhatsApp.message || '');
+
+  // MS Teams Action Configuration State
+  const initialTeams: TeamsNodeConfig = node.data.teamsConfig || node.data.settings?.teamsConfig || {
+    webhookUrl: 'https://outlook.office.com/webhook/v2/...',
+    cardMessage: '🔔 Alerta de Fluxo Synapse\n\nUm evento foi disparado pelo usuário {{email.from}}.',
+  };
+  const [teamsWebhookUrl, setTeamsWebhookUrl] = useState(node.data.settings?.webhookUrl || initialTeams.webhookUrl || '');
+  const [teamsCardMessage, setTeamsCardMessage] = useState(node.data.settings?.cardMessage || initialTeams.cardMessage || '');
+
   // State para carregamento de credenciais do Cofre
   const [vaultCredentials, setVaultCredentials] = useState<CredentialVaultItem[]>([]);
   const [isTesting, setIsTesting] = useState(false);
@@ -100,6 +116,8 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const isEmailApprovalNode = node.type === 'email_approval' || node.data.type === 'email_approval' || (node.data.label && node.data.label.toLowerCase().includes('aprovação por e-mail'));
   const isJumpNode = node.type === 'jump' || node.data.type === 'jump' || (node.data.label && node.data.label.toLowerCase().includes('salto'));
   const isEndNode = node.type === 'end' || node.data.type === 'end' || (node.data.label && node.data.label.toLowerCase().includes('fim'));
+  const isWhatsAppNode = node.type === 'whatsapp' || node.data.type === 'whatsapp' || (node.data.label && node.data.label.toLowerCase().includes('whatsapp'));
+  const isTeamsNode = node.type === 'teams' || node.data.type === 'teams' || (node.data.label && node.data.label.toLowerCase().includes('teams'));
 
   useEffect(() => {
     fetch('/api/v1/vault/credentials')
@@ -185,6 +203,16 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       { key: 'approval.timestamp', label: 'Data/Hora (approval.timestamp)', type: 'string' },
     ];
 
+    const updatedWhatsAppConfig: WhatsAppNodeConfig = {
+      destinationNumber: whatsappDestination,
+      message: whatsappMessage,
+    };
+
+    const updatedTeamsConfig: TeamsNodeConfig = {
+      webhookUrl: teamsWebhookUrl,
+      cardMessage: teamsCardMessage,
+    };
+
     let finalDescription = description;
     if (isScheduleNode) {
       finalDescription = formatScheduleSummary(updatedScheduleConfig, language);
@@ -204,7 +232,17 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       finalDescription = `Salto / Recomeço #${jumpId}`;
     } else if (isEndNode) {
       finalDescription = 'Encerramento definitivo do fluxo';
+    } else if (isWhatsAppNode) {
+      finalDescription = `Para: ${whatsappDestination || '+55...'}`;
+    } else if (isTeamsNode) {
+      finalDescription = teamsWebhookUrl ? `Teams Webhook: ${teamsWebhookUrl.slice(0, 24)}...` : 'Canal MS Teams';
     }
+
+    const updatedSettings = {
+      ...(node.data.settings || {}),
+      ...(isWhatsAppNode ? { destinationNumber: whatsappDestination, message: whatsappMessage } : {}),
+      ...(isTeamsNode ? { webhookUrl: teamsWebhookUrl, cardMessage: teamsCardMessage } : {}),
+    };
 
     const updated: WorkflowNode = {
       ...node,
@@ -213,6 +251,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         label,
         description: finalDescription,
         swapOutputs,
+        settings: updatedSettings,
         httpConfig: isHttpNode ? {
           method: httpMethod,
           url,
@@ -224,6 +263,8 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         emailConfig: isEmailTriggerNode ? updatedEmailConfig : node.data.emailConfig,
         approvalConfig: isEmailApprovalNode ? updatedApprovalConfig : node.data.approvalConfig,
         jumpConfig: isJumpNode ? { jumpId } : node.data.jumpConfig,
+        whatsappConfig: isWhatsAppNode ? updatedWhatsAppConfig : node.data.whatsappConfig,
+        teamsConfig: isTeamsNode ? updatedTeamsConfig : node.data.teamsConfig,
         cronExpression: isScheduleNode ? computedCron : node.data.cronExpression,
         outputs: isEmailApprovalNode
           ? approvalOutputs
@@ -1072,7 +1113,141 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
           </div>
         )}
 
-        {/* Formulário Específico de Requisição HTTP / Webhook */}
+        {/* Formulário de Ação para WhatsApp (WhatsAppNode) */}
+        {isWhatsAppNode && (
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid rgba(37, 211, 102, 0.4)',
+            borderRadius: '16px',
+            padding: '18px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#25D366', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageCircle size={18} />
+              Configuração da Ação do WhatsApp
+            </h3>
+            <p style={{ fontSize: '11px', color: '#86efac', marginBottom: '14px', fontWeight: 600 }}>
+              ⚠️ Requer configuração de Token da API Oficial na aba de Configurações da Conta.
+            </p>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Número de Destino (com Código do País ou Variável)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: +5511999998888 ou {{customer.phone}}"
+                value={whatsappDestination}
+                onChange={(e) => setWhatsappDestination(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Suporta números estáticos no formato internacional E.164 ou interpolação de variáveis ex: <code>{'{{customer.phone}}'}</code>.
+              </span>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Mensagem do WhatsApp
+              </label>
+              <textarea
+                rows={4}
+                placeholder="Digite a mensagem a ser enviada no WhatsApp..."
+                value={whatsappMessage}
+                onChange={(e) => setWhatsappMessage(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Aceita interpolação de variáveis dinâmicas do fluxo como <code>{'{{email.from}}'}</code>, <code>{'{{email.subject}}'}</code>, etc.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário de Ação para MS Teams (TeamsNode) */}
+        {isTeamsNode && (
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid rgba(98, 100, 167, 0.4)',
+            borderRadius: '16px',
+            padding: '18px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#a5b4fc', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageSquare size={18} color="#6264A7" />
+              Configuração da Ação para MS Teams
+            </h3>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Webhook URL do Canal MS Teams
+              </label>
+              <input
+                type="text"
+                placeholder="https://outlook.office.com/webhook/v2/..."
+                value={teamsWebhookUrl}
+                onChange={(e) => setTeamsWebhookUrl(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Cole a URL do Conector de Webhook do canal no Microsoft Teams.
+              </span>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Mensagem do Cartão
+              </label>
+              <textarea
+                rows={4}
+                placeholder="Digite o conteúdo da mensagem do cartão..."
+                value={teamsCardMessage}
+                onChange={(e) => setTeamsCardMessage(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+          </div>
+        )}
         <div style={{
           background: 'var(--bg-primary)',
           border: '1px solid rgba(0, 242, 254, 0.3)',
