@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText } from 'lucide-react';
+import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2 } from 'lucide-react';
 import { WorkflowNode, HttpNodeConfig, CredentialVaultItem } from '@ipaas/shared-types';
 
 interface NodeConfigModalProps {
   node: WorkflowNode | null;
   onSave: (updatedNode: WorkflowNode) => void;
+  onDelete?: (nodeId: string) => void;
   onClose: () => void;
 }
 
-export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, onClose }) => {
+export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, onDelete, onClose }) => {
   if (!node) return null;
 
   const [label, setLabel] = useState(node.data.label || '');
@@ -401,7 +402,35 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         )}
 
         {/* Footer do Modal */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end' }}>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                if (onDelete && node) {
+                  onDelete(node.id);
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '9px 14px',
+                borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid #ef4444',
+                color: '#f87171',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+                marginRight: 'auto',
+              }}
+            >
+              <Trash2 size={15} />
+              Excluir Nó
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onClose}

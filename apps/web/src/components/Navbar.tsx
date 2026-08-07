@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon } from 'lucide-react';
+import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon, Pencil } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -11,6 +11,8 @@ export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 
 interface NavbarProps {
   currentProfile: Profile | null;
   flowchartName: string;
+  flowchartDescription?: string;
+  onUpdateFlowchartMetadata?: (name: string, description?: string) => void;
   currentTab: ViewTab;
   onNavigate: (tab: ViewTab) => void;
   onSave?: () => void;
@@ -28,6 +30,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   currentProfile,
   flowchartName,
+  flowchartDescription = '',
+  onUpdateFlowchartMetadata,
   currentTab,
   onNavigate,
   onSave,
@@ -44,6 +48,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { language, setLanguage, t } = useLanguage();
   const { currentOrg, theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isEditMetadataOpen, setIsEditMetadataOpen] = useState(false);
+  const [editName, setEditName] = useState(flowchartName);
+  const [editDesc, setEditDesc] = useState(flowchartDescription);
+
+  const handleOpenMetadataModal = () => {
+    setEditName(flowchartName);
+    setEditDesc(flowchartDescription);
+    setIsEditMetadataOpen(true);
+  };
+
+  const handleSaveMetadata = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onUpdateFlowchartMetadata && editName.trim()) {
+      onUpdateFlowchartMetadata(editName.trim(), editDesc.trim());
+    }
+    setIsEditMetadataOpen(false);
+  };
 
   const canEdit = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
   const isMaster = currentProfile?.role === 'Master';
@@ -294,6 +315,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {currentTab === 'editor' && (
           <button
+            onClick={handleOpenMetadataModal}
+            title="Clique para editar título e descrição do fluxo"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -307,10 +330,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               fontWeight: 600,
               flexShrink: 0,
               whiteSpace: 'nowrap',
+              cursor: 'pointer',
             }}
           >
             <Workflow size={15} />
-            {flowchartName}
+            <span>{flowchartName}</span>
+            <Pencil size={12} style={{ opacity: 0.7, marginLeft: '2px' }} />
           </button>
         )}
 
@@ -520,6 +545,131 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         )}
       </div>
+
+      {/* MODAL DE EDIÇÃO DE METADADOS DO FLUXO (Título e Descrição) */}
+      {isEditMetadataOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Pencil size={18} color="var(--accent-cyan)" />
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '16px', fontWeight: 700 }}>
+                  Configurações do Fluxo
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditMetadataOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMetadata} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Nome do Fluxo
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Ex: Automação de E-commerce v2"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Descrição do Fluxo
+                </label>
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  placeholder="Descreva o propósito deste fluxo de trabalho..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditMetadataOpen(false)}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
+                    color: '#0a0c10',
+                    fontWeight: 800,
+                    fontSize: '12px',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

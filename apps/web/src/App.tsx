@@ -378,7 +378,36 @@ function WorkflowAppContent() {
 
     setFlowcharts((prev) => [newFlow, ...prev]);
     handleOpenFlowchart(newFlow);
-    alert(t.messages.flowCreated);
+  };
+
+  const handleUpdateFlowchartMetadata = async (name: string, description?: string) => {
+    if (!activeFlowchart) return;
+    const flowchartId = activeFlowchart.id;
+
+    // 1. Atualizar estado local no React imediatamente
+    setActiveFlowchart((prev) => (prev ? { ...prev, name, description } : null));
+    setFlowcharts((prev) =>
+      prev.map((f) => (f.id === flowchartId ? { ...f, name, description, updated_at: new Date().toISOString() } : f))
+    );
+
+    // 2. Persistir UPDATE na tabela 'workflows' do Supabase
+    try {
+      await supabase
+        .from('workflows')
+        .update({ name, description, updated_at: new Date().toISOString() })
+        .eq('id', flowchartId);
+    } catch (err) {
+      console.warn('⚠️ [SUPABASE UPDATE WARN] Falha ao atualizar tabela workflows:', err);
+    }
+
+    // 3. Persistir na rota backend local
+    try {
+      await fetch(`/api/v1/flowcharts/${flowchartId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description }),
+      });
+    } catch (err) {}
   };
 
   const handleMoveFlowchart = (flowchartId: string, targetFolderId: string) => {
@@ -686,6 +715,8 @@ function WorkflowAppContent() {
       <Navbar
         currentProfile={currentProfile}
         flowchartName={activeFlowchart?.name || 'Editor de Fluxo'}
+        flowchartDescription={activeFlowchart?.description || ''}
+        onUpdateFlowchartMetadata={handleUpdateFlowchartMetadata}
         currentTab={currentTab}
         onNavigate={(tab) => setCurrentTab(tab)}
         onSave={handleSaveFlowchart}
@@ -853,6 +884,9 @@ function WorkflowAppContent() {
               )
             );
             setSelectedNode(null);
+          }}
+          onDelete={(nodeId) => {
+            handleDeleteNode(nodeId);
           }}
           onClose={() => setSelectedNode(null)}
         />

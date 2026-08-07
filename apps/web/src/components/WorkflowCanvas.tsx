@@ -208,6 +208,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         fitView
         snapToGrid
         snapGrid={[15, 15]}
+        deleteKeyCode={['Backspace', 'Delete']}
         zoomOnPinch={true}
         panOnScroll={false}
         panOnDrag={true}

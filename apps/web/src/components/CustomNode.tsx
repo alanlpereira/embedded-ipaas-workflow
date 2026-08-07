@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface NodeColorConfig {
   bg: string;
@@ -71,6 +72,7 @@ const nodeTypeConfigs: Record<NodeType, NodeColorConfig> = {
 };
 
 export const CustomNode: React.FC<NodeProps<any>> = memo(({ data, selected }) => {
+  const { language } = useLanguage();
   const nodeData = data as WorkflowNodeData;
   const nodeType = nodeData.type || 'action';
   const config = nodeTypeConfigs[nodeType] || nodeTypeConfigs.action;
@@ -129,7 +131,7 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ data, selected }) =>
         </div>
       )}
 
-      {/* Handles de Entrada e Saída com Hitbox Expandido (16px x 16px para Touch) */}
+      {/* Handles de Entrada e Saída com Hitbox Expandido */}
       {nodeType !== 'trigger' && (
         <Handle
           type="target"
@@ -205,11 +207,13 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ data, selected }) =>
         </p>
       )}
 
-      {/* Output Handles Específicos para Nó de Decisão */}
+      {/* Output Handles Específicos para Nó de Decisão (Labels i18n Sim/Não ou Yes/No) */}
       {isDecision ? (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', padding: '0 8px' }}>
           <div style={{ position: 'relative' }}>
-            <span style={{ fontSize: '10px', color: '#10b981', fontWeight: 700 }}>Sim</span>
+            <span style={{ fontSize: '10px', color: '#10b981', fontWeight: 700 }}>
+              {language === 'en' ? 'Yes' : 'Sim'}
+            </span>
             <Handle
               type="source"
               position={Position.Bottom}
@@ -225,7 +229,9 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ data, selected }) =>
             />
           </div>
           <div style={{ position: 'relative' }}>
-            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700 }}>Não</span>
+            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700 }}>
+              {language === 'en' ? 'No' : 'Não'}
+            </span>
             <Handle
               type="source"
               position={Position.Bottom}
