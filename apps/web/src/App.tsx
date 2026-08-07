@@ -143,7 +143,25 @@ function WorkflowAppContent() {
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
   const [currentTab, setCurrentTab] = useState<ViewTab>('dashboard');
 
-  const [flowcharts, setFlowcharts] = useState<Flowchart[]>(sampleInitialFlowcharts);
+  const [flowcharts, setFlowcharts] = useState<Flowchart[]>(() => {
+    try {
+      const saved = localStorage.getItem('synapse_saved_flowcharts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return sampleInitialFlowcharts;
+  });
+
+  // Salvar automaticamente qualquer alteração de fluxogramas no LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('synapse_saved_flowcharts', JSON.stringify(flowcharts));
+    } catch (e) {}
+  }, [flowcharts]);
   const [activeFlowchart, setActiveFlowchart] = useState<Flowchart | null>(null);
 
   const [nodes, setNodes] = useState<WorkflowNode[]>([]);
@@ -215,6 +233,45 @@ function WorkflowAppContent() {
           });
       }
     });
+  }, []);
+
+  // Recuperação e sincronização automática de fluxogramas salvos no Supabase
+  useEffect(() => {
+    async function restoreSavedWorkflows() {
+      try {
+        // Tentar tabela 'workflows'
+        const { data: workflowsData } = await supabase.from('workflows').select('*');
+        // Tentar tabela 'flowcharts'
+        const { data: flowchartsData } = await supabase.from('flowcharts').select('*');
+
+        const combined = [...(workflowsData || []), ...(flowchartsData || [])];
+        if (combined.length > 0) {
+          const restored: Flowchart[] = combined.map((w: any) => ({
+            id: w.id,
+            organization_id: w.organization_id || 'org-alp-nexus',
+            folder_id: w.folder_id,
+            name: w.name || 'Fluxo sem Nome',
+            description: w.description || '',
+            nodes: typeof w.nodes === 'string' ? JSON.parse(w.nodes) : (w.nodes || []),
+            edges: typeof w.edges === 'string' ? JSON.parse(w.edges) : (w.edges || []),
+            is_published: w.is_published || false,
+            created_at: w.created_at || new Date().toISOString(),
+            updated_at: w.updated_at || new Date().toISOString(),
+          }));
+
+          setFlowcharts((prev) => {
+            const map = new Map<string, Flowchart>();
+            prev.forEach((f) => map.set(f.id, f));
+            restored.forEach((f) => map.set(f.id, f));
+            return Array.from(map.values());
+          });
+        }
+      } catch (err) {
+        console.warn('⚠️ [RESTORATION WARN] Falha na busca no Supabase:', err);
+      }
+    }
+
+    restoreSavedWorkflows();
   }, []);
 
   const handleOpenFlowchart = (flow: Flowchart) => {
