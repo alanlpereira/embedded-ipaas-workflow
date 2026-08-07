@@ -64,7 +64,7 @@ Os tipos de nó permitidos são: 'trigger', 'action', 'code', 'media', 'decision
 Retorne APENAS um objeto JSON válido no formato {"nodes": [...], "edges": [...]}.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -146,7 +146,7 @@ Retorne um relatório de eficiência em JSON contendo:
 - "optimizedEdges": array de arestas otimizadas`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -52,7 +52,7 @@ Analise o erro e a estrutura do payload original. Corrija os nomes dos campos, t
 Retorne APENAS um objeto JSON válido contendo o payload corrigido dentro da chave "correctedPayload".`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
