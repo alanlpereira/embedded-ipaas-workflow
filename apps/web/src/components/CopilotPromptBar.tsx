@@ -21,19 +21,18 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
     const promptText = textareaRef.current?.value?.trim() || '';
     if (!promptText || isGenerating) return;
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '';
-
-    if (!apiKey || apiKey.includes('YourGeminiApiKeyHere') || apiKey.trim() === '') {
-      setErrorMessage('Aviso: Chave VITE_GEMINI_API_KEY não configurada no ambiente. Adicione a chave no arquivo .env.');
-      return;
-    }
-
     setIsGenerating(true);
     setErrorMessage(null);
 
-    // 8. Envolve tudo em try/catch para auditoria e log no console.error
     try {
-      const seuPromptAqui = `Você é um arquiteto especialista em automação e iPaaS corporativo.
+      const apiKey = (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '').trim();
+      let safeNodes: WorkflowNode[] = [];
+      let safeEdges: WorkflowEdge[] = [];
+
+      // ESTRATÉGIA 1: Tenta requisição REST direta se houver chave no ambiente frontend
+      if (apiKey && !apiKey.includes('YourGeminiApiKeyHere')) {
+        try {
+          const seuPromptAqui = `Você é um arquiteto especialista em automação e iPaaS corporativo.
 Crie um fluxograma de automação em formato JSON válido para a seguinte solicitação do usuário:
 "${promptText}"
 
@@ -48,51 +47,47 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcaçõe
   ]
 }`;
 
-      // 2. URL EXATA DA REQUISIÇÃO REST PURA
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-      // 3 & 4. MÉTODO POST, HEADER E SCHEMA DE BODY ESTRITO
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: seuPromptAqui },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
-          },
-        }),
-      });
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: seuPromptAqui }] }],
+              generationConfig: { responseMimeType: 'application/json' },
+            }),
+          });
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorBody}`);
+          if (response.ok) {
+            const rawResponse = await response.json();
+            const textContent = rawResponse?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanedJson = textContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanedJson);
+            safeNodes = (parsed && Array.isArray(parsed.nodes)) ? parsed.nodes : [];
+            safeEdges = (parsed && Array.isArray(parsed.edges)) ? parsed.edges : [];
+          }
+        } catch (directErr) {
+          console.warn('⚠️ [REST DIRECT WARN] Chamada direta frontend falhou ou bloqueada por CORS. Alternando para o Proxy Backend Synapse...', directErr);
+        }
       }
 
-      // 5. RECEBIMENTO DA RESPOSTA RAW
-      const rawResponse = await response.json();
+      // ESTRATÉGIA 2: Fallback transparente para o Proxy Backend (/api/v1/ai/generate-flow)
+      if (safeNodes.length === 0) {
+        const proxyRes = await fetch('/api/v1/ai/generate-flow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: promptText }),
+        });
 
-      // 6. EXTRAÇÃO DO TEXTO DO JSON DE RETORNO
-      const textContent = rawResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!textContent || textContent.trim() === '') {
-        setErrorMessage('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
-        return;
+        if (proxyRes.ok) {
+          const proxyData = await proxyRes.json();
+          safeNodes = (proxyData && Array.isArray(proxyData.nodes)) ? proxyData.nodes : [];
+          safeEdges = (proxyData && Array.isArray(proxyData.edges)) ? proxyData.edges : [];
+        } else {
+          const errText = await proxyRes.text();
+          throw new Error(`HTTP ${proxyRes.status}: ${errText}`);
+        }
       }
-
-      // 7. PARSE DO TEXTCONTENT PARA JSON E REPASSE DOS ARRAYS 'NODES' E 'EDGES'
-      const cleanedJson = textContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanedJson);
-
-      const safeNodes = (parsed && Array.isArray(parsed.nodes)) ? parsed.nodes : [];
-      const safeEdges = (parsed && Array.isArray(parsed.edges)) ? parsed.edges : [];
 
       if (safeNodes.length === 0) {
         setErrorMessage('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
@@ -107,9 +102,8 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcaçõe
         }
       }
     } catch (err: any) {
-      // 8. LOG DO ERRO ORIGINAL NO CONSOLE.ERROR PARA AUDITORIA
-      console.error('🚨 Erro original na requisição REST do Gemini:', err);
-      const exactError = err?.message || 'Falha na requisição REST da API do Gemini';
+      console.error('🚨 [COPILOT AI ERROR] Erro na requisição do Gemini:', err);
+      const exactError = err?.message || 'Falha na requisição da API do Gemini';
       setErrorMessage(`Erro na Comunicação com a IA: ${exactError}`);
     } finally {
       setIsGenerating(false);
