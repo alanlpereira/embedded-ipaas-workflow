@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X } from 'lucide-react';
+import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   collaborators = [],
 }) => {
   const { language, setLanguage, t } = useLanguage();
-  const { currentOrg } = useTheme();
+  const { currentOrg, theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const canEdit = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
@@ -55,22 +55,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    // 4. CONTAINER PAI DA NAVBAR: w-full px-4 justify-between
-    <header className="w-full px-4 flex items-center justify-between gap-4 h-16 border-b border-border bg-[#090d16] backdrop-blur-md relative z-[100]" style={{
-      height: '64px',
-      borderBottom: '1px solid var(--border-color)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '16px',
-      padding: '0 16px',
-      background: '#090d16',
-      position: 'relative',
-      zIndex: 100,
-      width: '100%',
-    }}>
-      {/* 3. ÍCONES FIXOS E BRANDING DA ESQUERDA: flex-shrink-0 min-w-fit */}
-      <div className="flex-shrink-0 min-w-fit flex items-center gap-3" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+    <header
+      style={{
+        height: '64px',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '16px',
+        padding: '0 20px',
+        background: 'var(--bg-secondary)',
+        borderBottom: '1px solid var(--border-color)',
+        position: 'relative',
+        zIndex: 100,
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+        transition: 'background-color 0.25s ease, border-color 0.25s ease',
+      }}
+    >
+      {/* BRANDING DA ESQUERDA */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         <div
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexShrink: 0 }}
           onClick={() => onNavigate('dashboard')}
@@ -93,17 +96,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* 1. CONTAINER DESKTOP COM AS CLASSES hidden md:flex items-center gap-4 */}
-      <nav className="hidden md:flex items-center gap-4 flex-1 min-w-0" style={{
-        alignItems: 'center',
-        gap: '6px',
-        overflowX: 'auto',
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none',
-        whiteSpace: 'nowrap',
-        flex: 1,
-        minWidth: 0,
-      }}>
+      {/* CONTAINER DESKTOP COM DISPLAY FLEX GARANTIDO */}
+      <nav
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          whiteSpace: 'nowrap',
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
         <button
           onClick={() => onNavigate('dashboard')}
           style={{
@@ -114,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             borderRadius: '6px',
             background: currentTab === 'dashboard' ? 'var(--bg-tertiary)' : 'transparent',
             color: currentTab === 'dashboard' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
+            border: currentTab === 'dashboard' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -136,7 +142,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             borderRadius: '6px',
             background: currentTab === 'templates' ? 'var(--bg-tertiary)' : 'transparent',
             color: currentTab === 'templates' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
+            border: currentTab === 'templates' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -158,7 +164,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             borderRadius: '6px',
             background: currentTab === 'audit' ? 'var(--bg-tertiary)' : 'transparent',
             color: currentTab === 'audit' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
+            border: currentTab === 'audit' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -180,7 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             borderRadius: '6px',
             background: currentTab === 'integrations' ? 'var(--bg-tertiary)' : 'transparent',
             color: currentTab === 'integrations' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
+            border: currentTab === 'integrations' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -202,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             borderRadius: '6px',
             background: currentTab === 'settings' ? 'var(--bg-tertiary)' : 'transparent',
             color: currentTab === 'settings' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
+            border: currentTab === 'settings' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -225,7 +231,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               borderRadius: '6px',
               background: currentTab === 'tenantAdmin' ? 'var(--bg-tertiary)' : 'transparent',
               color: currentTab === 'tenantAdmin' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-              border: 'none',
+              border: currentTab === 'tenantAdmin' ? '1px solid var(--border-color)' : '1px solid transparent',
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
@@ -250,7 +256,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 borderRadius: '6px',
                 background: currentTab === 'agency' ? 'var(--bg-tertiary)' : 'transparent',
                 color: currentTab === 'agency' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                border: 'none',
+                border: currentTab === 'agency' ? '1px solid var(--border-color)' : '1px solid transparent',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -272,7 +278,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 borderRadius: '6px',
                 background: currentTab === 'masterAdmin' ? 'var(--bg-tertiary)' : 'transparent',
                 color: currentTab === 'masterAdmin' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                border: 'none',
+                border: currentTab === 'masterAdmin' ? '1px solid var(--border-color)' : '1px solid transparent',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -296,7 +302,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               borderRadius: '6px',
               background: 'var(--bg-tertiary)',
               color: 'var(--accent-cyan)',
-              border: 'none',
+              border: '1px solid var(--border-color)',
               fontSize: '12px',
               fontWeight: 600,
               flexShrink: 0,
@@ -318,7 +324,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             borderRadius: '6px',
             background: currentTab === 'team' ? 'var(--bg-tertiary)' : 'transparent',
             color: currentTab === 'team' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
+            border: currentTab === 'team' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -331,8 +337,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
       </nav>
 
-      {/* 3. ÍCONES FIXOS E CONTROLES DA DIREITA: flex-shrink-0 min-w-fit */}
-      <div className="flex-shrink-0 min-w-fit flex items-center gap-3" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+      {/* CONTROLES DA DIREITA */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
         {/* Colaboradores Conectados no Editor */}
         {currentTab === 'editor' && (
           <div style={{
@@ -374,7 +380,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }}
               >
                 <Sparkles size={14} />
-                <span className="hidden sm:inline">IA</span>
+                <span>IA</span>
               </button>
             )}
 
@@ -397,11 +403,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }}
               >
                 <Save size={14} />
-                <span className="hidden sm:inline">{isSaving ? t.saving : t.saveWorkflow}</span>
+                <span>{isSaving ? t.saving : t.saveWorkflow}</span>
               </button>
             )}
           </>
         )}
+
+        {/* SELETOR RÁPIDO DE TEMA (DARK / LIGHT) */}
+        <button
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Mudar para Modo Light' : 'Mudar para Modo Dark'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '6px 8px',
+            borderRadius: '6px',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--accent-cyan)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {theme === 'dark' ? <Sun size={15} color="#00f2fe" /> : <Moon size={15} color="#3b82f6" />}
+        </button>
 
         {/* Seletor de Idiomas (PT / EN) */}
         <div style={{
@@ -474,19 +500,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
               }}
             />
-            <div className="hidden lg:flex flex-col">
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                {currentProfile.full_name || currentProfile.email.split('@')[0]}
-              </span>
-              <span style={{
-                fontSize: '9px',
-                color: 'var(--accent-cyan)',
-                fontWeight: 700,
-                textTransform: 'uppercase'
-              }}>
-                {currentProfile.professional_id || currentProfile.role}
-              </span>
-            </div>
           </div>
         )}
 
@@ -506,243 +519,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <LogOut size={16} />
           </button>
         )}
-
-        {/* 2. MENU HAMBÚRGUER (MOBILE MENU): flex md:hidden */}
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="flex md:hidden p-2 text-primary"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '6px',
-            borderRadius: '6px',
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-          }}
-          title="Menu de Navegação Mobile"
-        >
-          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
       </div>
-
-      {/* 2. DRAWER / DROPDOWN MOBILE MENU */}
-      {isMobileMenuOpen && (
-        <div
-          className="md:hidden absolute top-[64px] left-0 w-full bg-[#090d16] border-b border-border p-4 flex flex-col gap-3 shadow-2xl z-50"
-          style={{
-            position: 'absolute',
-            top: '64px',
-            left: 0,
-            width: '100%',
-            background: '#090d16',
-            borderBottom: '1px solid var(--border-color)',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
-            zIndex: 150,
-          }}
-        >
-          <button
-            onClick={() => handleMobileNav('dashboard')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              background: currentTab === 'dashboard' ? 'var(--bg-tertiary)' : 'transparent',
-              color: currentTab === 'dashboard' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <LayoutDashboard size={16} />
-            {t.nav.dashboard}
-          </button>
-
-          <button
-            onClick={() => handleMobileNav('templates')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              background: currentTab === 'templates' ? 'var(--bg-tertiary)' : 'transparent',
-              color: currentTab === 'templates' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <LayoutTemplate size={16} />
-            {t.nav.templates}
-          </button>
-
-          <button
-            onClick={() => handleMobileNav('audit')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              background: currentTab === 'audit' ? 'var(--bg-tertiary)' : 'transparent',
-              color: currentTab === 'audit' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <Activity size={16} />
-            {t.nav.audit}
-          </button>
-
-          <button
-            onClick={() => handleMobileNav('integrations')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              background: currentTab === 'integrations' ? 'var(--bg-tertiary)' : 'transparent',
-              color: currentTab === 'integrations' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <Lock size={16} />
-            Integrações & Cofre
-          </button>
-
-          <button
-            onClick={() => handleMobileNav('settings')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              background: currentTab === 'settings' ? 'var(--bg-tertiary)' : 'transparent',
-              color: currentTab === 'settings' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <Settings size={16} />
-            Configurações do Usuário
-          </button>
-
-          {isAdminOrMaster && (
-            <button
-              onClick={() => handleMobileNav('tenantAdmin')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                background: currentTab === 'tenantAdmin' ? 'var(--bg-tertiary)' : 'transparent',
-                color: currentTab === 'tenantAdmin' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <Building size={16} color="var(--accent-cyan)" />
-              {t.nav.tenantAdmin}
-            </button>
-          )}
-
-          {isMaster && (
-            <>
-              <button
-                onClick={() => handleMobileNav('agency')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  background: currentTab === 'agency' ? 'var(--bg-tertiary)' : 'transparent',
-                  color: currentTab === 'agency' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                <Building2 size={16} />
-                {t.nav.agency}
-              </button>
-
-              <button
-                onClick={() => handleMobileNav('masterAdmin')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  background: currentTab === 'masterAdmin' ? 'var(--bg-tertiary)' : 'transparent',
-                  color: currentTab === 'masterAdmin' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                <ShieldCheck size={16} color="var(--accent-purple)" />
-                {t.nav.masterAdmin}
-              </button>
-            </>
-          )}
-
-          <button
-            onClick={() => handleMobileNav('team')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              background: currentTab === 'team' ? 'var(--bg-tertiary)' : 'transparent',
-              color: currentTab === 'team' ? 'var(--accent-cyan)' : 'var(--text-primary)',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <Users size={16} />
-            {t.nav.team}
-          </button>
-        </div>
-      )}
     </header>
   );
 };
