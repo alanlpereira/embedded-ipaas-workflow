@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { Sparkles, Send, Loader2, AlertCircle } from 'lucide-react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { useLanguage } from '../i18n/LanguageContext';
 import { AIErrorBoundary } from './AIErrorBoundary';
 import { WorkflowNode, WorkflowEdge } from '@ipaas/shared-types';
@@ -22,9 +21,6 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
     const promptText = textareaRef.current?.value?.trim() || '';
     if (!promptText || isGenerating) return;
 
-    // 4) CONFIRMAÇÃO SE A CHAVE VITE_GEMINI_API_KEY NÃO ESTÁ UNDEFINED
-    console.log('🔑 [VITE_GEMINI_API_KEY Check]:', import.meta.env.VITE_GEMINI_API_KEY);
-
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '';
 
     if (!apiKey || apiKey.includes('YourGeminiApiKeyHere') || apiKey.trim() === '') {
@@ -35,12 +31,9 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
     setIsGenerating(true);
     setErrorMessage(null);
 
+    // 8. Envolve tudo em try/catch para auditoria e log no console.error
     try {
-      // 1, 2, 3 & 5. Uso EXCLUSIVO e direto do SDK @google/generative-ai sem fetch manual nem v1beta3
-      const genAI = new GoogleGenerativeAI(apiKey.trim());
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-      const fullPrompt = `Você é um arquiteto especialista em automação e iPaaS corporativo.
+      const seuPromptAqui = `Você é um arquiteto especialista em automação e iPaaS corporativo.
 Crie um fluxograma de automação em formato JSON válido para a seguinte solicitação do usuário:
 "${promptText}"
 
@@ -55,29 +48,51 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcaçõe
   ]
 }`;
 
-      const result = await model.generateContent(fullPrompt);
-      const response = await result.response;
-      let rawText = response.text();
+      // 2. URL EXATA DA REQUISIÇÃO REST PURA
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
 
-      if (!rawText || rawText.trim() === '') {
+      // 3 & 4. MÉTODO POST, HEADER E SCHEMA DE BODY ESTRITO
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: seuPromptAqui },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorBody}`);
+      }
+
+      // 5. RECEBIMENTO DA RESPOSTA RAW
+      const rawResponse = await response.json();
+
+      // 6. EXTRAÇÃO DO TEXTO DO JSON DE RETORNO
+      const textContent = rawResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!textContent || textContent.trim() === '') {
         setErrorMessage('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
         return;
       }
 
-      // Sanitização de Markdown antes do parse
-      rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      // 7. PARSE DO TEXTCONTENT PARA JSON E REPASSE DOS ARRAYS 'NODES' E 'EDGES'
+      const cleanedJson = textContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanedJson);
 
-      let parsedData: any = {};
-      try {
-        parsedData = JSON.parse(rawText);
-      } catch (jsonErr) {
-        console.error('🚨 [JSON PARSE ERROR] Resposta não-JSON recebida da IA:', jsonErr, rawText);
-        parsedData = {};
-      }
-
-      // Fallbacks Seguros
-      const safeNodes = (parsedData && Array.isArray(parsedData.nodes)) ? parsedData.nodes : [];
-      const safeEdges = (parsedData && Array.isArray(parsedData.edges)) ? parsedData.edges : [];
+      const safeNodes = (parsed && Array.isArray(parsed.nodes)) ? parsed.nodes : [];
+      const safeEdges = (parsed && Array.isArray(parsed.edges)) ? parsed.edges : [];
 
       if (safeNodes.length === 0) {
         setErrorMessage('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
@@ -92,8 +107,9 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcaçõe
         }
       }
     } catch (err: any) {
-      console.error('🚨 [GEMINI SDK ERROR] Erro retornado pelo SDK oficial @google/generative-ai:', err);
-      const exactError = err?.message || 'Falha de comunicação com o Google Gemini SDK';
+      // 8. LOG DO ERRO ORIGINAL NO CONSOLE.ERROR PARA AUDITORIA
+      console.error('🚨 Erro original na requisição REST do Gemini:', err);
+      const exactError = err?.message || 'Falha na requisição REST da API do Gemini';
       setErrorMessage(`Erro na Comunicação com a IA: ${exactError}`);
     } finally {
       setIsGenerating(false);
