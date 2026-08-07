@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter } from 'lucide-react';
-import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig } from '@ipaas/shared-types';
+import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter, CheckCircle, ThumbsUp, ThumbsDown, Send, StopCircle, CircleDot } from 'lucide-react';
+import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig, EmailApprovalConfig, JumpNodeConfig } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
 
@@ -74,6 +74,21 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [onlyWithAttachments, setOnlyWithAttachments] = useState(Boolean(initialEmail.onlyWithAttachments));
   const [copiedInbound, setCopiedInbound] = useState(false);
 
+  // Email Approval Action Configuration State
+  const initialApproval: EmailApprovalConfig = node.data.approvalConfig || {
+    recipients: 'diretoria@empresa.com, {{email.from}}',
+    subject: 'Aprovação Solicitada: Reembolso de Despesas #1024',
+    message: 'Olá,\n\nUm novo processo requer sua aprovação. Por favor, revise os detalhes abaixo e clique em um dos botões para prosseguir com o fluxo.',
+  };
+
+  const [approvalRecipients, setApprovalRecipients] = useState(initialApproval.recipients || 'diretoria@empresa.com');
+  const [approvalSubject, setApprovalSubject] = useState(initialApproval.subject || 'Aprovação Solicitada');
+  const [approvalMessage, setApprovalMessage] = useState(initialApproval.message || '');
+
+  // Jump Connector Node Configuration State
+  const initialJump: JumpNodeConfig = node.data.jumpConfig || { jumpId: '1' };
+  const [jumpId, setJumpId] = useState(initialJump.jumpId || '1');
+
   // State para carregamento de credenciais do Cofre
   const [vaultCredentials, setVaultCredentials] = useState<CredentialVaultItem[]>([]);
   const [isTesting, setIsTesting] = useState(false);
@@ -81,7 +96,10 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
 
   const isHttpNode = node.type === 'http' || node.data.type === 'http' || (node.data.label && node.data.label.toLowerCase().includes('http'));
   const isScheduleNode = node.type === 'schedule' || node.data.type === 'schedule' || (node.data.label && node.data.label.toLowerCase().includes('agendamento'));
-  const isEmailTriggerNode = node.type === 'email_trigger' || node.data.type === 'email_trigger' || (node.data.label && node.data.label.toLowerCase().includes('e-mail'));
+  const isEmailTriggerNode = node.type === 'email_trigger' || node.data.type === 'email_trigger' || (node.data.label && node.data.label.toLowerCase().includes('gatilho de e-mail'));
+  const isEmailApprovalNode = node.type === 'email_approval' || node.data.type === 'email_approval' || (node.data.label && node.data.label.toLowerCase().includes('aprovação por e-mail'));
+  const isJumpNode = node.type === 'jump' || node.data.type === 'jump' || (node.data.label && node.data.label.toLowerCase().includes('salto'));
+  const isEndNode = node.type === 'end' || node.data.type === 'end' || (node.data.label && node.data.label.toLowerCase().includes('fim'));
 
   useEffect(() => {
     fetch('/api/v1/vault/credentials')
@@ -155,6 +173,18 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       { key: 'email.attachments', label: 'Lista de Anexos (email.attachments)', type: 'array' },
     ];
 
+    const updatedApprovalConfig: EmailApprovalConfig = {
+      recipients: approvalRecipients,
+      subject: approvalSubject,
+      message: approvalMessage,
+    };
+
+    const approvalOutputs = [
+      { key: 'approval.status', label: 'Status (approval.status)', type: 'string' },
+      { key: 'approval.responder_email', label: 'E-mail Aprovador (approval.responder_email)', type: 'string' },
+      { key: 'approval.timestamp', label: 'Data/Hora (approval.timestamp)', type: 'string' },
+    ];
+
     let finalDescription = description;
     if (isScheduleNode) {
       finalDescription = formatScheduleSummary(updatedScheduleConfig, language);
@@ -168,6 +198,12 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       } else {
         finalDescription = `Inbound: ${inboundEmail}`;
       }
+    } else if (isEmailApprovalNode) {
+      finalDescription = `Para: ${approvalRecipients || 'diretoria@empresa.com'}`;
+    } else if (isJumpNode) {
+      finalDescription = `Salto / Recomeço #${jumpId}`;
+    } else if (isEndNode) {
+      finalDescription = 'Encerramento definitivo do fluxo';
     }
 
     const updated: WorkflowNode = {
@@ -186,8 +222,14 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         } : node.data.httpConfig,
         scheduleConfig: isScheduleNode ? updatedScheduleConfig : node.data.scheduleConfig,
         emailConfig: isEmailTriggerNode ? updatedEmailConfig : node.data.emailConfig,
+        approvalConfig: isEmailApprovalNode ? updatedApprovalConfig : node.data.approvalConfig,
+        jumpConfig: isJumpNode ? { jumpId } : node.data.jumpConfig,
         cronExpression: isScheduleNode ? computedCron : node.data.cronExpression,
-        outputs: isEmailTriggerNode ? emailOutputs : node.data.outputs,
+        outputs: isEmailApprovalNode
+          ? approvalOutputs
+          : isEmailTriggerNode
+          ? emailOutputs
+          : node.data.outputs,
       },
     };
 
@@ -804,6 +846,228 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
                   <strong>email.attachments</strong> (Anexos)
                 </code>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário Específico da Ação de Aprovação por E-mail (Email Approval Node) */}
+        {isEmailApprovalNode && (
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            borderRadius: '16px',
+            padding: '18px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#34d399', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle size={18} />
+              Configuração da Aprovação por E-mail
+            </h3>
+
+            {/* 3) Campos de Configuração */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Destinatário(s) da Aprovação (E-mails ou Variáveis)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: diretoria@empresa.com, {{email.from}}"
+                value={approvalRecipients}
+                onChange={(e) => setApprovalRecipients(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Aceita múltiplos e-mails separados por vírgula e interpolação de variáveis como <code>{'{{email.from}}'}</code>.
+              </span>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Assunto do E-mail de Aprovação
+              </label>
+              <input
+                type="text"
+                placeholder="ex: Aprovação Solicitada: Reembolso #1024"
+                value={approvalSubject}
+                onChange={(e) => setApprovalSubject(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Mensagem Contextual
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Explique o contexto do pedido de aprovação..."
+                value={approvalMessage}
+                onChange={(e) => setApprovalMessage(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+
+            {/* 4) Preview do E-mail */}
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: '#34d399', marginBottom: '8px', fontWeight: 800, textTransform: 'uppercase' }}>
+                Preview Interativo do E-mail Enviado ao Aprovador
+              </label>
+              <div style={{
+                background: '#0f172a',
+                border: '1px solid #334155',
+                borderRadius: '12px',
+                padding: '16px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+              }}>
+                <div style={{ borderBottom: '1px solid #334155', marginBottom: '12px', paddingBottom: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                    <strong>Para:</strong> <span style={{ color: '#38bdf8' }}>{approvalRecipients || 'diretoria@empresa.com'}</span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#f8fafc', fontWeight: 800 }}>
+                    {approvalSubject || 'Solicitação de Aprovação'}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '16px', whiteSpace: 'pre-wrap' }}>
+                  {approvalMessage || 'Mensagem de contextualização...'}
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                  <div style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: '#10b981',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '12px',
+                    textAlign: 'center',
+                    cursor: 'default',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+                  }}>
+                    <ThumbsUp size={14} />
+                    APROVAR
+                  </div>
+                  <div style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '12px',
+                    textAlign: 'center',
+                    cursor: 'default',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+                  }}>
+                    <ThumbsDown size={14} />
+                    REJEITAR
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 5) Mapeamento de Variáveis de Saída */}
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1px dashed rgba(16, 185, 129, 0.4)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+            }}>
+              <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 800, display: 'block', marginBottom: '8px' }}>
+                ⚡ Variáveis de Saída Disponibilizadas para o Fluxo (data.outputs):
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                <code style={{ fontSize: '10px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 6px', borderRadius: '6px' }}>
+                  <strong>approval.status</strong> ('approved'/'rejected')
+                </code>
+                <code style={{ fontSize: '10px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 6px', borderRadius: '6px' }}>
+                  <strong>approval.responder_email</strong>
+                </code>
+                <code style={{ fontSize: '10px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 6px', borderRadius: '6px' }}>
+                  <strong>approval.timestamp</strong>
+                </code>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário do Conector de Salto Numérico (Jump Node) */}
+        {isJumpNode && (
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid rgba(234, 179, 8, 0.4)',
+            borderRadius: '16px',
+            padding: '18px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#fef08a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CircleDot size={18} color="#eab308" />
+              Configuração do Conector de Salto Numérico
+            </h3>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                Número ou Identificador do Salto (Ex: 1, 2, 3 ou A)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: 1"
+                value={jumpId}
+                onChange={(e) => setJumpId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: '#fef08a',
+                  fontSize: '14px',
+                  fontWeight: 900,
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', display: 'block', lineHeight: '1.4' }}>
+                💡 <strong>Como funciona:</strong> Se um fluxo atinge esta caixa circular com o número <strong>{jumpId}</strong>, ele é direcionado para recomeçar em qualquer outra caixa circular que possua este mesmo número <strong>{jumpId}</strong> no mapa do fluxo.
+              </span>
             </div>
           </div>
         )}

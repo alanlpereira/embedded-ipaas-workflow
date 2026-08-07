@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, Clock, Mail } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, Clock, Mail, CheckCircle, StopCircle, CircleDot } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 
 interface NodeColorConfig {
@@ -29,6 +29,12 @@ const nodeConfigs: Record<NodeType, NodeColorConfig> = {
     icon: <Mail size={16} color="#ffffff" />,
     badge: 'EMAIL TRIGGER',
   },
+  email_approval: {
+    color: '#10b981',
+    gradient: 'linear-gradient(135deg, #10b981, #059669)',
+    icon: <CheckCircle size={16} color="#ffffff" />,
+    badge: 'EMAIL APPROVAL',
+  },
   http: {
     color: '#00f2fe',
     gradient: 'linear-gradient(135deg, #00f2fe, #4facfe)',
@@ -52,6 +58,18 @@ const nodeConfigs: Record<NodeType, NodeColorConfig> = {
     gradient: 'linear-gradient(135deg, #f97316, #ea580c)',
     icon: <UserCheck size={16} color="#ffffff" />,
     badge: 'APPROVAL',
+  },
+  jump: {
+    color: '#eab308',
+    gradient: 'linear-gradient(135deg, #eab308, #ca8a04)',
+    icon: <CircleDot size={16} color="#ffffff" />,
+    badge: 'JUMP CONNECTOR',
+  },
+  end: {
+    color: '#ef4444',
+    gradient: 'linear-gradient(135deg, #ef4444, #dc2626)',
+    icon: <StopCircle size={16} color="#ffffff" />,
+    badge: 'END FLOW',
   },
   output: {
     color: '#a855f7',

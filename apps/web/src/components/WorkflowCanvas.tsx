@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ReactFlow, Controls, Background, BackgroundVariant, MiniMap, Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { RefreshCw, AlertTriangle, Grid, LayoutGrid } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Grid, LayoutGrid, FileText, Presentation } from 'lucide-react';
 
 import { CustomNode } from './CustomNode';
 import { LiveCursors } from './LiveCursors';
@@ -9,11 +9,13 @@ import { CopilotPromptBar } from './CopilotPromptBar';
 import { RemoteCursor } from '../collaboration/useYjsCollaboration';
 import { WorkflowNode, WorkflowEdge, NodeType } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { exportFlowToPDF, exportFlowToPPTX } from '../utils/exportUtils';
 
 const nodeTypes: any = {
   trigger: CustomNode,
   schedule: CustomNode,
   email_trigger: CustomNode,
+  email_approval: CustomNode,
   action: CustomNode,
   decision: CustomNode,
   approval: CustomNode,
@@ -21,6 +23,8 @@ const nodeTypes: any = {
   code: CustomNode,
   media: CustomNode,
   http: CustomNode,
+  jump: CustomNode,
+  end: CustomNode,
 };
 
 interface WorkflowCanvasProps {
@@ -205,7 +209,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         </div>
       )}
 
-      {/* Barra de Ferramentas de Alinhamento e Grid */}
+      {/* Barra de Ferramentas de Alinhamento, Grid e Exportação */}
       <div style={{
         position: 'absolute',
         top: '16px',
@@ -267,6 +271,56 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
             Alinhar Caixas
           </button>
         )}
+
+        <div style={{ width: '1px', background: 'var(--border-color)', margin: '2px 2px' }} />
+
+        {/* Botão Exportar PDF */}
+        <button
+          type="button"
+          onClick={() => exportFlowToPDF(nodes, edges, 'Fluxo de Trabalho Synapse')}
+          title="Exportar fluxo completo formatado em PDF"
+          style={{
+            background: 'rgba(59, 130, 246, 0.15)',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
+            color: '#60a5fa',
+            borderRadius: '6px',
+            padding: '4px 9px',
+            fontSize: '11px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <FileText size={14} />
+          Exportar PDF
+        </button>
+
+        {/* Botão Exportar PowerPoint (PPTX) */}
+        <button
+          type="button"
+          onClick={() => exportFlowToPPTX(nodes, edges, 'Fluxo de Trabalho Synapse')}
+          title="Exportar fluxo em formato de apresentação PowerPoint (.pptx)"
+          style={{
+            background: 'rgba(249, 115, 22, 0.15)',
+            border: '1px solid rgba(249, 115, 22, 0.4)',
+            color: '#fb923c',
+            borderRadius: '6px',
+            padding: '4px 9px',
+            fontSize: '11px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Presentation size={14} />
+          Exportar PPTX
+        </button>
       </div>
 
       <ReactFlow
@@ -320,6 +374,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
               case 'trigger': return '#10b981';
               case 'schedule': return '#8b5cf6';
               case 'email_trigger': return '#0284c7';
+              case 'email_approval': return '#10b981';
               case 'action': return '#3b82f6';
               case 'decision': return '#f59e0b';
               case 'approval': return '#8b5cf6';

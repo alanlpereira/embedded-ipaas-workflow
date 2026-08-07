@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight, Clock, Mail } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight, Clock, Mail, CheckCircle, StopCircle, CircleDot } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { formatScheduleSummary } from '../utils/cronUtils';
@@ -83,6 +83,27 @@ const nodeTypeConfigs: Record<NodeType, NodeColorConfig> = {
     headerBg: 'rgba(2, 132, 199, 0.15)',
     iconColor: '#0284c7',
     Icon: Mail,
+  },
+  email_approval: {
+    bg: 'rgba(16, 185, 129, 0.05)',
+    border: '#10b981',
+    headerBg: 'rgba(16, 185, 129, 0.15)',
+    iconColor: '#10b981',
+    Icon: CheckCircle,
+  },
+  jump: {
+    bg: 'rgba(234, 179, 8, 0.08)',
+    border: '#eab308',
+    headerBg: 'rgba(234, 179, 8, 0.2)',
+    iconColor: '#eab308',
+    Icon: CircleDot,
+  },
+  end: {
+    bg: 'rgba(239, 68, 68, 0.08)',
+    border: '#ef4444',
+    headerBg: 'rgba(239, 68, 68, 0.2)',
+    iconColor: '#ef4444',
+    Icon: StopCircle,
   },
 };
 
@@ -280,15 +301,85 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
         );
       })()}
 
-      {/* Output Handles Específicos para Nó de Decisão com suporte a inversão de posições */}
-      {isDecision ? (() => {
+      {/* Badge de Aprovação por E-mail */}
+      {nodeType === 'email_approval' && (() => {
+        const appCfg = nodeData.approvalConfig;
+        const recipients = appCfg?.recipients || 'diretoria@empresa.com';
+        return (
+          <div style={{
+            marginTop: '6px',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            color: '#34d399',
+            fontSize: '10px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            <CheckCircle size={12} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Para: {recipients}</span>
+          </div>
+        );
+      })()}
+
+      {/* Badge do Conector de Salto Numérico */}
+      {nodeType === 'jump' && (() => {
+        const jumpId = nodeData.jumpConfig?.jumpId || '1';
+        return (
+          <div style={{
+            marginTop: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+              color: '#000000',
+              fontWeight: 900,
+              fontSize: '17px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 12px rgba(234, 179, 8, 0.5)',
+              border: '2px solid #ffffff',
+            }}>
+              {jumpId}
+            </div>
+            <span style={{ fontSize: '11px', color: '#fef08a', fontWeight: 800 }}>
+              Salto #{jumpId}
+            </span>
+          </div>
+        );
+      })()}
+
+      {/* Output Handles Específicos para Nó de Decisão / Aprovação com suporte a inversão de posições */}
+      {(isDecision || nodeType === 'email_approval') ? (() => {
         const isSwapped = Boolean(nodeData.swapOutputs);
-        const leftLabel = isSwapped ? (language === 'en' ? 'No' : 'Não') : (language === 'en' ? 'Yes' : 'Sim');
-        const leftId = isSwapped ? 'false' : 'true';
+        const isEmailApp = nodeType === 'email_approval';
+
+        const posLabelName = isEmailApp
+          ? (language === 'en' ? 'Approved' : 'Aprovado')
+          : (language === 'en' ? 'Yes' : 'Sim');
+        const negLabelName = isEmailApp
+          ? (language === 'en' ? 'Rejected' : 'Rejeitado')
+          : (language === 'en' ? 'No' : 'Não');
+
+        const leftLabel = isSwapped ? negLabelName : posLabelName;
+        const leftId = isSwapped ? (isEmailApp ? 'rejected' : 'false') : (isEmailApp ? 'approved' : 'true');
         const leftColor = isSwapped ? '#ef4444' : '#10b981';
 
-        const rightLabel = isSwapped ? (language === 'en' ? 'Yes' : 'Sim') : (language === 'en' ? 'No' : 'Não');
-        const rightId = isSwapped ? 'true' : 'false';
+        const rightLabel = isSwapped ? posLabelName : negLabelName;
+        const rightId = isSwapped ? (isEmailApp ? 'approved' : 'true') : (isEmailApp ? 'rejected' : 'false');
         const rightColor = isSwapped ? '#10b981' : '#ef4444';
 
         return (
@@ -359,7 +450,7 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
           </div>
         );
       })() : (
-        nodeType !== 'output' && (
+        nodeType !== 'output' && nodeType !== 'end' && (
           <Handle
             type="source"
             position={Position.Bottom}

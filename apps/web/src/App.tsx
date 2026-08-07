@@ -631,10 +631,13 @@ function WorkflowAppContent() {
         trigger: 'Novo Gatilho / Input',
         schedule: 'Gatilho de Agendamento',
         email_trigger: 'Gatilho de E-mail',
+        email_approval: 'Aprovação por E-mail',
         http: 'Requisição HTTP / Webhook',
         action: 'Nova Ação / Processo',
         decision: 'Nova Decisão',
         approval: 'Nova Aprovação',
+        jump: 'Conector de Salto',
+        end: 'Fim de Fluxo (Término)',
         output: 'Nova Saída / Output',
         code: 'Código Customizado JS',
         media: 'Processamento de Mídia / Assíncrono',
@@ -676,6 +679,22 @@ function WorkflowAppContent() {
         { key: 'email.attachments', label: 'Lista de Anexos (email.attachments)', type: 'array' },
       ];
 
+      const defaultApprovalConfig = {
+        recipients: 'diretoria@empresa.com, {{email.from}}',
+        subject: 'Aprovação Solicitada: Reembolso de Despesas #1024',
+        message: 'Olá,\n\nUm novo processo requer sua aprovação. Por favor, revise as informações e clique em um dos botões para prosseguir com o fluxo.',
+      };
+
+      const defaultApprovalOutputs = [
+        { key: 'approval.status', label: 'Status (approval.status)', type: 'string' },
+        { key: 'approval.responder_email', label: 'E-mail Aprovador (approval.responder_email)', type: 'string' },
+        { key: 'approval.timestamp', label: 'Data/Hora (approval.timestamp)', type: 'string' },
+      ];
+
+      const defaultJumpConfig = {
+        jumpId: '1',
+      };
+
       const newNode: WorkflowNode = {
         id: uniqueId,
         type,
@@ -684,7 +703,13 @@ function WorkflowAppContent() {
           label: titles[type] || 'Novo Nó',
           type,
           description:
-            type === 'email_trigger'
+            type === 'end'
+              ? 'Encerramento definitivo do fluxo'
+              : type === 'jump'
+              ? 'Salto / Recomeço #1'
+              : type === 'email_approval'
+              ? 'Para: diretoria@empresa.com'
+              : type === 'email_trigger'
               ? `Inbound: ${defaultInboundEmail}`
               : type === 'schedule'
               ? 'Diário às 09:00'
@@ -696,7 +721,14 @@ function WorkflowAppContent() {
           cronExpression: type === 'schedule' ? '0 9 * * *' : undefined,
           scheduleConfig: type === 'schedule' ? defaultScheduleConfig : undefined,
           emailConfig: type === 'email_trigger' ? defaultEmailConfig : undefined,
-          outputs: type === 'email_trigger' ? defaultEmailOutputs : undefined,
+          approvalConfig: type === 'email_approval' ? defaultApprovalConfig : undefined,
+          jumpConfig: type === 'jump' ? defaultJumpConfig : undefined,
+          outputs:
+            type === 'email_approval'
+              ? defaultApprovalOutputs
+              : type === 'email_trigger'
+              ? defaultEmailOutputs
+              : undefined,
           config:
             type === 'code'
               ? { script: `return {\n  processed: true,\n  timestamp: new Date().toISOString()\n};` }

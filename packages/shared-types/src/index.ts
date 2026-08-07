@@ -26,7 +26,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http' | 'schedule' | 'email_trigger';
+export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http' | 'schedule' | 'email_trigger' | 'email_approval' | 'end' | 'jump';
 
 export interface HttpNodeConfig {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -56,6 +56,16 @@ export interface EmailTriggerConfig {
   onlyWithAttachments?: boolean;
 }
 
+export interface EmailApprovalConfig {
+  recipients: string;
+  subject: string;
+  message: string;
+}
+
+export interface JumpNodeConfig {
+  jumpId: string; // Ex: "1", "2", "3" ou "A"
+}
+
 export interface WorkflowNodeData {
   label: string;
   type: NodeType;
@@ -64,6 +74,8 @@ export interface WorkflowNodeData {
   httpConfig?: HttpNodeConfig;
   scheduleConfig?: ScheduleNodeConfig;
   emailConfig?: EmailTriggerConfig;
+  approvalConfig?: EmailApprovalConfig;
+  jumpConfig?: JumpNodeConfig;
   cronExpression?: string;
   outputs?: Array<{ key: string; label: string; type: string }>;
   [key: string]: any;

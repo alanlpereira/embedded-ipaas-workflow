@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Clock, Mail } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Clock, Mail, CheckCircle, StopCircle, CircleDot } from 'lucide-react';
 import { NodeType } from '@ipaas/shared-types';
 import { EditionBadge } from './EditionBadge';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -19,10 +19,13 @@ const blockTranslations = {
     email_trigger: { label: 'Gatilho de E-mail', desc: 'Dispara fluxos ao receber e-mails no Synapse Inbound ou IMAP.' },
     http: { label: 'Requisição HTTP / Webhook', desc: 'Dispara chamadas REST/Webhook reais com tokens do Cofre.' },
     action: { label: 'Ação / Processamento', desc: 'Executa ações automatizadas nos sistemas conectados.' },
+    email_approval: { label: 'Aprovação por E-mail', desc: 'Envia e-mail de aprovação interativo (Aprovado / Rejeitado).' },
     code: { label: 'Código Customizado JS', desc: 'Executa scripts Node.js isolados via Sandbox VM.' },
     media: { label: 'Processamento de Mídia', desc: 'Renderização de vídeo assíncrona (Veo 3 / Pipeline).' },
     decision: { label: 'Decisão Lógica', desc: 'Bifurca o fluxo de acordo com regras de validação.' },
     approval: { label: 'Aprovação (HITL)', desc: 'Pausa para aprovação humana (Mobile Zero Fricção).' },
+    jump: { label: 'Conector de Salto', desc: 'Conecta/recomeça o fluxo em outra caixa circular do mesmo número.' },
+    end: { label: 'Fim de Fluxo (Término)', desc: 'Finaliza a execução do fluxo sem saídas subsequentes.' },
     output: { label: 'Saída / Resposta', desc: 'Retorna payload final ou status HTTP.' },
   },
   en: {
@@ -31,10 +34,13 @@ const blockTranslations = {
     email_trigger: { label: 'Email Trigger', desc: 'Triggers workflows when emails arrive via Synapse Inbound or IMAP.' },
     http: { label: 'HTTP Request / Webhook', desc: 'Fires real REST/Webhook calls with Vault tokens.' },
     action: { label: 'Action / Processing', desc: 'Executes automated actions on connected systems.' },
+    email_approval: { label: 'Email Approval Action', desc: 'Sends interactive approval email (Approved / Rejected).' },
     code: { label: 'Custom JS Code', desc: 'Executes isolated Node.js scripts via Sandbox VM.' },
     media: { label: 'Media Processing', desc: 'Async video rendering (Veo 3 / Pipeline).' },
     decision: { label: 'Logical Decision', desc: 'Branches flow according to validation rules.' },
     approval: { label: 'Approval (HITL)', desc: 'Pauses for human approval (Zero Friction Mobile).' },
+    jump: { label: 'Jump Connector', desc: 'Connects/restarts flow at another circular box with the same number.' },
+    end: { label: 'End Flow (Terminate)', desc: 'Finalizes flow execution without subsequent outputs.' },
     output: { label: 'Output / Response', desc: 'Returns final payload or HTTP status.' },
   },
 };
@@ -45,10 +51,13 @@ const blocks: SidebarBlock[] = [
   { type: 'email_trigger', labelKey: 'email_trigger', icon: <Mail size={18} color="#0284c7" />, color: '#0284c7' },
   { type: 'http', labelKey: 'http', icon: <Globe size={18} color="#00f2fe" />, color: '#00f2fe' },
   { type: 'action', labelKey: 'action', icon: <Play size={18} color="#3b82f6" />, color: '#3b82f6' },
+  { type: 'email_approval', labelKey: 'email_approval', icon: <CheckCircle size={18} color="#10b981" />, color: '#10b981' },
   { type: 'code', labelKey: 'code', icon: <Code2 size={18} color="#06b6d4" />, color: '#06b6d4' },
   { type: 'media', labelKey: 'media', icon: <Video size={18} color="#d946ef" />, color: '#d946ef' },
   { type: 'decision', labelKey: 'decision', icon: <GitFork size={18} color="#f59e0b" />, color: '#f59e0b' },
   { type: 'approval', labelKey: 'approval', icon: <UserCheck size={18} color="#f97316" />, color: '#f97316' },
+  { type: 'jump', labelKey: 'jump', icon: <CircleDot size={18} color="#eab308" />, color: '#eab308' },
+  { type: 'end', labelKey: 'end', icon: <StopCircle size={18} color="#ef4444" />, color: '#ef4444' },
   { type: 'output', labelKey: 'output', icon: <Send size={18} color="#a855f7" />, color: '#a855f7' },
 ];
 
@@ -122,7 +131,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAddNode }) => {
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        marginTop: '4px',
+        flex: 1,
+        overflowY: 'auto',
+        minHeight: 0,
+        paddingRight: '6px',
+      }}>
         {blocks.map((block) => {
           const info = blockTranslations[language][block.labelKey];
           return (
