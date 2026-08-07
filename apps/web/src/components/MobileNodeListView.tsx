@@ -1,6 +1,6 @@
 import React from 'react';
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
-import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Smartphone, RotateCw, Monitor, CheckCircle, XCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Smartphone, RotateCw, Monitor, CheckCircle, XCircle, AlertTriangle, Clock, Mail } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface MobileNodeListViewProps {
@@ -12,6 +12,7 @@ interface MobileNodeListViewProps {
 const nodeTypeIcons: Record<NodeType, React.ElementType> = {
   trigger: Zap,
   schedule: Clock,
+  email_trigger: Mail,
   http: Globe,
   action: Play,
   decision: GitFork,
@@ -24,6 +25,7 @@ const nodeTypeIcons: Record<NodeType, React.ElementType> = {
 const nodeTypeColors: Record<NodeType, string> = {
   trigger: '#10b981',
   schedule: '#8b5cf6',
+  email_trigger: '#0284c7',
   http: '#00f2fe',
   action: '#3b82f6',
   decision: '#f59e0b',

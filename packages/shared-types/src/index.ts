@@ -26,7 +26,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http' | 'schedule';
+export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http' | 'schedule' | 'email_trigger';
 
 export interface HttpNodeConfig {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -44,6 +44,18 @@ export interface ScheduleNodeConfig {
   cronExpression: string; // Ex: "0 9 * * 1-5"
 }
 
+export interface EmailTriggerConfig {
+  mode: 'synapse_inbound' | 'custom_imap';
+  inboundEmail?: string;
+  imapHost?: string;
+  imapPort?: number;
+  imapUser?: string;
+  imapPass?: string;
+  filterSubject?: string;
+  filterFrom?: string;
+  onlyWithAttachments?: boolean;
+}
+
 export interface WorkflowNodeData {
   label: string;
   type: NodeType;
@@ -51,7 +63,9 @@ export interface WorkflowNodeData {
   config?: Record<string, any>;
   httpConfig?: HttpNodeConfig;
   scheduleConfig?: ScheduleNodeConfig;
+  emailConfig?: EmailTriggerConfig;
   cronExpression?: string;
+  outputs?: Array<{ key: string; label: string; type: string }>;
   [key: string]: any;
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare } from 'lucide-react';
-import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig } from '@ipaas/shared-types';
+import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter } from 'lucide-react';
+import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
 
@@ -48,6 +48,32 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>(initialSchedule.daysOfWeek || [1, 2, 3, 4, 5]);
   const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState<number>(initialSchedule.dayOfMonth || 1);
 
+  // Email Trigger Configuration State
+  const generatedInboundEmail = `flow-${node.id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 16)}@inbound.synapse.com`;
+
+  const initialEmail: EmailTriggerConfig = node.data.emailConfig || {
+    mode: 'synapse_inbound',
+    inboundEmail: generatedInboundEmail,
+    imapHost: 'imap.gmail.com',
+    imapPort: 993,
+    imapUser: '',
+    imapPass: '',
+    filterSubject: '',
+    filterFrom: '',
+    onlyWithAttachments: false,
+  };
+
+  const [emailMode, setEmailMode] = useState<'synapse_inbound' | 'custom_imap'>(initialEmail.mode || 'synapse_inbound');
+  const [inboundEmail, setInboundEmail] = useState(initialEmail.inboundEmail || generatedInboundEmail);
+  const [imapHost, setImapHost] = useState(initialEmail.imapHost || 'imap.gmail.com');
+  const [imapPort, setImapPort] = useState(initialEmail.imapPort || 993);
+  const [imapUser, setImapUser] = useState(initialEmail.imapUser || '');
+  const [imapPass, setImapPass] = useState(initialEmail.imapPass || '');
+  const [filterSubject, setFilterSubject] = useState(initialEmail.filterSubject || '');
+  const [filterFrom, setFilterFrom] = useState(initialEmail.filterFrom || '');
+  const [onlyWithAttachments, setOnlyWithAttachments] = useState(Boolean(initialEmail.onlyWithAttachments));
+  const [copiedInbound, setCopiedInbound] = useState(false);
+
   // State para carregamento de credenciais do Cofre
   const [vaultCredentials, setVaultCredentials] = useState<CredentialVaultItem[]>([]);
   const [isTesting, setIsTesting] = useState(false);
@@ -55,6 +81,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
 
   const isHttpNode = node.type === 'http' || node.data.type === 'http' || (node.data.label && node.data.label.toLowerCase().includes('http'));
   const isScheduleNode = node.type === 'schedule' || node.data.type === 'schedule' || (node.data.label && node.data.label.toLowerCase().includes('agendamento'));
+  const isEmailTriggerNode = node.type === 'email_trigger' || node.data.type === 'email_trigger' || (node.data.label && node.data.label.toLowerCase().includes('e-mail'));
 
   useEffect(() => {
     fetch('/api/v1/vault/credentials')
@@ -109,14 +136,46 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       cronExpression: computedCron,
     };
 
+    const updatedEmailConfig: EmailTriggerConfig = {
+      mode: emailMode,
+      inboundEmail,
+      imapHost,
+      imapPort,
+      imapUser,
+      imapPass,
+      filterSubject,
+      filterFrom,
+      onlyWithAttachments,
+    };
+
+    const emailOutputs = [
+      { key: 'email.from', label: 'Remetente (email.from)', type: 'string' },
+      { key: 'email.subject', label: 'Assunto (email.subject)', type: 'string' },
+      { key: 'email.body', label: 'Corpo do E-mail (email.body)', type: 'string' },
+      { key: 'email.attachments', label: 'Lista de Anexos (email.attachments)', type: 'array' },
+    ];
+
+    let finalDescription = description;
+    if (isScheduleNode) {
+      finalDescription = formatScheduleSummary(updatedScheduleConfig, language);
+    } else if (isEmailTriggerNode) {
+      if (filterSubject) {
+        finalDescription = `Filtro: Assunto contém '${filterSubject}'`;
+      } else if (filterFrom) {
+        finalDescription = `Filtro: Remetente '${filterFrom}'`;
+      } else if (emailMode === 'custom_imap') {
+        finalDescription = `IMAP: ${imapHost}`;
+      } else {
+        finalDescription = `Inbound: ${inboundEmail}`;
+      }
+    }
+
     const updated: WorkflowNode = {
       ...node,
       data: {
         ...node.data,
         label,
-        description: isScheduleNode
-          ? formatScheduleSummary(updatedScheduleConfig, language)
-          : description,
+        description: finalDescription,
         swapOutputs,
         httpConfig: isHttpNode ? {
           method: httpMethod,
@@ -126,7 +185,9 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
           body: bodyText,
         } : node.data.httpConfig,
         scheduleConfig: isScheduleNode ? updatedScheduleConfig : node.data.scheduleConfig,
+        emailConfig: isEmailTriggerNode ? updatedEmailConfig : node.data.emailConfig,
         cronExpression: isScheduleNode ? computedCron : node.data.cronExpression,
+        outputs: isEmailTriggerNode ? emailOutputs : node.data.outputs,
       },
     };
 
@@ -447,6 +508,302 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               <code style={{ fontSize: '12px', fontWeight: 800, color: '#a78bfa', fontFamily: 'monospace' }}>
                 {generateCronExpression({ recurrenceType, time: scheduleTime, daysOfWeek, dayOfMonth: scheduleDayOfMonth })}
               </code>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário Específico do Gatilho de E-mail (Email Trigger Node) */}
+        {isEmailTriggerNode && (
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid rgba(2, 132, 199, 0.4)',
+            borderRadius: '16px',
+            padding: '18px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#38bdf8', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Mail size={18} />
+              Configuração do Gatilho de E-mail
+            </h3>
+
+            {/* a) Modo de Recebimento */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
+                Modo de Recebimento
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEmailMode('synapse_inbound')}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '10px',
+                    background: emailMode === 'synapse_inbound' ? 'rgba(2, 132, 199, 0.25)' : 'var(--bg-tertiary)',
+                    border: emailMode === 'synapse_inbound' ? '2px solid #0284c7' : '1px solid var(--border-color)',
+                    color: emailMode === 'synapse_inbound' ? '#ffffff' : 'var(--text-secondary)',
+                    fontWeight: emailMode === 'synapse_inbound' ? 800 : 600,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Mail size={14} />
+                  E-mail Único do Fluxo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailMode('custom_imap')}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '10px',
+                    background: emailMode === 'custom_imap' ? 'rgba(2, 132, 199, 0.25)' : 'var(--bg-tertiary)',
+                    border: emailMode === 'custom_imap' ? '2px solid #0284c7' : '1px solid var(--border-color)',
+                    color: emailMode === 'custom_imap' ? '#ffffff' : 'var(--text-secondary)',
+                    fontWeight: emailMode === 'custom_imap' ? 800 : 600,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Server size={14} />
+                  Servidor IMAP / Personalizado
+                </button>
+              </div>
+            </div>
+
+            {/* Painel do Modo: E-mail Único do Fluxo */}
+            {emailMode === 'synapse_inbound' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700 }}>
+                  Endereço de E-mail Dedicado do Fluxo (Inbound Address)
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={inboundEmail}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: '#38bdf8',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      outline: 'none',
+                      fontFamily: 'monospace',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(inboundEmail);
+                      setCopiedInbound(true);
+                      setTimeout(() => setCopiedInbound(false), 2000);
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      background: copiedInbound ? '#10b981' : 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    {copiedInbound ? <Check size={14} /> : <Copy size={14} />}
+                    {copiedInbound ? 'Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  Envie ou redirecione qualquer e-mail para este endereço para disparar este fluxo instantaneamente.
+                </span>
+              </div>
+            )}
+
+            {/* Painel do Modo: Servidor IMAP Personalizado */}
+            {emailMode === 'custom_imap' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Servidor Host IMAP
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="imap.gmail.com"
+                    value={imapHost}
+                    onChange={(e) => setImapHost(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Porta SSL/TLS
+                  </label>
+                  <input
+                    type="number"
+                    value={imapPort}
+                    onChange={(e) => setImapPort(parseInt(e.target.value, 10) || 993)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Usuário / E-mail
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="suporte@empresa.com"
+                    value={imapUser}
+                    onChange={(e) => setImapUser(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Senha / App Key
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={imapPass}
+                    onChange={(e) => setImapPass(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* b) Filtros de Entrada */}
+            <div style={{ marginBottom: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+              <label style={{ fontSize: '11px', color: '#38bdf8', marginBottom: '10px', fontWeight: 800, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Filter size={14} />
+                Filtros de Entrada de E-mail
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Assunto contém
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Fatura, Pedido"
+                    value={filterSubject}
+                    onChange={(e) => setFilterSubject(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Remetente contém
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: @empresa.com"
+                    value={filterFrom}
+                    onChange={(e) => setFilterFrom(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Checkbox Apenas E-mails com Anexo */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <input
+                  type="checkbox"
+                  checked={onlyWithAttachments}
+                  onChange={(e) => setOnlyWithAttachments(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }}
+                />
+                <Paperclip size={14} color="#38bdf8" />
+                Disparar apenas para e-mails com anexo
+              </label>
+            </div>
+
+            {/* 3) Mapeamento de Variáveis de Saída */}
+            <div style={{
+              background: 'rgba(2, 132, 199, 0.1)',
+              border: '1px dashed rgba(2, 132, 199, 0.4)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+            }}>
+              <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 800, display: 'block', marginBottom: '8px' }}>
+                ⚡ Variáveis de Saída Disponibilizadas para o Fluxo (data.outputs):
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <code style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '6px' }}>
+                  <strong>email.from</strong> (Remetente)
+                </code>
+                <code style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '6px' }}>
+                  <strong>email.subject</strong> (Assunto)
+                </code>
+                <code style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '6px' }}>
+                  <strong>email.body</strong> (Corpo E-mail)
+                </code>
+                <code style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '6px' }}>
+                  <strong>email.attachments</strong> (Anexos)
+                </code>
+              </div>
             </div>
           </div>
         )}

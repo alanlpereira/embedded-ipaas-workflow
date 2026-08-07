@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight, Clock } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight, Clock, Mail } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { formatScheduleSummary } from '../utils/cronUtils';
@@ -76,6 +76,13 @@ const nodeTypeConfigs: Record<NodeType, NodeColorConfig> = {
     headerBg: 'rgba(139, 92, 246, 0.15)',
     iconColor: '#8b5cf6',
     Icon: Clock,
+  },
+  email_trigger: {
+    bg: 'rgba(2, 132, 199, 0.05)',
+    border: '#0284c7',
+    headerBg: 'rgba(2, 132, 199, 0.15)',
+    iconColor: '#0284c7',
+    Icon: Mail,
   },
 };
 
@@ -234,6 +241,44 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
           <span>{formatScheduleSummary(nodeData.scheduleConfig, language)}</span>
         </div>
       )}
+
+      {/* Badge de Gatilho de E-mail */}
+      {nodeType === 'email_trigger' && (() => {
+        const emailCfg = nodeData.emailConfig;
+        let badgeText = 'Inbound: flow-auto@inbound.synapse.com';
+        if (emailCfg) {
+          if (emailCfg.filterSubject) {
+            badgeText = `Filtro: Assunto contém '${emailCfg.filterSubject}'`;
+          } else if (emailCfg.filterFrom) {
+            badgeText = `Filtro: Remetente '${emailCfg.filterFrom}'`;
+          } else if (emailCfg.mode === 'custom_imap') {
+            badgeText = `IMAP: ${emailCfg.imapHost || 'Servidor'}`;
+          } else if (emailCfg.inboundEmail) {
+            badgeText = `Inbound: ${emailCfg.inboundEmail}`;
+          }
+        }
+        return (
+          <div style={{
+            marginTop: '6px',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            background: 'rgba(2, 132, 199, 0.15)',
+            border: '1px solid rgba(2, 132, 199, 0.4)',
+            color: '#38bdf8',
+            fontSize: '10px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            <Mail size={12} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{badgeText}</span>
+          </div>
+        );
+      })()}
 
       {/* Output Handles Específicos para Nó de Decisão com suporte a inversão de posições */}
       {isDecision ? (() => {

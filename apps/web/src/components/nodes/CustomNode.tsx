@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, Clock } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, Clock, Mail } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 
 interface NodeColorConfig {
@@ -22,6 +22,12 @@ const nodeConfigs: Record<NodeType, NodeColorConfig> = {
     gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
     icon: <Clock size={16} color="#ffffff" />,
     badge: 'CRON SCHEDULE',
+  },
+  email_trigger: {
+    color: '#0284c7',
+    gradient: 'linear-gradient(135deg, #0284c7, #0369a1)',
+    icon: <Mail size={16} color="#ffffff" />,
+    badge: 'EMAIL TRIGGER',
   },
   http: {
     color: '#00f2fe',

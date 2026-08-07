@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Clock } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe, Clock, Mail } from 'lucide-react';
 import { NodeType } from '@ipaas/shared-types';
 import { EditionBadge } from './EditionBadge';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -16,6 +16,7 @@ const blockTranslations = {
   pt: {
     trigger: { label: 'Gatilho / Evento', desc: 'Recebe eventos HTTP Webhook ou chamadas manuais.' },
     schedule: { label: 'Gatilho de Agendamento', desc: 'Dispara fluxos em horários agendados (Diário, Semanal, Mensal).' },
+    email_trigger: { label: 'Gatilho de E-mail', desc: 'Dispara fluxos ao receber e-mails no Synapse Inbound ou IMAP.' },
     http: { label: 'Requisição HTTP / Webhook', desc: 'Dispara chamadas REST/Webhook reais com tokens do Cofre.' },
     action: { label: 'Ação / Processamento', desc: 'Executa ações automatizadas nos sistemas conectados.' },
     code: { label: 'Código Customizado JS', desc: 'Executa scripts Node.js isolados via Sandbox VM.' },
@@ -27,6 +28,7 @@ const blockTranslations = {
   en: {
     trigger: { label: 'Trigger / Event', desc: 'Receives HTTP Webhook events or manual calls.' },
     schedule: { label: 'Schedule Trigger', desc: 'Triggers workflows on scheduled times (Daily, Weekly, Monthly).' },
+    email_trigger: { label: 'Email Trigger', desc: 'Triggers workflows when emails arrive via Synapse Inbound or IMAP.' },
     http: { label: 'HTTP Request / Webhook', desc: 'Fires real REST/Webhook calls with Vault tokens.' },
     action: { label: 'Action / Processing', desc: 'Executes automated actions on connected systems.' },
     code: { label: 'Custom JS Code', desc: 'Executes isolated Node.js scripts via Sandbox VM.' },
@@ -40,6 +42,7 @@ const blockTranslations = {
 const blocks: SidebarBlock[] = [
   { type: 'trigger', labelKey: 'trigger', icon: <Zap size={18} color="#10b981" />, color: '#10b981' },
   { type: 'schedule', labelKey: 'schedule', icon: <Clock size={18} color="#8b5cf6" />, color: '#8b5cf6' },
+  { type: 'email_trigger', labelKey: 'email_trigger', icon: <Mail size={18} color="#0284c7" />, color: '#0284c7' },
   { type: 'http', labelKey: 'http', icon: <Globe size={18} color="#00f2fe" />, color: '#00f2fe' },
   { type: 'action', labelKey: 'action', icon: <Play size={18} color="#3b82f6" />, color: '#3b82f6' },
   { type: 'code', labelKey: 'code', icon: <Code2 size={18} color="#06b6d4" />, color: '#06b6d4' },

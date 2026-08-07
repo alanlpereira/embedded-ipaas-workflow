@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ReactFlow, Controls, Background, BackgroundVariant, MiniMap, Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Grid, LayoutGrid } from 'lucide-react';
 
 import { CustomNode } from './CustomNode';
 import { LiveCursors } from './LiveCursors';
@@ -13,6 +13,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 const nodeTypes: any = {
   trigger: CustomNode,
   schedule: CustomNode,
+  email_trigger: CustomNode,
   action: CustomNode,
   decision: CustomNode,
   approval: CustomNode,
@@ -34,6 +35,7 @@ interface WorkflowCanvasProps {
   onPaneClick: (event?: React.MouseEvent) => void;
   onCanvasInteractionPosition?: (position: { x: number; y: number }) => void;
   onFlowGenerated?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
+  onAlignAllNodes?: () => void;
   showCopilotBar?: boolean;
   // Debug Mode Props
   isDebugMode?: boolean;
@@ -58,6 +60,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   onPaneClick,
   onCanvasInteractionPosition,
   onFlowGenerated,
+  onAlignAllNodes,
   showCopilotBar = true,
   isDebugMode = false,
   failedNodeId,
@@ -68,6 +71,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   onMouseMoveCanvas,
 }) => {
   const { t } = useLanguage();
+  const [showGrid, setShowGrid] = useState<boolean>(false);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -201,6 +205,70 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         </div>
       )}
 
+      {/* Barra de Ferramentas de Alinhamento e Grid */}
+      <div style={{
+        position: 'absolute',
+        top: '16px',
+        right: '16px',
+        zIndex: 30,
+        display: 'flex',
+        gap: '8px',
+        background: 'var(--bg-tertiary)',
+        border: '1px solid var(--border-color)',
+        backdropFilter: 'blur(8px)',
+        padding: '6px 10px',
+        borderRadius: '10px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+      }}>
+        <button
+          type="button"
+          onClick={() => setShowGrid(!showGrid)}
+          title={showGrid ? "Ocultar linhas do Grid" : "Mostrar linhas do Grid"}
+          style={{
+            background: showGrid ? 'rgba(0, 242, 254, 0.2)' : 'transparent',
+            border: showGrid ? '1px solid var(--accent-cyan)' : 'none',
+            color: showGrid ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+            borderRadius: '6px',
+            padding: '4px 8px',
+            fontSize: '11px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Grid size={14} />
+          Grid: {showGrid ? 'LIGADO' : 'DESLIGADO'}
+        </button>
+
+        {onAlignAllNodes && (
+          <button
+            type="button"
+            onClick={onAlignAllNodes}
+            title="Alinhar todas as caixas na grade de 20px"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              borderRadius: '6px',
+              padding: '4px 8px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <LayoutGrid size={14} />
+            Alinhar Caixas
+          </button>
+        )}
+      </div>
+
       <ReactFlow
         nodes={flowNodes as unknown as Node[]}
         edges={edges as Edge[]}
@@ -244,13 +312,14 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         panOnScroll={false}
         panOnDrag={true}
       >
-        <Background variant={BackgroundVariant.Lines} color="rgba(255, 255, 255, 0.12)" gap={20} size={1} />
+        {showGrid && <Background variant={BackgroundVariant.Lines} color="rgba(255, 255, 255, 0.15)" gap={20} size={1} />}
         <Controls style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
         <MiniMap
           nodeColor={(node) => {
             switch (node.type) {
               case 'trigger': return '#10b981';
               case 'schedule': return '#8b5cf6';
+              case 'email_trigger': return '#0284c7';
               case 'action': return '#3b82f6';
               case 'decision': return '#f59e0b';
               case 'approval': return '#8b5cf6';

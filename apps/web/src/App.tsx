@@ -542,19 +542,39 @@ function WorkflowAppContent() {
       if (!canEdit) return;
       setNodes((nds) => {
         const updated = applyNodeChanges(changes, nds as any) as any;
-        const gridSnapped = updated.map((node: any) => ({
-          ...node,
-          position: {
-            x: Math.round(node.position.x / 20) * 20,
-            y: Math.round(node.position.y / 20) * 20,
-          },
-        }));
-        broadcastStateChange(gridSnapped, edges);
-        return gridSnapped;
+        const finalNodes = updated.map((node: any) => {
+          const isPosChange = changes.some((c) => c.type === 'position' && (c as any).id === node.id);
+          if (isPosChange) {
+            return {
+              ...node,
+              position: {
+                x: Math.round(node.position.x / 20) * 20,
+                y: Math.round(node.position.y / 20) * 20,
+              },
+            };
+          }
+          return node;
+        });
+        broadcastStateChange(finalNodes, edges);
+        return finalNodes;
       });
     },
     [canEdit, edges, broadcastStateChange]
   );
+
+  const handleAlignAllNodes = useCallback(() => {
+    setNodes((nds) => {
+      const aligned = nds.map((n) => ({
+        ...n,
+        position: {
+          x: Math.round(n.position.x / 20) * 20,
+          y: Math.round(n.position.y / 20) * 20,
+        },
+      }));
+      broadcastStateChange(aligned, edges);
+      return aligned;
+    });
+  }, [edges, broadcastStateChange]);
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
@@ -610,6 +630,7 @@ function WorkflowAppContent() {
       const titles: Record<NodeType, string> = {
         trigger: 'Novo Gatilho / Input',
         schedule: 'Gatilho de Agendamento',
+        email_trigger: 'Gatilho de E-mail',
         http: 'Requisição HTTP / Webhook',
         action: 'Nova Ação / Processo',
         decision: 'Nova Decisão',
@@ -634,6 +655,27 @@ function WorkflowAppContent() {
         cronExpression: '0 9 * * *',
       };
 
+      const defaultInboundEmail = `flow-${uniqueId.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 16)}@inbound.synapse.com`;
+
+      const defaultEmailConfig = {
+        mode: 'synapse_inbound' as const,
+        inboundEmail: defaultInboundEmail,
+        imapHost: 'imap.gmail.com',
+        imapPort: 993,
+        imapUser: '',
+        imapPass: '',
+        filterSubject: '',
+        filterFrom: '',
+        onlyWithAttachments: false,
+      };
+
+      const defaultEmailOutputs = [
+        { key: 'email.from', label: 'Remetente (email.from)', type: 'string' },
+        { key: 'email.subject', label: 'Assunto (email.subject)', type: 'string' },
+        { key: 'email.body', label: 'Corpo do E-mail (email.body)', type: 'string' },
+        { key: 'email.attachments', label: 'Lista de Anexos (email.attachments)', type: 'array' },
+      ];
+
       const newNode: WorkflowNode = {
         id: uniqueId,
         type,
@@ -642,7 +684,9 @@ function WorkflowAppContent() {
           label: titles[type] || 'Novo Nó',
           type,
           description:
-            type === 'schedule'
+            type === 'email_trigger'
+              ? `Inbound: ${defaultInboundEmail}`
+              : type === 'schedule'
               ? 'Diário às 09:00'
               : type === 'code'
               ? 'Executa script JS na Sandbox Node.js'
@@ -651,6 +695,8 @@ function WorkflowAppContent() {
               : `Configuração do nó ${type}`,
           cronExpression: type === 'schedule' ? '0 9 * * *' : undefined,
           scheduleConfig: type === 'schedule' ? defaultScheduleConfig : undefined,
+          emailConfig: type === 'email_trigger' ? defaultEmailConfig : undefined,
+          outputs: type === 'email_trigger' ? defaultEmailOutputs : undefined,
           config:
             type === 'code'
               ? { script: `return {\n  processed: true,\n  timestamp: new Date().toISOString()\n};` }
@@ -948,6 +994,7 @@ function WorkflowAppContent() {
                 onPaneClick={handlePaneClick}
                 onCanvasInteractionPosition={setLastInteractionPos}
                 onFlowGenerated={handleFlowGeneratedByAI}
+                onAlignAllNodes={handleAlignAllNodes}
                 showCopilotBar={true}
                 isDebugMode={isDebugMode}
                 failedNodeId={debugFailedNodeId}
