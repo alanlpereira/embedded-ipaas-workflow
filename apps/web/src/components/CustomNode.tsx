@@ -1,8 +1,9 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight, Clock } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { formatScheduleSummary } from '../utils/cronUtils';
 
 interface NodeColorConfig {
   bg: string;
@@ -68,6 +69,13 @@ const nodeTypeConfigs: Record<NodeType, NodeColorConfig> = {
     headerBg: 'rgba(0, 242, 254, 0.15)',
     iconColor: '#00f2fe',
     Icon: Globe,
+  },
+  schedule: {
+    bg: 'rgba(139, 92, 246, 0.05)',
+    border: '#8b5cf6',
+    headerBg: 'rgba(139, 92, 246, 0.15)',
+    iconColor: '#8b5cf6',
+    Icon: Clock,
   },
 };
 
@@ -205,6 +213,26 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
         >
           {nodeData.description}
         </p>
+      )}
+
+      {/* Badge de Agendamento Cron */}
+      {nodeType === 'schedule' && (
+        <div style={{
+          marginTop: '6px',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          background: 'rgba(139, 92, 246, 0.15)',
+          border: '1px solid rgba(139, 92, 246, 0.4)',
+          color: '#a78bfa',
+          fontSize: '10px',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+        }}>
+          <Clock size={12} />
+          <span>{formatScheduleSummary(nodeData.scheduleConfig, language)}</span>
+        </div>
       )}
 
       {/* Output Handles Específicos para Nó de Decisão com suporte a inversão de posições */}

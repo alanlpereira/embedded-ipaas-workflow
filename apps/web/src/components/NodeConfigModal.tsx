@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2 } from 'lucide-react';
-import { WorkflowNode, HttpNodeConfig, CredentialVaultItem } from '@ipaas/shared-types';
+import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare } from 'lucide-react';
+import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
 
 interface NodeConfigModalProps {
   node: WorkflowNode | null;
@@ -11,7 +12,7 @@ interface NodeConfigModalProps {
 }
 
 export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, onDelete, onClose }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   if (!node) return null;
 
   const [label, setLabel] = useState(node.data.label || '');
@@ -33,12 +34,27 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [headersText, setHeadersText] = useState(typeof initialHttp.headers === 'string' ? initialHttp.headers : JSON.stringify(initialHttp.headers || {}, null, 2));
   const [bodyText, setBodyText] = useState(typeof initialHttp.body === 'string' ? initialHttp.body : JSON.stringify(initialHttp.body || {}, null, 2));
 
+  // Schedule Configuration State
+  const initialSchedule: ScheduleNodeConfig = node.data.scheduleConfig || {
+    recurrenceType: 'daily',
+    time: '09:00',
+    daysOfWeek: [1, 2, 3, 4, 5],
+    dayOfMonth: 1,
+    cronExpression: '0 9 * * 1-5',
+  };
+
+  const [recurrenceType, setRecurrenceType] = useState<'daily' | 'weekly' | 'monthly'>(initialSchedule.recurrenceType || 'daily');
+  const [scheduleTime, setScheduleTime] = useState(initialSchedule.time || '09:00');
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(initialSchedule.daysOfWeek || [1, 2, 3, 4, 5]);
+  const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState<number>(initialSchedule.dayOfMonth || 1);
+
   // State para carregamento de credenciais do Cofre
   const [vaultCredentials, setVaultCredentials] = useState<CredentialVaultItem[]>([]);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any | null>(null);
 
   const isHttpNode = node.type === 'http' || node.data.type === 'http' || (node.data.label && node.data.label.toLowerCase().includes('http'));
+  const isScheduleNode = node.type === 'schedule' || node.data.type === 'schedule' || (node.data.label && node.data.label.toLowerCase().includes('agendamento'));
 
   useEffect(() => {
     fetch('/api/v1/vault/credentials')
@@ -78,12 +94,29 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   };
 
   const handleSave = () => {
+    const computedCron = generateCronExpression({
+      recurrenceType,
+      time: scheduleTime,
+      daysOfWeek,
+      dayOfMonth: scheduleDayOfMonth,
+    });
+
+    const updatedScheduleConfig: ScheduleNodeConfig = {
+      recurrenceType,
+      time: scheduleTime,
+      daysOfWeek,
+      dayOfMonth: scheduleDayOfMonth,
+      cronExpression: computedCron,
+    };
+
     const updated: WorkflowNode = {
       ...node,
       data: {
         ...node.data,
         label,
-        description,
+        description: isScheduleNode
+          ? formatScheduleSummary(updatedScheduleConfig, language)
+          : description,
         swapOutputs,
         httpConfig: isHttpNode ? {
           method: httpMethod,
@@ -92,6 +125,8 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
           headers: headersText,
           body: bodyText,
         } : node.data.httpConfig,
+        scheduleConfig: isScheduleNode ? updatedScheduleConfig : node.data.scheduleConfig,
+        cronExpression: isScheduleNode ? computedCron : node.data.cronExpression,
       },
     };
 
@@ -240,6 +275,179 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
             >
               {swapOutputs ? 'Invertido' : 'Padrão'}
             </button>
+          </div>
+        )}
+
+        {/* Formulário Específico do Gatilho de Agendamento (Schedule Node) */}
+        {isScheduleNode && (
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid rgba(139, 92, 246, 0.4)',
+            borderRadius: '16px',
+            padding: '18px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#a78bfa', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={18} />
+              Configuração do Agendamento Recorrente
+            </h3>
+
+            {/* Seletor de Tipo de Recorrência (3 Abas / Botões) */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
+                Frequência de Recorrência
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                {(['daily', 'weekly', 'monthly'] as const).map((type) => {
+                  const isSelected = recurrenceType === type;
+                  const labels = {
+                    daily: language === 'en' ? 'Daily' : 'Diário',
+                    weekly: language === 'en' ? 'Weekly' : 'Semanal',
+                    monthly: language === 'en' ? 'Monthly' : 'Mensal',
+                  };
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setRecurrenceType(type)}
+                      style={{
+                        padding: '9px',
+                        borderRadius: '10px',
+                        background: isSelected ? 'rgba(139, 92, 246, 0.25)' : 'var(--bg-tertiary)',
+                        border: isSelected ? '2px solid #8b5cf6' : '1px solid var(--border-color)',
+                        color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                        fontWeight: isSelected ? 800 : 600,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {labels[type]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Seleção de Horário (HH:MM) */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700 }}>
+                Horário de Execução (HH:MM)
+              </label>
+              <input
+                type="time"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Seção Específica para SEMANAL (Checkboxes dos dias da semana: Dom-Sáb) */}
+            {recurrenceType === 'weekly' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 700 }}>
+                  Dias da Semana
+                </label>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    { id: 0, label: 'Dom' },
+                    { id: 1, label: 'Seg' },
+                    { id: 2, label: 'Ter' },
+                    { id: 3, label: 'Qua' },
+                    { id: 4, label: 'Qui' },
+                    { id: 5, label: 'Sex' },
+                    { id: 6, label: 'Sáb' },
+                  ].map((day) => {
+                    const isChecked = daysOfWeek.includes(day.id);
+                    return (
+                      <button
+                        key={day.id}
+                        type="button"
+                        onClick={() => {
+                          if (isChecked) {
+                            setDaysOfWeek(daysOfWeek.filter((d) => d !== day.id));
+                          } else {
+                            setDaysOfWeek([...daysOfWeek, day.id].sort());
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          minWidth: '40px',
+                          padding: '8px 4px',
+                          borderRadius: '8px',
+                          background: isChecked ? '#8b5cf6' : 'var(--bg-tertiary)',
+                          border: isChecked ? '1px solid #8b5cf6' : '1px solid var(--border-color)',
+                          color: isChecked ? '#ffffff' : 'var(--text-secondary)',
+                          fontWeight: 800,
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Seção Específica para MENSAL (Dia do Mês de 1 a 31) */}
+            {recurrenceType === 'monthly' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700 }}>
+                  Dia do Mês (1 a 31)
+                </label>
+                <select
+                  value={scheduleDayOfMonth}
+                  onChange={(e) => setScheduleDayOfMonth(parseInt(e.target.value, 10))}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    outline: 'none',
+                  }}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                    <option key={day} value={day}>
+                      Dia {day}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Preview da Expressão Cron Gerada */}
+            <div style={{
+              background: 'rgba(139, 92, 246, 0.1)',
+              border: '1px dashed rgba(139, 92, 246, 0.4)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Expressão Cron Gerada:
+              </span>
+              <code style={{ fontSize: '12px', fontWeight: 800, color: '#a78bfa', fontFamily: 'monospace' }}>
+                {generateCronExpression({ recurrenceType, time: scheduleTime, daysOfWeek, dayOfMonth: scheduleDayOfMonth })}
+              </code>
+            </div>
           </div>
         )}
 

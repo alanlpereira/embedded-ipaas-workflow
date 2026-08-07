@@ -12,6 +12,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 const nodeTypes: any = {
   trigger: CustomNode,
+  schedule: CustomNode,
   action: CustomNode,
   decision: CustomNode,
   approval: CustomNode,
@@ -249,6 +250,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
           nodeColor={(node) => {
             switch (node.type) {
               case 'trigger': return '#10b981';
+              case 'schedule': return '#8b5cf6';
               case 'action': return '#3b82f6';
               case 'decision': return '#f59e0b';
               case 'approval': return '#8b5cf6';

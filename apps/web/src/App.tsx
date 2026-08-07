@@ -609,6 +609,7 @@ function WorkflowAppContent() {
 
       const titles: Record<NodeType, string> = {
         trigger: 'Novo Gatilho / Input',
+        schedule: 'Gatilho de Agendamento',
         http: 'Requisição HTTP / Webhook',
         action: 'Nova Ação / Processo',
         decision: 'Nova Decisão',
@@ -625,6 +626,14 @@ function WorkflowAppContent() {
         y: typeof position?.y === 'number' && !isNaN(position.y) ? position.y : 150,
       };
 
+      const defaultScheduleConfig = {
+        recurrenceType: 'daily' as const,
+        time: '09:00',
+        daysOfWeek: [1, 2, 3, 4, 5],
+        dayOfMonth: 1,
+        cronExpression: '0 9 * * *',
+      };
+
       const newNode: WorkflowNode = {
         id: uniqueId,
         type,
@@ -633,11 +642,15 @@ function WorkflowAppContent() {
           label: titles[type] || 'Novo Nó',
           type,
           description:
-            type === 'code'
+            type === 'schedule'
+              ? 'Diário às 09:00'
+              : type === 'code'
               ? 'Executa script JS na Sandbox Node.js'
               : type === 'media'
               ? 'Render de vídeo assíncrono (Veo 3 / Mobile Editing)'
               : `Configuração do nó ${type}`,
+          cronExpression: type === 'schedule' ? '0 9 * * *' : undefined,
+          scheduleConfig: type === 'schedule' ? defaultScheduleConfig : undefined,
           config:
             type === 'code'
               ? { script: `return {\n  processed: true,\n  timestamp: new Date().toISOString()\n};` }
