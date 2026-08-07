@@ -63,24 +63,37 @@ Crie um fluxograma lógico estruturado em nós e arestas do React Flow com base 
 Os tipos de nó permitidos são: 'trigger', 'action', 'code', 'media', 'decision', 'approval', 'output'.
 Retorne APENAS um objeto JSON válido no formato {"nodes": [...], "edges": [...]}.`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }),
-        }
-      );
+      const modelsToTry = ['gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+      let isSuccess = false;
 
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const cleanedJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(cleanedJson);
-        nodes = parsed.nodes || [];
-        edges = parsed.edges || [];
-      } else {
-        throw new Error(`HTTP ${response.status}`);
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanedJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanedJson);
+            if (parsed && Array.isArray(parsed.nodes) && parsed.nodes.length > 0) {
+              nodes = parsed.nodes;
+              edges = parsed.edges || [];
+              isSuccess = true;
+              break;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!isSuccess) {
+        throw new Error('Nenhum modelo Gemini v1beta aceitou a requisição');
       }
     } catch (aiErr: any) {
       console.warn(`⚠️ [AI WARN] Chamada Gemini em fallback (${aiErr.message}). Gerando grafo estruturado local...`);
