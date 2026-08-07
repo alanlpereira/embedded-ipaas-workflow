@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Sparkles, Send, Loader2, AlertCircle } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -16,33 +16,35 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string>('AIzaSyDummyDevKey123');
-
-  useEffect(() => {
-    const key = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '';
-    if (key && !key.includes('YourGeminiApiKeyHere') && key.trim() !== '') {
-      setApiKey(key.trim());
-    }
-  }, []);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     const promptText = textareaRef.current?.value?.trim() || '';
     if (!promptText || isGenerating) return;
 
+    // 4) CONFIRMAÇÃO SE A CHAVE VITE_GEMINI_API_KEY NÃO ESTÁ UNDEFINED
+    console.log('🔑 [VITE_GEMINI_API_KEY Check]:', import.meta.env.VITE_GEMINI_API_KEY);
+
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || '';
+
+    if (!apiKey || apiKey.includes('YourGeminiApiKeyHere') || apiKey.trim() === '') {
+      setErrorMessage('Aviso: Chave VITE_GEMINI_API_KEY não configurada no ambiente. Adicione a chave no arquivo .env.');
+      return;
+    }
+
     setIsGenerating(true);
     setErrorMessage(null);
 
     try {
-      const activeKey = apiKey || 'AIzaSyDummyDevKey123';
-      const genAI = new GoogleGenerativeAI(activeKey);
+      // 1, 2, 3 & 5. Uso EXCLUSIVO e direto do SDK @google/generative-ai sem fetch manual nem v1beta3
+      const genAI = new GoogleGenerativeAI(apiKey.trim());
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const fullPrompt = `Você é um arquiteto especialista em automação e iPaaS corporativo.
 Crie um fluxograma de automação em formato JSON válido para a seguinte solicitação do usuário:
 "${promptText}"
 
-Retorne APENAS um objeto JSON válido na seguinte estrutura sem markdown:
+Retorne APENAS um objeto JSON válido na seguinte estrutura exata sem marcações markdown:
 {
   "nodes": [
     { "id": "n1", "type": "trigger", "position": { "x": 250, "y": 50 }, "data": { "label": "Nome do Gatilho", "type": "trigger", "description": "Descrição" } },
@@ -62,7 +64,7 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura sem markdown:
         return;
       }
 
-      // Sanitização de Markdown
+      // Sanitização de Markdown antes do parse
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
       let parsedData: any = {};
@@ -90,14 +92,9 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura sem markdown:
         }
       }
     } catch (err: any) {
-      console.error('🚨 [GEMINI SDK ERROR] Falha na comunicação com o Google Gemini:', {
-        message: err?.message,
-        status: err?.status || 'UNKNOWN_STATUS',
-        error: err,
-      });
-
+      console.error('🚨 [GEMINI SDK ERROR] Erro retornado pelo SDK oficial @google/generative-ai:', err);
       const exactError = err?.message || 'Falha de comunicação com o Google Gemini SDK';
-      setErrorMessage(`Erro de Comunicação com a IA: ${exactError}`);
+      setErrorMessage(`Erro na Comunicação com a IA: ${exactError}`);
     } finally {
       setIsGenerating(false);
     }
@@ -112,7 +109,7 @@ Retorne APENAS um objeto JSON válido na seguinte estrutura sem markdown:
       maxWidth: '680px',
       ...style,
     }}>
-      {/* BARRA DE PROMPT DA IA (ISOLADA COM useRef) */}
+      {/* BARRA DE PROMPT DA IA */}
       <form
         onSubmit={handleGenerate}
         style={{

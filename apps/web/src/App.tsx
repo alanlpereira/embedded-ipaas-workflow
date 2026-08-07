@@ -511,10 +511,17 @@ function WorkflowAppContent() {
         media: 'Processamento de Mídia / Assíncrono',
       };
 
+      // 4. GARANTE ID ÚNICO E POSITION VÁLIDO NO ONDROP
+      const uniqueId = `node-${type}-${crypto.randomUUID()}`;
+      const validPosition = {
+        x: typeof position?.x === 'number' && !isNaN(position.x) ? position.x : 250,
+        y: typeof position?.y === 'number' && !isNaN(position.y) ? position.y : 150,
+      };
+
       const newNode: WorkflowNode = {
-        id: `node-${type}-${Date.now()}`,
+        id: uniqueId,
         type,
-        position,
+        position: validPosition,
         data: {
           label: titles[type] || 'Novo Nó',
           type,
@@ -545,12 +552,23 @@ function WorkflowAppContent() {
 
   const handleUpdateNode = (updatedNode: WorkflowNode) => {
     if (!canEdit) return;
-    setNodes((prev) => {
-      const updated = prev.map((n) => (n.id === updatedNode.id ? updatedNode : n));
+    const activeNodeId = updatedNode.id;
+    setNodes((nds) => {
+      const updated = nds.map((node) =>
+        node.id === activeNodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                ...updatedNode.data,
+              },
+            }
+          : node
+      );
       broadcastStateChange(updated, edges);
       return updated;
     });
-    setSelectedNode(updatedNode);
+    setSelectedNode(null);
   };
 
   const handleDeleteNode = (nodeId: string) => {
@@ -819,8 +837,21 @@ function WorkflowAppContent() {
       {selectedNode && (
         <NodeConfigModal
           node={selectedNode}
-          onSave={(updatedNode) => {
-            setNodes((prev) => prev.map((n) => (n.id === updatedNode.id ? updatedNode : n)));
+          onSave={(novosDadosDaConfiguracao) => {
+            const activeNodeId = selectedNode.id;
+            setNodes((nds) =>
+              nds.map((node) =>
+                node.id === activeNodeId
+                  ? {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        ...novosDadosDaConfiguracao.data,
+                      },
+                    }
+                  : node
+              )
+            );
             setSelectedNode(null);
           }}
           onClose={() => setSelectedNode(null)}
