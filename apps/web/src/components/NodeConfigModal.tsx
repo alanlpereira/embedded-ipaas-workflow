@@ -16,6 +16,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
 
   const [label, setLabel] = useState(node.data.label || '');
   const [description, setDescription] = useState(node.data.description || '');
+  const [swapOutputs, setSwapOutputs] = useState(Boolean(node.data.swapOutputs));
 
   // HTTP Configuration State
   const initialHttp: HttpNodeConfig = node.data.httpConfig || {
@@ -83,6 +84,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         ...node.data,
         label,
         description,
+        swapOutputs,
         httpConfig: isHttpNode ? {
           method: httpMethod,
           url,
@@ -200,6 +202,46 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
             }}
           />
         </div>
+
+        {/* Configuração de Posição Sim/Não para Nó de Decisão */}
+        {node.data.type === 'decision' && (
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <div>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
+                Inverter Posições das Saídas (Sim / Não)
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                {swapOutputs ? 'Esquerda: Não | Direita: Sim' : 'Esquerda: Sim | Direita: Não'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSwapOutputs(!swapOutputs)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                background: swapOutputs ? 'rgba(0, 242, 254, 0.2)' : 'var(--bg-tertiary)',
+                border: swapOutputs ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
+                color: swapOutputs ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              {swapOutputs ? 'Invertido' : 'Padrão'}
+            </button>
+          </div>
+        )}
 
         {/* Formulário Específico de Requisição HTTP / Webhook */}
         <div style={{

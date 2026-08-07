@@ -49,6 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { currentOrg, theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isEditMetadataOpen, setIsEditMetadataOpen] = useState(false);
+  const [isInlineEditingTitle, setIsInlineEditingTitle] = useState(false);
   const [editName, setEditName] = useState(flowchartName);
   const [editDesc, setEditDesc] = useState(flowchartDescription);
 
@@ -322,29 +323,65 @@ export const Navbar: React.FC<NavbarProps> = ({
         )}
 
         {currentTab === 'editor' && (
-          <button
-            onClick={handleOpenMetadataModal}
-            title="Clique para editar título e descrição do fluxo"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              background: 'var(--bg-tertiary)',
-              color: 'var(--accent-cyan)',
-              border: '1px solid var(--border-color)',
-              fontSize: '12px',
-              fontWeight: 600,
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-              cursor: 'pointer',
-            }}
-          >
-            <Workflow size={15} />
-            <span>{flowchartName}</span>
-            <Pencil size={12} style={{ opacity: 0.7, marginLeft: '2px' }} />
-          </button>
+          isInlineEditingTitle ? (
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={() => {
+                setIsInlineEditingTitle(false);
+                if (onUpdateFlowchartMetadata && editName.trim()) {
+                  onUpdateFlowchartMetadata(editName.trim(), flowchartDescription);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setIsInlineEditingTitle(false);
+                  if (onUpdateFlowchartMetadata && editName.trim()) {
+                    onUpdateFlowchartMetadata(editName.trim(), flowchartDescription);
+                  }
+                }
+              }}
+              autoFocus
+              style={{
+                padding: '5px 10px',
+                borderRadius: '6px',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--accent-cyan)',
+                border: '1px solid var(--accent-cyan)',
+                fontSize: '12px',
+                fontWeight: 700,
+                outline: 'none',
+              }}
+            />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                onClick={handleOpenMetadataModal}
+                title="Clique para abrir modal ou dê duplo-clique para editar nome inline"
+                onDoubleClick={() => setIsInlineEditingTitle(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--accent-cyan)',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                }}
+              >
+                <Workflow size={15} />
+                <span>{flowchartName}</span>
+                <Pencil size={12} style={{ opacity: 0.7, marginLeft: '2px' }} />
+              </button>
+            </div>
+          )
         )}
 
         <button

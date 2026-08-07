@@ -10,6 +10,7 @@ interface DashboardPageProps {
   onCreateFlowchart: (folderId?: string) => void;
   onDeleteFlowchart: (id: string) => void;
   onMoveFlowchart?: (flowchartId: string, targetFolderId: string) => void;
+  onUpdateFlowchart?: (id: string, name: string, description?: string) => void;
 }
 
 const DEFAULT_FOLDERS: Folder[] = [
@@ -27,6 +28,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onCreateFlowchart,
   onDeleteFlowchart,
   onMoveFlowchart,
+  onUpdateFlowchart,
 }) => {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,9 +40,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isNewAreaModalOpen, setIsNewAreaModalOpen] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [movingFlowchart, setMovingFlowchart] = useState<Flowchart | null>(null);
+  const [editingFlowchart, setEditingFlowchart] = useState<Flowchart | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  const canEdit = currentProfile.role === 'Master' || currentProfile.role === 'Admin';
+  const canEdit = currentProfile.role !== 'Viewer';
 
   // Carregar Pastas
   useEffect(() => {
@@ -445,7 +450,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                               flexDirection: 'column',
                               gap: '2px',
                             }}>
-                              {/* 5. OPÇÃO MOVER PARA... */}
+                              {/* OPÇÃO EDITAR NOME E DESCRIÇÃO */}
+                              <button
+                                onClick={() => {
+                                  setEditingFlowchart(flow);
+                                  setEditName(flow.name);
+                                  setEditDesc(flow.description || '');
+                                  setActiveMenuId(null);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-primary)',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                }}
+                              >
+                                <Edit3 size={14} color="var(--accent-cyan)" />
+                                Editar Nome/Descrição
+                              </button>
+
+                              {/* OPÇÃO MOVER PARA... */}
                               <button
                                 onClick={() => {
                                   setMovingFlowchart(flow);
@@ -465,7 +496,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                                   textAlign: 'left',
                                 }}
                               >
-                                <MoveRight size={14} color="var(--accent-cyan)" />
+                                <MoveRight size={14} color="var(--accent-blue)" />
                                 Mover para...
                               </button>
 
@@ -752,6 +783,136 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDIÇÃO DE NOME E DESCRIÇÃO DO FLUXO */}
+      {editingFlowchart && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '480px',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Edit3 size={20} color="var(--accent-cyan)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  Editar Nome e Descrição
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingFlowchart(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (editName.trim() && onUpdateFlowchart && editingFlowchart) {
+                onUpdateFlowchart(editingFlowchart.id, editName.trim(), editDesc.trim());
+              }
+              setEditingFlowchart(null);
+            }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Nome do Fluxo *
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Ex: Integração ERP com CRM"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Descrição (Opcional)
+                </label>
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  placeholder="Descreva a finalidade ou regras deste fluxograma..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingFlowchart(null)}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    background: 'transparent',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
+                    border: 'none',
+                    color: '#0a0c10',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ReactFlowProvider, applyNodeChanges, applyEdgeChanges, addEdge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
 import { Navbar, ViewTab } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -437,14 +437,11 @@ function WorkflowAppContent() {
     handleOpenFlowchart(newFlow);
   };
 
-  const handleUpdateFlowchartMetadata = async (name: string, description?: string) => {
-    if (!activeFlowchart) return;
-    const flowchartId = activeFlowchart.id;
-
+  const handleUpdateFlowchartById = async (id: string, name: string, description?: string) => {
     // 1. Atualizar estado local no React imediatamente
-    setActiveFlowchart((prev) => (prev ? { ...prev, name, description } : null));
+    setActiveFlowchart((prev) => (prev && prev.id === id ? { ...prev, name, description } : prev));
     setFlowcharts((prev) =>
-      prev.map((f) => (f.id === flowchartId ? { ...f, name, description, updated_at: new Date().toISOString() } : f))
+      prev.map((f) => (f.id === id ? { ...f, name, description, updated_at: new Date().toISOString() } : f))
     );
 
     // 2. Persistir UPDATE na tabela 'workflows' do Supabase
@@ -452,19 +449,24 @@ function WorkflowAppContent() {
       await supabase
         .from('workflows')
         .update({ name, description, updated_at: new Date().toISOString() })
-        .eq('id', flowchartId);
+        .eq('id', id);
     } catch (err) {
       console.warn('⚠️ [SUPABASE UPDATE WARN] Falha ao atualizar tabela workflows:', err);
     }
 
     // 3. Persistir na rota backend local
     try {
-      await fetch(`/api/v1/flowcharts/${flowchartId}`, {
+      await fetch(`/api/v1/flowcharts/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description }),
       });
     } catch (err) {}
+  };
+
+  const handleUpdateFlowchartMetadata = async (name: string, description?: string) => {
+    if (!activeFlowchart) return;
+    await handleUpdateFlowchartById(activeFlowchart.id, name, description);
   };
 
   const handleMoveFlowchart = (flowchartId: string, targetFolderId: string) => {
@@ -648,6 +650,47 @@ function WorkflowAppContent() {
     [canEdit, edges, broadcastStateChange, t.messages.accessDenied]
   );
 
+  const [lastInteractionPos, setLastInteractionPos] = useState<{ x: number; y: number }>({ x: 280, y: 160 });
+
+  const handleAddNodeFromSidebar = useCallback(
+    (type: NodeType) => {
+      const posX = Math.round(lastInteractionPos.x / 20) * 20;
+      const posY = Math.round(lastInteractionPos.y / 20) * 20;
+      handleAddNodeAtPosition(type, { x: Math.max(20, posX), y: Math.max(20, posY) });
+      setLastInteractionPos({ x: posX + 240, y: posY });
+    },
+    [lastInteractionPos, handleAddNodeAtPosition]
+  );
+
+  const handleToggleSwapOutputs = useCallback((nodeId: string) => {
+    setNodes((nds) => {
+      const updated = nds.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              swapOutputs: !node.data.swapOutputs,
+            },
+          };
+        }
+        return node;
+      });
+      broadcastStateChange(updated, edges);
+      return updated;
+    });
+  }, [edges, broadcastStateChange]);
+
+  const canvasNodes = useMemo(() => {
+    return nodes.map((n) => ({
+      ...n,
+      data: {
+        ...n.data,
+        onToggleSwapOutputs: handleToggleSwapOutputs,
+      },
+    }));
+  }, [nodes, handleToggleSwapOutputs]);
+
   const handleUpdateNode = (updatedNode: WorkflowNode) => {
     if (!canEdit) return;
     const activeNodeId = updatedNode.id;
@@ -809,6 +852,7 @@ function WorkflowAppContent() {
           onCreateFlowchart={handleCreateFlowchart}
           onDeleteFlowchart={handleDeleteFlowchart}
           onMoveFlowchart={handleMoveFlowchart}
+          onUpdateFlowchart={handleUpdateFlowchartById}
         />
       )}
 
@@ -871,9 +915,9 @@ function WorkflowAppContent() {
             />
           ) : (
             <>
-              {canEdit && <Sidebar />}
+              {canEdit && <Sidebar onAddNode={handleAddNodeFromSidebar} />}
               <WorkflowCanvas
-                nodes={nodes}
+                nodes={canvasNodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
@@ -882,6 +926,7 @@ function WorkflowAppContent() {
                 onDeleteEdge={handleDeleteEdge}
                 onAddNodeAtPosition={handleAddNodeAtPosition}
                 onPaneClick={handlePaneClick}
+                onCanvasInteractionPosition={setLastInteractionPos}
                 onFlowGenerated={handleFlowGeneratedByAI}
                 showCopilotBar={true}
                 isDebugMode={isDebugMode}

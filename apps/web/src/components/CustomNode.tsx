@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe } from 'lucide-react';
+import { Zap, Play, GitFork, UserCheck, Send, AlertTriangle, Code2, Video, Globe, ArrowLeftRight } from 'lucide-react';
 import { NodeType, WorkflowNodeData } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -207,47 +207,85 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ data, selected }) =>
         </p>
       )}
 
-      {/* Output Handles Específicos para Nó de Decisão (Labels i18n Sim/Não ou Yes/No) */}
-      {isDecision ? (
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', padding: '0 8px' }}>
-          <div style={{ position: 'relative' }}>
-            <span style={{ fontSize: '10px', color: '#10b981', fontWeight: 700 }}>
-              {language === 'en' ? 'Yes' : 'Sim'}
-            </span>
-            <Handle
-              type="source"
-              position={Position.Bottom}
-              id="true"
-              style={{
-                left: '12px',
-                background: '#10b981',
-                width: '16px',
-                height: '16px',
-                border: '2px solid var(--bg-primary)',
-                borderRadius: '50%',
+      {/* Output Handles Específicos para Nó de Decisão com suporte a inversão de posições */}
+      {isDecision ? (() => {
+        const isSwapped = Boolean(nodeData.swapOutputs);
+        const leftLabel = isSwapped ? (language === 'en' ? 'No' : 'Não') : (language === 'en' ? 'Yes' : 'Sim');
+        const leftId = isSwapped ? 'false' : 'true';
+        const leftColor = isSwapped ? '#ef4444' : '#10b981';
+
+        const rightLabel = isSwapped ? (language === 'en' ? 'Yes' : 'Sim') : (language === 'en' ? 'No' : 'Não');
+        const rightId = isSwapped ? 'true' : 'false';
+        const rightColor = isSwapped ? '#10b981' : '#ef4444';
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px', padding: '0 4px' }}>
+            <div style={{ position: 'relative' }}>
+              <span style={{ fontSize: '10px', color: leftColor, fontWeight: 800 }}>
+                {leftLabel}
+              </span>
+              <Handle
+                type="source"
+                position={Position.Bottom}
+                id={leftId}
+                style={{
+                  left: '12px',
+                  background: leftColor,
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid var(--bg-primary)',
+                  borderRadius: '50%',
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if ((data as any).onToggleSwapOutputs) {
+                  (data as any).onToggleSwapOutputs(data.id || '');
+                } else {
+                  nodeData.swapOutputs = !isSwapped;
+                }
               }}
-            />
-          </div>
-          <div style={{ position: 'relative' }}>
-            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700 }}>
-              {language === 'en' ? 'No' : 'Não'}
-            </span>
-            <Handle
-              type="source"
-              position={Position.Bottom}
-              id="false"
+              title={language === 'en' ? 'Swap Yes/No outputs' : 'Inverter posições Sim/Não'}
               style={{
-                right: '12px',
-                background: '#ef4444',
-                width: '16px',
-                height: '16px',
-                border: '2px solid var(--bg-primary)',
-                borderRadius: '50%',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                padding: '2px 5px',
+                color: 'var(--accent-cyan)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            />
+            >
+              <ArrowLeftRight size={11} />
+            </button>
+
+            <div style={{ position: 'relative' }}>
+              <span style={{ fontSize: '10px', color: rightColor, fontWeight: 800 }}>
+                {rightLabel}
+              </span>
+              <Handle
+                type="source"
+                position={Position.Bottom}
+                id={rightId}
+                style={{
+                  right: '12px',
+                  background: rightColor,
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid var(--bg-primary)',
+                  borderRadius: '50%',
+                }}
+              />
+            </div>
           </div>
-        </div>
-      ) : (
+        );
+      })() : (
         nodeType !== 'output' && (
           <Handle
             type="source"

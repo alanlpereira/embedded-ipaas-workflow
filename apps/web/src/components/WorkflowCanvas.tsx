@@ -30,7 +30,8 @@ interface WorkflowCanvasProps {
   onNodeClick: (event: React.MouseEvent, node: WorkflowNode) => void;
   onDeleteEdge?: (edgeId: string) => void;
   onAddNodeAtPosition: (type: NodeType, position: { x: number; y: number }) => void;
-  onPaneClick: () => void;
+  onPaneClick: (event?: React.MouseEvent) => void;
+  onCanvasInteractionPosition?: (position: { x: number; y: number }) => void;
   onFlowGenerated?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
   showCopilotBar?: boolean;
   // Debug Mode Props
@@ -54,6 +55,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   onDeleteEdge,
   onAddNodeAtPosition,
   onPaneClick,
+  onCanvasInteractionPosition,
   onFlowGenerated,
   showCopilotBar = true,
   isDebugMode = false,
@@ -205,8 +207,23 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeClick={onNodeClick as any}
-        onPaneClick={onPaneClick}
+        onNodeClick={(event, node) => {
+          if (onCanvasInteractionPosition) {
+            const posX = Math.round((node.position.x + 240) / 20) * 20;
+            const posY = Math.round(node.position.y / 20) * 20;
+            onCanvasInteractionPosition({ x: posX, y: posY });
+          }
+          onNodeClick(event, node as any);
+        }}
+        onPaneClick={(event) => {
+          if (onCanvasInteractionPosition && event) {
+            const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+            const posX = Math.round((event.clientX - bounds.left - 100) / 20) * 20;
+            const posY = Math.round((event.clientY - bounds.top - 50) / 20) * 20;
+            onCanvasInteractionPosition({ x: Math.max(20, posX), y: Math.max(20, posY) });
+          }
+          onPaneClick(event);
+        }}
         onEdgeClick={(event, edge) => {
           event.stopPropagation();
           if (onDeleteEdge) {
@@ -216,8 +233,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
           }
         }}
         fitView
-        snapToGrid
-        snapGrid={[15, 15]}
+        snapToGrid={true}
+        snapGrid={[20, 20]}
         deleteKeyCode={['Backspace', 'Delete']}
         edgesReconnectable={true}
         edgesFocusable={true}
@@ -226,7 +243,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         panOnScroll={false}
         panOnDrag={true}
       >
-        <Background color="rgba(255, 255, 255, 0.05)" gap={20} size={1} />
+        <Background color="rgba(255, 255, 255, 0.08)" gap={20} size={1} />
         <Controls style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
         <MiniMap
           nodeColor={(node) => {

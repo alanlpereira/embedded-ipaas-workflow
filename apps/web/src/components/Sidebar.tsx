@@ -46,7 +46,11 @@ const blocks: SidebarBlock[] = [
   { type: 'output', labelKey: 'output', icon: <Send size={18} color="#a855f7" />, color: '#a855f7' },
 ];
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onAddNode?: (type: NodeType) => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onAddNode }) => {
   const { currentOrg } = useTheme();
   const { language, t } = useLanguage();
 
@@ -120,13 +124,14 @@ export const Sidebar: React.FC = () => {
               key={block.type}
               draggable
               onDragStart={(e) => onDragStart(e, block.type)}
+              onClick={() => onAddNode && onAddNode(block.type)}
               style={{
                 padding: '12px',
                 borderRadius: '12px',
                 background: 'var(--bg-tertiary)',
                 border: `1px solid var(--border-color)`,
                 borderLeft: `4px solid ${block.color}`,
-                cursor: 'grab',
+                cursor: 'pointer',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex',
                 alignItems: 'center',
