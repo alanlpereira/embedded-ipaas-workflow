@@ -617,14 +617,17 @@ function WorkflowAppContent() {
   };
 
   const handleFlowGeneratedByAI = (newNodes: WorkflowNode[], newEdges: WorkflowEdge[]) => {
-    if (!Array.isArray(newNodes) || !Array.isArray(newEdges)) {
-      console.error('🚨 [FLOW GENERATOR] Formato de fluxo inválido recebido da IA:', { newNodes, newEdges });
-      alert('Formato de fluxo inválido recebido da IA');
+    const safeNodes = Array.isArray(newNodes) ? newNodes : [];
+    const safeEdges = Array.isArray(newEdges) ? newEdges : [];
+
+    if (safeNodes.length === 0) {
+      alert('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
       return;
     }
-    setNodes(newNodes);
-    setEdges(newEdges);
-    broadcastStateChange(newNodes, newEdges);
+
+    setNodes(safeNodes);
+    setEdges(safeEdges);
+    broadcastStateChange(safeNodes, safeEdges);
     alert(t.messages.flowGenerated);
   };
 

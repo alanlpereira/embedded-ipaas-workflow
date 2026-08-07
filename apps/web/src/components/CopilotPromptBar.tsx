@@ -74,33 +74,40 @@ Estrutura JSON obrigatória:
       } as any);
 
       const response = await result.response;
-      // 3. Ao receber a resposta, faça o parse seguro
-      const textResponse = response.text();
 
-      if (!textResponse || textResponse.trim() === '') {
-        throw new Error('Formato de fluxo inválido recebido da IA');
+      // 1) Pegue o texto bruto da resposta
+      let rawText = response.text();
+
+      if (!rawText || rawText.trim() === '') {
+        setErrorMessage('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
+        return;
       }
 
-      const cleanJsonString = textResponse
-        .replace(/```json/gi, '')
-        .replace(/```/g, '')
-        .trim();
+      // 2) Remova qualquer formatação markdown acidental usando regex antes do parse
+      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-      let parsedData: any;
+      // 3) Faça o parse dentro de um bloco try
+      let parsedData: any = {};
       try {
-        parsedData = JSON.parse(cleanJsonString);
+        parsedData = JSON.parse(rawText);
       } catch (jsonErr: any) {
-        throw new Error('Formato de fluxo inválido recebido da IA');
+        console.error('🚨 [JSON PARSE ERROR] Falha ao converter resposta da IA em JSON:', jsonErr, rawText);
+        parsedData = {};
       }
 
-      // 4. Antes de injetar os dados no estado do React Flow, faça uma validação de iterabilidade
-      if (!parsedData || typeof parsedData !== 'object' || !Array.isArray(parsedData.nodes) || !Array.isArray(parsedData.edges)) {
-        // 5. Se não forem iteráveis, dispare um throw new Error("Formato de fluxo inválido recebido da IA");
-        throw new Error('Formato de fluxo inválido recebido da IA');
+      // 4) CRIE FALLBACKS SEGUROS (ESTA É A CORREÇÃO PRINCIPAL)
+      const safeNodes = (parsedData && Array.isArray(parsedData.nodes)) ? parsedData.nodes : [];
+      const safeEdges = (parsedData && Array.isArray(parsedData.edges)) ? parsedData.edges : [];
+
+      // 6) Se safeNodes.length for 0, exiba um Toast/Alerta amigável
+      if (safeNodes.length === 0) {
+        setErrorMessage('A IA não conseguiu gerar um fluxo válido. Tente detalhar mais o seu pedido.');
+        return;
       }
 
+      // 5) Passe apenas 'safeNodes' e 'safeEdges' para a função que atualiza o estado do React Flow. Nunca repasse a variável inteira diretamente.
       if (onFlowGenerated) {
-        onFlowGenerated(parsedData.nodes, parsedData.edges);
+        onFlowGenerated(safeNodes, safeEdges);
         if (textareaRef.current) {
           textareaRef.current.value = '';
           textareaRef.current.style.height = 'auto';
