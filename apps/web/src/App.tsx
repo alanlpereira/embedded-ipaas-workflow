@@ -542,8 +542,15 @@ function WorkflowAppContent() {
       if (!canEdit) return;
       setNodes((nds) => {
         const updated = applyNodeChanges(changes, nds as any) as any;
-        broadcastStateChange(updated, edges);
-        return updated;
+        const gridSnapped = updated.map((node: any) => ({
+          ...node,
+          position: {
+            x: Math.round(node.position.x / 20) * 20,
+            y: Math.round(node.position.y / 20) * 20,
+          },
+        }));
+        broadcastStateChange(gridSnapped, edges);
+        return gridSnapped;
       });
     },
     [canEdit, edges, broadcastStateChange]

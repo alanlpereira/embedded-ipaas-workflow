@@ -71,7 +71,7 @@ const nodeTypeConfigs: Record<NodeType, NodeColorConfig> = {
   },
 };
 
-export const CustomNode: React.FC<NodeProps<any>> = memo(({ data, selected }) => {
+export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }) => {
   const { language } = useLanguage();
   const nodeData = data as WorkflowNodeData;
   const nodeType = nodeData.type || 'action';
@@ -244,7 +244,7 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ data, selected }) =>
               onClick={(e) => {
                 e.stopPropagation();
                 if ((data as any).onToggleSwapOutputs) {
-                  (data as any).onToggleSwapOutputs(data.id || '');
+                  (data as any).onToggleSwapOutputs(id);
                 } else {
                   nodeData.swapOutputs = !isSwapped;
                 }

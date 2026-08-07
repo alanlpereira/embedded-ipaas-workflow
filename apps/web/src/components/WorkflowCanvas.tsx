@@ -1,5 +1,5 @@
 import React from 'react';
-import { ReactFlow, Controls, Background, MiniMap, Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
+import { ReactFlow, Controls, Background, BackgroundVariant, MiniMap, Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
 
@@ -243,7 +243,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         panOnScroll={false}
         panOnDrag={true}
       >
-        <Background color="rgba(255, 255, 255, 0.08)" gap={20} size={1} />
+        <Background variant={BackgroundVariant.Lines} color="rgba(255, 255, 255, 0.12)" gap={20} size={1} />
         <Controls style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
         <MiniMap
           nodeColor={(node) => {

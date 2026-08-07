@@ -26,7 +26,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http';
+export type NodeType = 'trigger' | 'action' | 'decision' | 'approval' | 'output' | 'code' | 'media' | 'http' | 'schedule';
 
 export interface HttpNodeConfig {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -36,12 +36,22 @@ export interface HttpNodeConfig {
   body?: string;
 }
 
+export interface ScheduleNodeConfig {
+  recurrenceType: 'daily' | 'weekly' | 'monthly';
+  time: string; // "HH:MM" ex: "09:00"
+  daysOfWeek: number[]; // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  dayOfMonth: number; // 1-31
+  cronExpression: string; // Ex: "0 9 * * 1-5"
+}
+
 export interface WorkflowNodeData {
   label: string;
   type: NodeType;
   description?: string;
   config?: Record<string, any>;
   httpConfig?: HttpNodeConfig;
+  scheduleConfig?: ScheduleNodeConfig;
+  cronExpression?: string;
   [key: string]: any;
 }
 
