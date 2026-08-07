@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2 } from 'lucide-react';
 import { WorkflowNode, HttpNodeConfig, CredentialVaultItem } from '@ipaas/shared-types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface NodeConfigModalProps {
   node: WorkflowNode | null;
@@ -10,6 +11,7 @@ interface NodeConfigModalProps {
 }
 
 export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, onDelete, onClose }) => {
+  const { t } = useLanguage();
   if (!node) return null;
 
   const [label, setLabel] = useState(node.data.label || '');
@@ -427,7 +429,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               }}
             >
               <Trash2 size={15} />
-              Excluir Nó
+              {t.nodeConfig.deleteBtn}
             </button>
           )}
 
@@ -445,7 +447,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               cursor: 'pointer',
             }}
           >
-            Cancelar
+            {t.nodeConfig.cancelBtn}
           </button>
           <button
             type="button"
@@ -461,7 +463,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               cursor: 'pointer',
             }}
           >
-            Salvar Configurações
+            {t.nodeConfig.saveBtn}
           </button>
         </div>
       </div>

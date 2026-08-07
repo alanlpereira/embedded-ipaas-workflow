@@ -2,77 +2,53 @@ import React from 'react';
 import { Zap, Play, GitFork, UserCheck, Send, Code2, Video, Globe } from 'lucide-react';
 import { NodeType } from '@ipaas/shared-types';
 import { EditionBadge } from './EditionBadge';
+import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
 interface SidebarBlock {
   type: NodeType;
-  label: string;
-  description: string;
+  labelKey: keyof typeof blockTranslations.pt;
   icon: React.ReactNode;
   color: string;
 }
 
+const blockTranslations = {
+  pt: {
+    trigger: { label: 'Gatilho / Evento', desc: 'Recebe eventos HTTP Webhook ou agendamentos cron.' },
+    http: { label: 'Requisição HTTP / Webhook', desc: 'Dispara chamadas REST/Webhook reais com tokens do Cofre.' },
+    action: { label: 'Ação / Processamento', desc: 'Executa ações automatizadas nos sistemas conectados.' },
+    code: { label: 'Código Customizado JS', desc: 'Executa scripts Node.js isolados via Sandbox VM.' },
+    media: { label: 'Processamento de Mídia', desc: 'Renderização de vídeo assíncrona (Veo 3 / Pipeline).' },
+    decision: { label: 'Decisão Lógica', desc: 'Bifurca o fluxo de acordo com regras de validação.' },
+    approval: { label: 'Aprovação (HITL)', desc: 'Pausa para aprovação humana (Mobile Zero Fricção).' },
+    output: { label: 'Saída / Resposta', desc: 'Retorna payload final ou status HTTP.' },
+  },
+  en: {
+    trigger: { label: 'Trigger / Event', desc: 'Receives HTTP Webhook events or cron schedules.' },
+    http: { label: 'HTTP Request / Webhook', desc: 'Fires real REST/Webhook calls with Vault tokens.' },
+    action: { label: 'Action / Processing', desc: 'Executes automated actions on connected systems.' },
+    code: { label: 'Custom JS Code', desc: 'Executes isolated Node.js scripts via Sandbox VM.' },
+    media: { label: 'Media Processing', desc: 'Async video rendering (Veo 3 / Pipeline).' },
+    decision: { label: 'Logical Decision', desc: 'Branches flow according to validation rules.' },
+    approval: { label: 'Approval (HITL)', desc: 'Pauses for human approval (Zero Friction Mobile).' },
+    output: { label: 'Output / Response', desc: 'Returns final payload or HTTP status.' },
+  },
+};
+
 const blocks: SidebarBlock[] = [
-  {
-    type: 'trigger',
-    label: 'Gatilho / Evento',
-    description: 'Recebe eventos HTTP Webhook ou agendamentos cron.',
-    icon: <Zap size={18} color="#10b981" />,
-    color: '#10b981',
-  },
-  {
-    type: 'http',
-    label: 'Requisição HTTP / Webhook',
-    description: 'Dispara chamadas REST/Webhook reais com tokens do Cofre.',
-    icon: <Globe size={18} color="#00f2fe" />,
-    color: '#00f2fe',
-  },
-  {
-    type: 'action',
-    label: 'Ação / Processamento',
-    description: 'Executa ações automatizadas nos sistemas conectados.',
-    icon: <Play size={18} color="#3b82f6" />,
-    color: '#3b82f6',
-  },
-  {
-    type: 'code',
-    label: 'Código Customizado JS',
-    description: 'Executa scripts Node.js isolados via Sandbox VM.',
-    icon: <Code2 size={18} color="#06b6d4" />,
-    color: '#06b6d4',
-  },
-  {
-    type: 'media',
-    label: 'Processamento de Mídia',
-    description: 'Renderização de vídeo assíncrona (Veo 3 / Pipeline).',
-    icon: <Video size={18} color="#d946ef" />,
-    color: '#d946ef',
-  },
-  {
-    type: 'decision',
-    label: 'Decisão Lógica',
-    description: 'Bifurca o fluxo de acordo com regras de validação.',
-    icon: <GitFork size={18} color="#f59e0b" />,
-    color: '#f59e0b',
-  },
-  {
-    type: 'approval',
-    label: 'Aprovação (HITL)',
-    description: 'Pausa para aprovação humana (Mobile Zero Fricção).',
-    icon: <UserCheck size={18} color="#f97316" />,
-    color: '#f97316',
-  },
-  {
-    type: 'output',
-    label: 'Saída / Resposta',
-    description: 'Retorna payload final ou status HTTP.',
-    icon: <Send size={18} color="#a855f7" />,
-    color: '#a855f7',
-  },
+  { type: 'trigger', labelKey: 'trigger', icon: <Zap size={18} color="#10b981" />, color: '#10b981' },
+  { type: 'http', labelKey: 'http', icon: <Globe size={18} color="#00f2fe" />, color: '#00f2fe' },
+  { type: 'action', labelKey: 'action', icon: <Play size={18} color="#3b82f6" />, color: '#3b82f6' },
+  { type: 'code', labelKey: 'code', icon: <Code2 size={18} color="#06b6d4" />, color: '#06b6d4' },
+  { type: 'media', labelKey: 'media', icon: <Video size={18} color="#d946ef" />, color: '#d946ef' },
+  { type: 'decision', labelKey: 'decision', icon: <GitFork size={18} color="#f59e0b" />, color: '#f59e0b' },
+  { type: 'approval', labelKey: 'approval', icon: <UserCheck size={18} color="#f97316" />, color: '#f97316' },
+  { type: 'output', labelKey: 'output', icon: <Send size={18} color="#a855f7" />, color: '#a855f7' },
 ];
 
 export const Sidebar: React.FC = () => {
   const { currentOrg } = useTheme();
+  const { language, t } = useLanguage();
 
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -129,66 +105,69 @@ export const Sidebar: React.FC = () => {
 
       <div>
         <h2 style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px 0' }}>
-          Blocos de Construção
+          {t.sidebar.title}
         </h2>
         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-          Arraste e solte no canvas para criar automações.
+          {t.sidebar.dragInstructions}
         </p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-        {blocks.map((block) => (
-          <div
-            key={block.type}
-            draggable
-            onDragStart={(e) => onDragStart(e, block.type)}
-            style={{
-              padding: '12px',
-              borderRadius: '12px',
-              background: 'var(--bg-tertiary)',
-              border: `1px solid var(--border-color)`,
-              borderLeft: `4px solid ${block.color}`,
-              cursor: 'grab',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}
-          >
+        {blocks.map((block) => {
+          const info = blockTranslations[language][block.labelKey];
+          return (
             <div
+              key={block.type}
+              draggable
+              onDragStart={(e) => onDragStart(e, block.type)}
               style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: `${block.color}15`,
+                padding: '12px',
+                borderRadius: '12px',
+                background: 'var(--bg-tertiary)',
+                border: `1px solid var(--border-color)`,
+                borderLeft: `4px solid ${block.color}`,
+                cursor: 'grab',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
+                gap: '12px',
               }}
             >
-              {block.icon}
-            </div>
-
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                {block.label}
-              </h3>
-              <p
+              <div
                 style={{
-                  fontSize: '10px',
-                  color: 'var(--text-secondary)',
-                  margin: '2px 0 0 0',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: `${block.color}15`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                {block.description}
-              </p>
+                {block.icon}
+              </div>
+
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <h3 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  {info.label}
+                </h3>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    color: 'var(--text-secondary)',
+                    margin: '2px 0 0 0',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {info.desc}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </aside>
   );

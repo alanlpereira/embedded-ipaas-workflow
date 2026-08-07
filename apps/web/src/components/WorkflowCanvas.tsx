@@ -28,6 +28,7 @@ interface WorkflowCanvasProps {
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
   onNodeClick: (event: React.MouseEvent, node: WorkflowNode) => void;
+  onDeleteEdge?: (edgeId: string) => void;
   onAddNodeAtPosition: (type: NodeType, position: { x: number; y: number }) => void;
   onPaneClick: () => void;
   onFlowGenerated?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
@@ -50,6 +51,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   onEdgesChange,
   onConnect,
   onNodeClick,
+  onDeleteEdge,
   onAddNodeAtPosition,
   onPaneClick,
   onFlowGenerated,
@@ -205,10 +207,21 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         onConnect={onConnect}
         onNodeClick={onNodeClick as any}
         onPaneClick={onPaneClick}
+        onEdgeClick={(event, edge) => {
+          event.stopPropagation();
+          if (onDeleteEdge) {
+            if (window.confirm('Remover esta linha de conexão entre os nós?')) {
+              onDeleteEdge(edge.id);
+            }
+          }
+        }}
         fitView
         snapToGrid
         snapGrid={[15, 15]}
         deleteKeyCode={['Backspace', 'Delete']}
+        edgesReconnectable={true}
+        edgesFocusable={true}
+        elementsSelectable={true}
         zoomOnPinch={true}
         panOnScroll={false}
         panOnDrag={true}

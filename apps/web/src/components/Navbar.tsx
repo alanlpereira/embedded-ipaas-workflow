@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon, Pencil } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -51,6 +51,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isEditMetadataOpen, setIsEditMetadataOpen] = useState(false);
   const [editName, setEditName] = useState(flowchartName);
   const [editDesc, setEditDesc] = useState(flowchartDescription);
+
+  useEffect(() => {
+    setEditName(flowchartName);
+  }, [flowchartName]);
+
+  useEffect(() => {
+    setEditDesc(flowchartDescription || '');
+  }, [flowchartDescription]);
 
   const handleOpenMetadataModal = () => {
     setEditName(flowchartName);

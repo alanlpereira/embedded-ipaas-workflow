@@ -32,6 +32,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [folders, setFolders] = useState<Folder[]>(DEFAULT_FOLDERS);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   // Estados de Modais
   const [isNewAreaModalOpen, setIsNewAreaModalOpen] = useState(false);
@@ -173,15 +174,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', flex: 1 }}>
           <button
             onClick={() => setSelectedFolderId(null)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              setDragOverFolderId('all');
+            }}
+            onDragLeave={() => setDragOverFolderId(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverFolderId(null);
+              const flowId = e.dataTransfer.getData('flowchartId');
+              if (flowId && onMoveFlowchart) {
+                onMoveFlowchart(flowId, '');
+              }
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '10px 12px',
               borderRadius: '8px',
-              background: selectedFolderId === null ? 'var(--bg-tertiary)' : 'transparent',
+              background: dragOverFolderId === 'all'
+                ? 'rgba(0, 242, 254, 0.25)'
+                : selectedFolderId === null ? 'var(--bg-tertiary)' : 'transparent',
               color: selectedFolderId === null ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-              border: selectedFolderId === null ? '1px solid var(--border-color)' : '1px solid transparent',
+              border: dragOverFolderId === 'all'
+                ? '2px dashed var(--accent-cyan)'
+                : selectedFolderId === null ? '1px solid var(--border-color)' : '1px solid transparent',
               fontWeight: selectedFolderId === null ? 700 : 500,
               fontSize: '13px',
               cursor: 'pointer',
@@ -191,13 +210,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Layers size={16} />
-              <span>Todas as Áreas</span>
+              <span>{t.folders.allAreas}</span>
             </div>
             <span style={{ fontSize: '11px', opacity: 0.7 }}>{flowcharts.length}</span>
           </button>
 
           {folders.map((folder) => {
             const isSelected = selectedFolderId === folder.id;
+            const isDragOver = dragOverFolderId === folder.id;
             const count = flowcharts.filter((f) =>
               folder.id === 'folder-jur'
                 ? f.folder_id === 'folder-jur' || f.name.toLowerCase().includes('intimações') || f.name.toLowerCase().includes('jurídico')
@@ -208,15 +228,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <button
                 key={folder.id}
                 onClick={() => setSelectedFolderId(folder.id)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDragOverFolderId(folder.id);
+                }}
+                onDragLeave={() => setDragOverFolderId(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverFolderId(null);
+                  const flowId = e.dataTransfer.getData('flowchartId');
+                  if (flowId && onMoveFlowchart) {
+                    onMoveFlowchart(flowId, folder.id);
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  background: isSelected ? 'var(--bg-tertiary)' : 'transparent',
+                  background: isDragOver
+                    ? 'rgba(0, 242, 254, 0.25)'
+                    : isSelected ? 'var(--bg-tertiary)' : 'transparent',
                   color: isSelected ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                  border: isSelected ? '1px solid var(--border-color)' : '1px solid transparent',
+                  border: isDragOver
+                    ? '2px dashed var(--accent-cyan)'
+                    : isSelected ? '1px solid var(--border-color)' : '1px solid transparent',
                   fontWeight: isSelected ? 700 : 500,
                   fontSize: '13px',
                   cursor: 'pointer',
@@ -328,6 +366,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               return (
                 <div
                   key={flow.id}
+                  draggable={canEdit}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('flowchartId', flow.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
                   style={{
                     background: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
@@ -338,6 +381,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     justifyContent: 'space-between',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     position: 'relative',
+                    cursor: canEdit ? 'grab' : 'default',
                   }}
                 >
                   <div>

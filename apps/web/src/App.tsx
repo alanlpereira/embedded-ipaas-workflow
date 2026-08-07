@@ -559,6 +559,18 @@ function WorkflowAppContent() {
     [canEdit, nodes, broadcastStateChange]
   );
 
+  const handleDeleteEdge = useCallback(
+    (edgeId: string) => {
+      if (!canEdit) return;
+      setEdges((eds) => {
+        const updated = eds.filter((e) => e.id !== edgeId);
+        broadcastStateChange(nodes, updated);
+        return updated;
+      });
+    },
+    [canEdit, nodes, broadcastStateChange]
+  );
+
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!canEdit) return;
@@ -867,6 +879,7 @@ function WorkflowAppContent() {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onNodeClick={handleNodeClick}
+                onDeleteEdge={handleDeleteEdge}
                 onAddNodeAtPosition={handleAddNodeAtPosition}
                 onPaneClick={handlePaneClick}
                 onFlowGenerated={handleFlowGeneratedByAI}

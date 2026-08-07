@@ -220,6 +220,44 @@ export interface Translations {
     currentBadge: string;
     nodesCount: string;
   };
+  sidebar: {
+    title: string;
+    dragInstructions: string;
+    trigger: string;
+    action: string;
+    decision: string;
+    approval: string;
+    output: string;
+    code: string;
+    media: string;
+    http: string;
+  };
+  nodeConfig: {
+    title: string;
+    nodeName: string;
+    nodeDesc: string;
+    saveBtn: string;
+    cancelBtn: string;
+    deleteBtn: string;
+    httpMethod: string;
+    httpUrl: string;
+    httpHeaders: string;
+    httpBody: string;
+  };
+  flowMetadataModal: {
+    title: string;
+    nameLabel: string;
+    descLabel: string;
+    saveBtn: string;
+    cancelBtn: string;
+  };
+  folders: {
+    allAreas: string;
+    newArea: string;
+    newAreaPlaceholder: string;
+    addAreaBtn: string;
+    dropToMove: string;
+  };
   messages: {
     accessDenied: string;
     flowCreated: string;
@@ -454,6 +492,44 @@ export const translations: Record<Language, Translations> = {
       currentBadge: 'Versão Atual',
       nodesCount: 'nós gravados',
     },
+    sidebar: {
+      title: 'Biblioteca de Componentes',
+      dragInstructions: 'Arraste um nó para o canvas',
+      trigger: 'Gatilho / Webhook',
+      action: 'Ação / Processo',
+      decision: 'Decisão Lógica',
+      approval: 'Aprovação Humana',
+      output: 'Saída de Dados',
+      code: 'Código Customizado',
+      media: 'Renderização de Mídia',
+      http: 'Requisição HTTP',
+    },
+    nodeConfig: {
+      title: 'Configuração do Nó',
+      nodeName: 'Nome do Nó',
+      nodeDesc: 'Descrição',
+      saveBtn: 'Salvar Configurações',
+      cancelBtn: 'Cancelar',
+      deleteBtn: 'Excluir Nó',
+      httpMethod: 'Método HTTP',
+      httpUrl: 'URL do Endpoint',
+      httpHeaders: 'Cabeçalhos (Headers JSON)',
+      httpBody: 'Corpo (Body JSON)',
+    },
+    flowMetadataModal: {
+      title: 'Configurações do Fluxo',
+      nameLabel: 'Nome do Fluxo',
+      descLabel: 'Descrição do Fluxo',
+      saveBtn: 'Salvar Alterações',
+      cancelBtn: 'Cancelar',
+    },
+    folders: {
+      allAreas: 'Todas as Áreas',
+      newArea: 'Nova Área / Departamento',
+      newAreaPlaceholder: 'Nome da nova área (ex: Financeiro)',
+      addAreaBtn: 'Criar Área',
+      dropToMove: 'Solte o fluxo aqui para mover',
+    },
     messages: {
       accessDenied: 'Acesso negado. Perfil com permissão insuficiente.',
       flowCreated: 'Novo fluxograma criado com sucesso!',
@@ -685,6 +761,44 @@ export const translations: Record<Language, Translations> = {
       close: 'Close',
       currentBadge: 'Current Version',
       nodesCount: 'saved nodes',
+    },
+    sidebar: {
+      title: 'Component Library',
+      dragInstructions: 'Drag a node to the canvas',
+      trigger: 'Trigger / Webhook',
+      action: 'Action / Process',
+      decision: 'Logical Decision',
+      approval: 'Human Approval',
+      output: 'Data Output',
+      code: 'Custom Code',
+      media: 'Media Rendering',
+      http: 'HTTP Request',
+    },
+    nodeConfig: {
+      title: 'Node Configuration',
+      nodeName: 'Node Name',
+      nodeDesc: 'Description',
+      saveBtn: 'Save Settings',
+      cancelBtn: 'Cancel',
+      deleteBtn: 'Delete Node',
+      httpMethod: 'HTTP Method',
+      httpUrl: 'Endpoint URL',
+      httpHeaders: 'Headers (JSON)',
+      httpBody: 'Body (JSON)',
+    },
+    flowMetadataModal: {
+      title: 'Flowchart Settings',
+      nameLabel: 'Flowchart Name',
+      descLabel: 'Flowchart Description',
+      saveBtn: 'Save Changes',
+      cancelBtn: 'Cancel',
+    },
+    folders: {
+      allAreas: 'All Areas',
+      newArea: 'New Area / Department',
+      newAreaPlaceholder: 'Area name (e.g. Finance)',
+      addAreaBtn: 'Create Area',
+      dropToMove: 'Drop flowchart here to move',
     },
     messages: {
       accessDenied: 'Access denied. Insufficient permissions.',
