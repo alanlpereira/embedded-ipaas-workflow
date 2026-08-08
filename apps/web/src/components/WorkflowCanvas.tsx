@@ -399,6 +399,10 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         nodes={flowNodes as unknown as Node[]}
         edges={edges as Edge[]}
         nodeTypes={nodeTypes}
+        defaultEdgeOptions={{
+          animated: true,
+          style: { stroke: '#00f2fe', strokeWidth: 3.5 },
+        }}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}

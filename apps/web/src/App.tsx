@@ -113,12 +113,12 @@ const sampleInitialFlowcharts: Flowchart[] = [
       },
     ] as any,
     edges: [
-      { id: 'e1-2', source: 'node-trigger-1', target: 'node-code-1', animated: true, label: 'Payload HTTP' },
-      { id: 'e2-media', source: 'node-code-1', target: 'node-media-1', animated: true, label: 'Async Render' },
-      { id: 'e-media-decision', source: 'node-media-1', target: 'node-decision-1', animated: true, label: 'Video URL Callback' },
-      { id: 'e3-true', source: 'node-decision-1', sourceHandle: 'true', target: 'node-output-1', animated: true, label: 'Sim (Master)' },
-      { id: 'e3-false', source: 'node-decision-1', sourceHandle: 'false', target: 'node-approval-1', animated: true, label: 'Não (Aprovação)' },
-      { id: 'e-loop-approval-action', source: 'node-approval-1', target: 'node-code-1', animated: true, label: 'Re-tentar (Loop Cíclico)', style: { stroke: '#f97316', strokeDasharray: '5,5' } },
+      { id: 'e1-2', source: 'node-trigger-1', target: 'node-code-1', animated: true, label: 'Payload HTTP', style: { stroke: '#00f2fe', strokeWidth: 3.5 } },
+      { id: 'e2-media', source: 'node-code-1', target: 'node-media-1', animated: true, label: 'Async Render', style: { stroke: '#00f2fe', strokeWidth: 3.5 } },
+      { id: 'e-media-decision', source: 'node-media-1', target: 'node-decision-1', animated: true, label: 'Video URL Callback', style: { stroke: '#00f2fe', strokeWidth: 3.5 } },
+      { id: 'e3-true', source: 'node-decision-1', sourceHandle: 'true', target: 'node-output-1', animated: true, label: 'Sim (Master)', style: { stroke: '#34d399', strokeWidth: 3.5 } },
+      { id: 'e3-false', source: 'node-decision-1', sourceHandle: 'false', target: 'node-approval-1', animated: true, label: 'Não (Aprovação)', style: { stroke: '#f43f5e', strokeWidth: 3.5 } },
+      { id: 'e-loop-approval-action', source: 'node-approval-1', target: 'node-code-1', animated: true, label: 'Re-tentar (Loop Cíclico)', style: { stroke: '#f97316', strokeWidth: 3.5, strokeDasharray: '6,6' } },
     ] as any,
     is_published: true,
     created_at: new Date('2026-08-01').toISOString(),
@@ -653,7 +653,14 @@ function WorkflowAppContent() {
     (connection: Connection) => {
       if (!canEdit) return;
       setEdges((eds) => {
-        const updated = addEdge(connection, eds as any) as any;
+        const updated = addEdge(
+          {
+            ...connection,
+            animated: true,
+            style: { stroke: '#00f2fe', strokeWidth: 3.5 },
+          } as any,
+          eds as any
+        ) as any;
         broadcastStateChange(nodes, updated);
         return updated;
       });

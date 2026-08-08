@@ -93,3 +93,38 @@ input, textarea, select, pre, code, [contenteditable="true"] {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
+
+/* -------------------------------------------------------------------------- */
+/* ESTILIZAÇÃO ULTRA DESTACADA DE LINHAS DE CONEXÃO (EDGES / PATHS SVG)       */
+/* -------------------------------------------------------------------------- */
+.react-flow__edge-path {
+  stroke: #00f2fe !important;
+  stroke-width: 3.5px !important;
+  filter: drop-shadow(0 0 5px rgba(0, 242, 254, 0.7));
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #38bdf8 !important;
+  stroke-width: 5px !important;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.9));
+}
+
+.react-flow__edge-textbg {
+  fill: #0f172a !important;
+  rx: 4px;
+  ry: 4px;
+}
+
+.react-flow__edge-text {
+  fill: #00f2fe !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+}
+
+.react-flow__arrowhead path {
+  fill: #00f2fe !important;
+  stroke: #00f2fe !important;
+}
+

@@ -27,59 +27,75 @@ export async function exportFlowToImage(
       return;
     }
 
-    // 1. Garantir que todas as linhas (edges SVG paths) possuam stroke e stroke-width explícitos em inline style e atributo SVG
-    const edgePaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges path, .react-flow__edge-path, svg.react-flow__edges path');
-    const restoredPaths: Array<{ el: SVGPathElement; stroke: string; strokeWidth: string }> = [];
+    // 1. Assegurar visibilidade dos containers de SVG do React Flow
+    const edgeSvgs = targetElement.querySelectorAll<SVGSVGElement>('svg.react-flow__edges, .react-flow__edges');
+    edgeSvgs.forEach((svg) => {
+      svg.style.overflow = 'visible';
+      svg.style.display = 'block';
+      svg.style.visibility = 'visible';
+      svg.setAttribute('overflow', 'visible');
+    });
+
+    // 2. Processar todas as linhas (paths) e aplicar estilos ultra destacados e espessos (stroke 4.5px)
+    const edgePaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges path, .react-flow__edge-path, svg.react-flow__edges path, svg path');
+    const restoredPaths: Array<{ el: SVGPathElement; stroke: string; strokeWidth: string; strokeOpacity: string }> = [];
 
     edgePaths.forEach((path) => {
-      const computedStyle = window.getComputedStyle(path);
-      const computedStroke = computedStyle.stroke;
-      const computedWidth = computedStyle.strokeWidth;
-
-      const stroke = (computedStroke && computedStroke !== 'none' && computedStroke !== 'rgba(0, 0, 0, 0)') 
-        ? computedStroke 
-        : '#00f2fe';
-      const strokeWidth = (computedWidth && computedWidth !== '0px') 
-        ? computedWidth 
-        : '2px';
-
       restoredPaths.push({
         el: path,
         stroke: path.style.stroke,
         strokeWidth: path.style.strokeWidth,
+        strokeOpacity: path.style.strokeOpacity,
       });
 
-      path.style.stroke = stroke;
-      path.style.strokeWidth = strokeWidth;
-      path.setAttribute('stroke', stroke);
-      path.setAttribute('stroke-width', strokeWidth.replace('px', ''));
+      const computedStyle = window.getComputedStyle(path);
+      const rawStroke = computedStyle.stroke;
+      const rawWidth = computedStyle.strokeWidth;
+
+      // Manter a cor se for uma cor válida específica (ex: verde, vermelho ou laranja de erro/sucesso) senão aplicar Ciano Neon #00f2fe
+      let strokeColor = '#00f2fe';
+      if (rawStroke && rawStroke !== 'none' && rawStroke !== 'rgba(0, 0, 0, 0)') {
+        strokeColor = rawStroke;
+      }
+
+      path.style.stroke = strokeColor;
+      path.style.strokeWidth = '4.5px';
+      path.style.strokeOpacity = '1';
+      path.style.fill = 'none';
+      path.setAttribute('stroke', strokeColor);
+      path.setAttribute('stroke-width', '4.5');
+      path.setAttribute('stroke-opacity', '1');
+      path.setAttribute('fill', 'none');
     });
 
-    // 2. Garantir que as pontas de flechas (markers SVG) também tenham o preenchimento de cor correto
-    const markerPaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges marker path, svg defs marker path');
+    // 3. Garantir que as pontas de flechas (markers SVG) também tenham o preenchimento de cor correto
+    const markerPaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges marker path, svg defs marker path, .react-flow__arrowhead path');
     markerPaths.forEach((mPath) => {
       const computedStyle = window.getComputedStyle(mPath);
       const computedFill = computedStyle.fill;
-      const fill = (computedFill && computedFill !== 'none') ? computedFill : '#00f2fe';
+      const fill = (computedFill && computedFill !== 'none' && computedFill !== 'rgba(0, 0, 0, 0)') ? computedFill : '#00f2fe';
       mPath.style.fill = fill;
+      mPath.style.stroke = fill;
       mPath.setAttribute('fill', fill);
+      mPath.setAttribute('stroke', fill);
     });
 
-    // 3. Gerar o snapshot PNG do container
+    // 4. Gerar o snapshot PNG do container em alta definição (pixelRatio 2)
     const dataUrl = await toPng(targetElement, {
-      backgroundColor: '#0a0f1d',
-      quality: 0.98,
+      backgroundColor: '#07090e',
+      pixelRatio: 2,
+      quality: 1,
       cacheBust: true,
       filter: (node: HTMLElement) => {
-        // Garantir que todas as camadas do React Flow (edges, nodes, container) sejam incluídas
         return true;
       },
     });
 
-    // 4. Restaurar inline styles originais
-    restoredPaths.forEach(({ el, stroke, strokeWidth }) => {
+    // 5. Restaurar inline styles originais
+    restoredPaths.forEach(({ el, stroke, strokeWidth, strokeOpacity }) => {
       el.style.stroke = stroke;
       el.style.strokeWidth = strokeWidth;
+      el.style.strokeOpacity = strokeOpacity;
     });
 
     // 5. Acionar o download do arquivo PNG
