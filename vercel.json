@@ -2,10 +2,9 @@
   "version": 2,
   "buildCommand": "pnpm --filter @ipaas/shared-types build && pnpm --filter @ipaas/web build",
   "outputDirectory": "apps/web/dist",
-  "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|manifest.json|favicon.ico|sw.js).*)$",
       "destination": "/index.html"
     }
   ]
