@@ -57,15 +57,28 @@ serve(async (req) => {
       );
     }
 
-    // 2. Buscar o fluxo correspondente na tabela 'flowcharts' para obter nodes e edges
-    const { data: workflow, error: flowErr } = await supabase
-      .from('flowcharts')
+    // 2. Buscar o fluxo correspondente na tabela 'workflows' ou 'flowcharts' para obter nodes e edges
+    let workflow: any = null;
+
+    const { data: wfData } = await supabase
+      .from('workflows')
       .select('id, name, nodes, edges')
       .eq('id', execution.workflow_id)
       .single();
 
-    if (flowErr || !workflow) {
-      console.error(`❌ [WORKER ERROR] Fluxo ID '${execution.workflow_id}' não encontrado:`, flowErr);
+    if (wfData) {
+      workflow = wfData;
+    } else {
+      const { data: fcData } = await supabase
+        .from('flowcharts')
+        .select('id, name, nodes, edges')
+        .eq('id', execution.workflow_id)
+        .single();
+      if (fcData) workflow = fcData;
+    }
+
+    if (!workflow) {
+      console.error(`❌ [WORKER ERROR] Fluxo ID '${execution.workflow_id}' não encontrado em workflows/flowcharts`);
       return new Response(
         JSON.stringify({ error: `Fluxo '${execution.workflow_id}' não encontrado.` }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

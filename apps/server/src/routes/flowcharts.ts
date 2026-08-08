@@ -116,6 +116,24 @@ router.put('/:id', requireAuth, requireRole(['Master', 'Admin']), async (req: Au
       return res.status(400).json({ error: error.message });
     }
 
+    // Sincronizar também a tabela 'workflows' para o Motor de Execução
+    const { error: wfErr } = await supabaseAdmin
+      .from('workflows')
+      .upsert({
+        id,
+        organization_id: orgId,
+        name: data.name,
+        description: data.description,
+        nodes: data.nodes,
+        edges: data.edges,
+        is_published: data.is_published,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (wfErr) {
+      console.warn('⚠️ [WORKFLOWS SERVER UPSERT WARN]:', wfErr.message);
+    }
+
     // Gravar nova versão no histórico
     const newVersion = await recordFlowchartVersion(id, data.nodes, data.edges, userEmail);
 

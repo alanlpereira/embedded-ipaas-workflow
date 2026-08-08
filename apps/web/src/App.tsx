@@ -902,34 +902,63 @@ function WorkflowAppContent() {
     setIsSaving(true);
 
     try {
+      // 1. Sanitizar e estruturar explicitamente o array de edges com source e target
+      const cleanedEdges = edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle || null,
+        targetHandle: e.targetHandle || null,
+        label: e.label || '',
+        animated: e.animated ?? true,
+        style: e.style || {},
+      }));
+
       const updatedFlow: Flowchart = {
         ...activeFlowchart,
         nodes: nodes as any,
-        edges: edges as any,
+        edges: cleanedEdges as any,
         updated_at: new Date().toISOString(),
       };
 
       setFlowcharts((prev) => prev.map((f) => (f.id === activeFlowchart.id ? updatedFlow : f)));
       setActiveFlowchart(updatedFlow);
 
+      const payload = {
+        id: activeFlowchart.id,
+        organization_id: activeFlowchart.organization_id || 'org-alp-nexus',
+        name: activeFlowchart.name,
+        description: activeFlowchart.description || '',
+        nodes: nodes as any,
+        edges: cleanedEdges as any,
+        is_published: activeFlowchart.is_published ?? false,
+        is_active: activeFlowchart.is_active ?? false,
+        updated_at: updatedFlow.updated_at,
+      };
+
+      // 2. Persistir nas tabelas 'workflows' e 'flowcharts' do Supabase
+      const { error: wfErr } = await supabase.from('workflows').upsert(payload);
+      if (wfErr) {
+        console.warn('⚠️ [SUPABASE WORKFLOWS UPSERT WARN]:', wfErr.message);
+      }
+
+      const { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
+      if (fcErr) {
+        console.warn('⚠️ [SUPABASE FLOWCHARTS UPSERT WARN]:', fcErr.message);
+      }
+
+      // 3. Persistir nos endpoints REST do servidor local Express
       await fetch(`/api/flowcharts/${activeFlowchart.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nodes: nodes as any,
-          edges: edges as any,
-        }),
-      }).catch(() => {
-        supabase
-          .from('flowcharts')
-          .upsert({
-            id: activeFlowchart.id,
-            organization_id: activeFlowchart.organization_id,
-            name: activeFlowchart.name,
-            nodes: nodes as any,
-            edges: edges as any,
-          });
-      });
+        body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
+      }).catch(() => {});
+
+      await fetch(`/api/v1/flowcharts/${activeFlowchart.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
+      }).catch(() => {});
 
       alert(t.messages.flowSaved);
     } catch (err: any) {
@@ -947,31 +976,52 @@ function WorkflowAppContent() {
     setIsRunningNow(true);
 
     try {
-      // A) Garantir que o fluxo atual está salvo na tabela 'workflows' (nodes e edges)
+      // A) Garantir que o fluxo atual está salvo na tabela 'workflows' (nodes e edges com source e target)
+      const cleanedEdges = edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle || null,
+        targetHandle: e.targetHandle || null,
+        label: e.label || '',
+        animated: e.animated ?? true,
+        style: e.style || {},
+      }));
+
       const updatedFlow: Flowchart = {
         ...activeFlowchart,
         nodes: nodes as any,
-        edges: edges as any,
+        edges: cleanedEdges as any,
         updated_at: new Date().toISOString(),
       };
+
       setFlowcharts((prev) => prev.map((f) => (f.id === activeFlowchart.id ? updatedFlow : f)));
       setActiveFlowchart(updatedFlow);
+
+      const payload = {
+        id: activeFlowchart.id,
+        organization_id: activeFlowchart.organization_id || 'org-alp-nexus',
+        name: activeFlowchart.name,
+        description: activeFlowchart.description || '',
+        nodes: nodes as any,
+        edges: cleanedEdges as any,
+        is_published: activeFlowchart.is_published ?? false,
+        is_active: activeFlowchart.is_active ?? false,
+        updated_at: updatedFlow.updated_at,
+      };
+
+      // Gravação garantida no Supabase workflows e flowcharts
+      const { error: wfErr } = await supabase.from('workflows').upsert(payload);
+      if (wfErr) console.warn('⚠️ workflows upsert:', wfErr.message);
+
+      const { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
+      if (fcErr) console.warn('⚠️ flowcharts upsert:', fcErr.message);
 
       await fetch(`/api/flowcharts/${activeFlowchart.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes: nodes as any, edges: edges as any }),
-      }).catch(() => {
-        supabase
-          .from('flowcharts')
-          .upsert({
-            id: activeFlowchart.id,
-            organization_id: activeFlowchart.organization_id || 'org-alp-nexus',
-            name: activeFlowchart.name,
-            nodes: nodes as any,
-            edges: edges as any,
-          });
-      });
+        body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
+      }).catch(() => {});
 
       // B) Descobrir qual é o ID do primeiro nó (ex: ScheduleNode, EmailTriggerNode ou nodes[0])
       const startNode = nodes.find((n) => ['schedule', 'email_trigger', 'trigger'].includes(n.type)) || nodes[0];
