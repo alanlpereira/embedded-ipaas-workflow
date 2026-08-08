@@ -142,8 +142,15 @@ function WorkflowAppContent() {
   const { switchOrganization } = useTheme();
   const { isMobilePortrait } = useResponsiveLayout();
 
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
-  const [currentTab, setCurrentTab] = useState<ViewTab>('dashboard');
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(() => ({
+    id: 'user-master-id',
+    organization_id: 'org-alp-nexus',
+    email: 'alan.pereira@alp-nexus.com',
+    full_name: 'Alan Pereira (Master)',
+    role: 'Master',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
 
   const [flowcharts, setFlowcharts] = useState<Flowchart[]>(() => {
     try {
@@ -158,16 +165,22 @@ function WorkflowAppContent() {
     return sampleInitialFlowcharts;
   });
 
+  const [activeFlowchart, setActiveFlowchart] = useState<Flowchart | null>(() => {
+    const list = flowcharts && flowcharts.length > 0 ? flowcharts : sampleInitialFlowcharts;
+    return list[0];
+  });
+
+  const [currentTab, setCurrentTab] = useState<ViewTab>('editor');
+
   // Salvar automaticamente qualquer alteração de fluxogramas no LocalStorage
   useEffect(() => {
     try {
       localStorage.setItem('synapse_saved_flowcharts', JSON.stringify(flowcharts));
     } catch (e) {}
   }, [flowcharts]);
-  const [activeFlowchart, setActiveFlowchart] = useState<Flowchart | null>(null);
 
-  const [nodes, setNodes] = useState<WorkflowNode[]>([]);
-  const [edges, setEdges] = useState<WorkflowEdge[]>([]);
+  const [nodes, setNodes] = useState<WorkflowNode[]>(() => (activeFlowchart?.nodes as any) || (sampleInitialFlowcharts[0].nodes as any));
+  const [edges, setEdges] = useState<WorkflowEdge[]>(() => (activeFlowchart?.edges as any) || (sampleInitialFlowcharts[0].edges as any));
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isEmbedModalOpen, setIsEmbedModalOpen] = useState(false);
