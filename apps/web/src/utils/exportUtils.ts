@@ -3,7 +3,7 @@ import { WorkflowNode, WorkflowEdge } from '@ipaas/shared-types';
 
 /**
  * Exporta o Canvas do React Flow em formato visual de Imagem (PNG) capturando o snapshot completo
- * com a renderização exata das caixinhas, rótulos e linhas de conexão como estão na tela.
+ * com a renderização exata das caixinhas, rótulos e LINHAS de conexão (edges/paths SVG) como estão na tela.
  */
 export async function exportFlowToImage(
   elementOrSelector: HTMLElement | string | null = '.react-flow',
@@ -27,12 +27,62 @@ export async function exportFlowToImage(
       return;
     }
 
-    const dataUrl = await toPng(targetElement, {
-      backgroundColor: '#0a0f1d',
-      quality: 0.95,
-      cacheBust: true,
+    // 1. Garantir que todas as linhas (edges SVG paths) possuam stroke e stroke-width explícitos em inline style e atributo SVG
+    const edgePaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges path, .react-flow__edge-path, svg.react-flow__edges path');
+    const restoredPaths: Array<{ el: SVGPathElement; stroke: string; strokeWidth: string }> = [];
+
+    edgePaths.forEach((path) => {
+      const computedStyle = window.getComputedStyle(path);
+      const computedStroke = computedStyle.stroke;
+      const computedWidth = computedStyle.strokeWidth;
+
+      const stroke = (computedStroke && computedStroke !== 'none' && computedStroke !== 'rgba(0, 0, 0, 0)') 
+        ? computedStroke 
+        : '#00f2fe';
+      const strokeWidth = (computedWidth && computedWidth !== '0px') 
+        ? computedWidth 
+        : '2px';
+
+      restoredPaths.push({
+        el: path,
+        stroke: path.style.stroke,
+        strokeWidth: path.style.strokeWidth,
+      });
+
+      path.style.stroke = stroke;
+      path.style.strokeWidth = strokeWidth;
+      path.setAttribute('stroke', stroke);
+      path.setAttribute('stroke-width', strokeWidth.replace('px', ''));
     });
 
+    // 2. Garantir que as pontas de flechas (markers SVG) também tenham o preenchimento de cor correto
+    const markerPaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges marker path, svg defs marker path');
+    markerPaths.forEach((mPath) => {
+      const computedStyle = window.getComputedStyle(mPath);
+      const computedFill = computedStyle.fill;
+      const fill = (computedFill && computedFill !== 'none') ? computedFill : '#00f2fe';
+      mPath.style.fill = fill;
+      mPath.setAttribute('fill', fill);
+    });
+
+    // 3. Gerar o snapshot PNG do container
+    const dataUrl = await toPng(targetElement, {
+      backgroundColor: '#0a0f1d',
+      quality: 0.98,
+      cacheBust: true,
+      filter: (node: HTMLElement) => {
+        // Garantir que todas as camadas do React Flow (edges, nodes, container) sejam incluídas
+        return true;
+      },
+    });
+
+    // 4. Restaurar inline styles originais
+    restoredPaths.forEach(({ el, stroke, strokeWidth }) => {
+      el.style.stroke = stroke;
+      el.style.strokeWidth = strokeWidth;
+    });
+
+    // 5. Acionar o download do arquivo PNG
     const a = document.createElement('a');
     a.href = dataUrl;
     const sanitizedTitle = flowTitle.toLowerCase().replace(/[^a-z0-9]/g, '_');
