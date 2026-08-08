@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "buildCommand": "pnpm --filter @ipaas/shared-types build && pnpm --filter @ipaas/web build",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "turbo run build",
   "outputDirectory": "apps/web/dist",
   "rewrites": [
     {
