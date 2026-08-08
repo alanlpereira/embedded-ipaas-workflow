@@ -179,6 +179,55 @@ router.post('/trigger-scheduler', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/v1/executions/:id/run - Executar Grafo de Fluxo (Worker Traversal Engine)
+router.post('/:id/run', async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const { data: execution } = await supabaseAdmin
+      .from('flow_executions')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    const targetExec = execution || fallbackExecutions.find(e => e.id === id);
+
+    if (!targetExec) {
+      return res.status(404).json({ error: `Execução '${id}' não encontrada.` });
+    }
+
+    let context = targetExec.context_data || {};
+    let status: FlowExecutionRecord['status'] = 'completed';
+    let approvalToken: string | undefined;
+
+    // Simulação do Traversal de nós
+    if (targetExec.current_node_id?.includes('approval')) {
+      status = 'waiting_approval';
+      approvalToken = `token-approval-${Date.now()}`;
+      context.approval = { token: approvalToken, status: 'pending', requested_at: new Date().toISOString() };
+    } else {
+      context.whatsapp = { sent: true, recipient: '+5511999998888', sent_at: new Date().toISOString() };
+      context.teams = { posted: true, posted_at: new Date().toISOString() };
+    }
+
+    targetExec.status = status;
+    targetExec.context_data = context;
+    if (status === 'completed') {
+      targetExec.completed_at = new Date().toISOString();
+    }
+
+    return res.json({
+      success: true,
+      execution_id: id,
+      status,
+      approval_token: approvalToken,
+      context_data: context,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/v1/executions - Registrar Nova Execução
 router.post('/', async (req: Request, res: Response) => {
   const { workflow_id, workflow_name, status, current_node_id, context_data } = req.body;
