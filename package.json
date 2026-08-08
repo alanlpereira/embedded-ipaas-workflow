@@ -7,10 +7,19 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "lint": "turbo run lint"
+    "test:watch": "pnpm --filter @ipaas/web test:watch",
+    "lint": "turbo run lint",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
     "turbo": "^1.10.14"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "pnpm --filter @ipaas/web test:check"
+    ]
   },
   "engines": {
     "node": ">=18.0.0"
