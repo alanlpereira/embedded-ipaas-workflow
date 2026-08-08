@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@ipaas/shared-types': path.resolve(__dirname, '../../packages/shared-types/src/index.ts'),
+      '@ipaas/shared-types': path.resolve(__dirname, './src/types/index.ts'),
     },
   },
   server: {

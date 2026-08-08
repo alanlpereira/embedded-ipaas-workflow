@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@ipaas/shared-types": ["../../packages/shared-types/src/index.ts"]
+      "@ipaas/shared-types": ["./src/types/index.ts"]
     }
   },
   "include": ["src/**/*"]
