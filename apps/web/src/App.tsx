@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ReactFlowProvider, applyNodeChanges, applyEdgeChanges, addEdge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
+import { PlayCircle, X } from 'lucide-react';
 import { Navbar, ViewTab } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { WorkflowCanvas } from './components/WorkflowCanvas';
@@ -925,6 +926,94 @@ function WorkflowAppContent() {
     }
   };
 
+  const [isRunningNow, setIsRunningNow] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleRunNow = async () => {
+    if (!activeFlowchart) return;
+    setIsRunningNow(true);
+
+    try {
+      // A) Garantir que o fluxo atual está salvo na tabela 'workflows' (nodes e edges)
+      const updatedFlow: Flowchart = {
+        ...activeFlowchart,
+        nodes: nodes as any,
+        edges: edges as any,
+        updated_at: new Date().toISOString(),
+      };
+      setFlowcharts((prev) => prev.map((f) => (f.id === activeFlowchart.id ? updatedFlow : f)));
+      setActiveFlowchart(updatedFlow);
+
+      await fetch(`/api/flowcharts/${activeFlowchart.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodes: nodes as any, edges: edges as any }),
+      }).catch(() => {
+        supabase
+          .from('flowcharts')
+          .upsert({
+            id: activeFlowchart.id,
+            organization_id: activeFlowchart.organization_id || 'org-alp-nexus',
+            name: activeFlowchart.name,
+            nodes: nodes as any,
+            edges: edges as any,
+          });
+      });
+
+      // B) Descobrir qual é o ID do primeiro nó (ex: ScheduleNode, EmailTriggerNode ou nodes[0])
+      const startNode = nodes.find((n) => ['schedule', 'email_trigger', 'trigger'].includes(n.type)) || nodes[0];
+      const firstNodeId = startNode ? startNode.id : 'node-start';
+      const executionId = `exec-run-${Date.now()}`;
+
+      const executionPayload = {
+        id: executionId,
+        workflow_id: activeFlowchart.id,
+        status: 'running',
+        current_node_id: firstNodeId,
+        context_data: {
+          manual_trigger: true,
+          triggered_by: currentProfile?.email || 'Usuário IPaaS',
+          triggered_at: new Date().toISOString(),
+        },
+        started_at: new Date().toISOString(),
+      };
+
+      // C) Fazer INSERT na tabela 'flow_executions'
+      const { error: insertErr } = await supabase.from('flow_executions').insert([executionPayload]);
+
+      if (insertErr) {
+        console.warn('⚠️ [RUN NOW WARN] Insert Supabase falhou, usando fallback REST API:', insertErr);
+        await fetch('/api/v1/executions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workflow_id: activeFlowchart.id,
+            workflow_name: activeFlowchart.name,
+            status: 'running',
+            current_node_id: firstNodeId,
+            context_data: executionPayload.context_data,
+          }),
+        });
+      }
+
+      // D) Disparar o Worker Engine (Edge Function & API Backend)
+      fetch(`/api/v1/executions/${executionId}/run`, { method: 'POST' }).catch(() => {});
+      fetch('/functions/v1/workflow-worker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ execution_id: executionId }),
+      }).catch(() => {});
+
+      // 4. Exibir Toast/Snackbar de sucesso ao iniciar o fluxo
+      setToastMessage(`🚀 Fluxo "${activeFlowchart.name}" disparado com sucesso! Acompanhe o progresso em tempo real na aba Execuções.`);
+      setTimeout(() => setToastMessage(null), 5000);
+    } catch (err: any) {
+      alert(`⚠️ Erro ao executar fluxo: ${err.message}`);
+    } finally {
+      setIsRunningNow(false);
+    }
+  };
+
   const handleRestoreVersion = async (restoredNodes: any[], restoredEdges: any[]) => {
     setNodes(restoredNodes);
     setEdges(restoredEdges);
@@ -990,6 +1079,8 @@ function WorkflowAppContent() {
         onNavigate={(tab) => setCurrentTab(tab)}
         onSave={handleSaveFlowchart}
         isSaving={isSaving}
+        onRunNow={handleRunNow}
+        isRunningNow={isRunningNow}
         onLogout={() => setCurrentProfile(null)}
         onOpenEmbedModal={() => setIsEmbedModalOpen(true)}
         onOpenVersionModal={() => setIsVersionModalOpen(true)}
@@ -999,6 +1090,36 @@ function WorkflowAppContent() {
         isAnalyzingEfficiency={isAnalyzingEfficiency}
         collaborators={activeCollaborators}
       />
+
+      {/* Toast / Snackbar Notification ao Disparar Execução */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          top: '64px',
+          right: '24px',
+          zIndex: 9999,
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: '#ffffff',
+          padding: '12px 20px',
+          borderRadius: '10px',
+          boxShadow: '0 10px 25px rgba(16, 185, 129, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '13px',
+          fontWeight: 700,
+          animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}>
+          <PlayCircle size={18} fill="#ffffff" color="#059669" />
+          <span>{toastMessage}</span>
+          <button
+            onClick={() => setToastMessage(null)}
+            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', marginLeft: '10px' }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Renderização condicional de abas */}
       {currentTab === 'dashboard' && (

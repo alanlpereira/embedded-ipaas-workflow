@@ -119,7 +119,48 @@ export const ExecutionsPage: React.FC<ExecutionsPageProps> = ({ currentProfile }
 
   useEffect(() => {
     fetchExecutions();
-  }, []);
+
+    // Inscrição em tempo real na tabela 'flow_executions' (novas execuções ou trocas de status)
+    const channelExecutions = supabase
+      .channel('realtime:flow_executions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'flow_executions' },
+        (payload) => {
+          console.log('⚡ [REALTIME FLOW_EXECUTIONS EVENT]', payload);
+          fetchExecutions();
+        }
+      )
+      .subscribe();
+
+    // Inscrição em tempo real na tabela 'execution_logs' (novos eventos de log)
+    const channelLogs = supabase
+      .channel('realtime:execution_logs')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'execution_logs' },
+        (payload) => {
+          console.log('⚡ [REALTIME EXECUTION_LOGS EVENT]', payload);
+          const newLog = payload.new as ExecutionLog;
+          if (newLog) {
+            setExecutionLogs((prev) => {
+              if (selectedExecution && newLog.execution_id === selectedExecution.id) {
+                // Evitar duplicados no estado local
+                if (prev.some((l) => l.id === newLog.id)) return prev;
+                return [...prev, newLog];
+              }
+              return prev;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channelExecutions);
+      supabase.removeChannel(channelLogs);
+    };
+  }, [selectedExecution]);
 
   const handleOpenLogs = async (execution: FlowExecution) => {
     setSelectedExecution(execution);

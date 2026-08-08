@@ -17,6 +17,8 @@ interface NavbarProps {
   onNavigate: (tab: ViewTab) => void;
   onSave?: () => void;
   isSaving?: boolean;
+  onRunNow?: () => void;
+  isRunningNow?: boolean;
   onLogout?: () => void;
   onOpenEmbedModal?: () => void;
   onOpenVersionModal?: () => void;
@@ -36,6 +38,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   onSave,
   isSaving,
+  onRunNow,
+  isRunningNow,
   onLogout,
   onOpenEmbedModal,
   onOpenVersionModal,
@@ -496,6 +500,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Save size={14} />
                 <span>{isSaving ? t.saving : t.saveWorkflow}</span>
+              </button>
+            )}
+
+            {onRunNow && (
+              <button
+                onClick={onRunNow}
+                disabled={isRunningNow}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  cursor: isRunningNow ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Play size={14} fill="#ffffff" />
+                <span>{isRunningNow ? 'Iniciando...' : '▶ Executar Agora'}</span>
               </button>
             )}
           </>
