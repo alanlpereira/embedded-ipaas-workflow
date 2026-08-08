@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ReactFlow, Controls, Background, BackgroundVariant, MiniMap, Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { RefreshCw, AlertTriangle, Grid, LayoutGrid, FileText, Presentation, Play } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Grid, LayoutGrid, FileText, Presentation, Play, Image as ImageIcon } from 'lucide-react';
 
 import { CustomNode } from './CustomNode';
 import { LiveCursors } from './LiveCursors';
@@ -9,7 +9,7 @@ import { CopilotPromptBar } from './CopilotPromptBar';
 import { RemoteCursor } from '../collaboration/useYjsCollaboration';
 import { WorkflowNode, WorkflowEdge, NodeType } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
-import { exportFlowToPDF, exportFlowToPPTX } from '../utils/exportUtils';
+import { exportFlowToPDF, exportFlowToPPTX, exportFlowToImage } from '../utils/exportUtils';
 
 const nodeTypes: any = {
   trigger: CustomNode,
@@ -317,6 +317,32 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         )}
 
         <div style={{ height: '1px', background: 'var(--border-color)', margin: '2px 0' }} />
+
+        {/* Botão Exportar Imagem Visual (PNG Snapshot com html-to-image) */}
+        <button
+          type="button"
+          onClick={() => exportFlowToImage('.react-flow', 'Fluxo de Trabalho Synapse')}
+          title="Exportar imagem snapshot (PNG) com o desenho exato das caixinhas e linhas da tela"
+          style={{
+            background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(30, 144, 255, 0.25))',
+            border: '1px solid var(--accent-cyan)',
+            color: 'var(--accent-cyan)',
+            borderRadius: '8px',
+            padding: '8px 10px',
+            fontSize: '11px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 10px rgba(0, 242, 254, 0.2)',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <ImageIcon size={15} />
+          Exportar Imagem
+        </button>
 
         {/* Botão Exportar PDF */}
         <button

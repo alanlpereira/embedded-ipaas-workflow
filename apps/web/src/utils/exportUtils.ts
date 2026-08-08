@@ -1,4 +1,50 @@
+import { toPng } from 'html-to-image';
 import { WorkflowNode, WorkflowEdge } from '@ipaas/shared-types';
+
+/**
+ * Exporta o Canvas do React Flow em formato visual de Imagem (PNG) capturando o snapshot completo
+ * com a renderização exata das caixinhas, rótulos e linhas de conexão como estão na tela.
+ */
+export async function exportFlowToImage(
+  elementOrSelector: HTMLElement | string | null = '.react-flow',
+  flowTitle: string = 'Fluxo Synapse'
+): Promise<void> {
+  try {
+    let targetElement: HTMLElement | null = null;
+
+    if (typeof elementOrSelector === 'string') {
+      targetElement = document.querySelector(elementOrSelector) as HTMLElement;
+    } else if (elementOrSelector instanceof HTMLElement) {
+      targetElement = elementOrSelector;
+    }
+
+    if (!targetElement) {
+      targetElement = (document.querySelector('.react-flow') as HTMLElement) || document.body;
+    }
+
+    if (!targetElement) {
+      alert('Não foi possível localizar o painel do fluxo para exportar a imagem.');
+      return;
+    }
+
+    const dataUrl = await toPng(targetElement, {
+      backgroundColor: '#0a0f1d',
+      quality: 0.95,
+      cacheBust: true,
+    });
+
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    const sanitizedTitle = flowTitle.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    a.download = `${sanitizedTitle}_snapshot.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (err: any) {
+    console.error('⚠️ [IMAGE EXPORT ERROR]:', err);
+    alert(`Erro ao gerar a imagem visual do fluxo: ${err.message || err}`);
+  }
+}
 
 /**
  * Exporta o fluxo atual em formato PDF formatado para impressão / documentação.
