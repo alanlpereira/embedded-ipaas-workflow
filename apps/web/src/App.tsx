@@ -1212,6 +1212,8 @@ function WorkflowAppContent() {
                 onCanvasInteractionPosition={setLastInteractionPos}
                 onFlowGenerated={handleFlowGeneratedByAI}
                 onAlignAllNodes={handleAlignAllNodes}
+                onRunNow={handleRunNow}
+                isRunningNow={isRunningNow}
                 showCopilotBar={true}
                 isDebugMode={isDebugMode}
                 failedNodeId={debugFailedNodeId}

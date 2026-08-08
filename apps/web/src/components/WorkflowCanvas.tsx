@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ReactFlow, Controls, Background, BackgroundVariant, MiniMap, Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { RefreshCw, AlertTriangle, Grid, LayoutGrid, FileText, Presentation } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Grid, LayoutGrid, FileText, Presentation, Play } from 'lucide-react';
 
 import { CustomNode } from './CustomNode';
 import { LiveCursors } from './LiveCursors';
@@ -42,6 +42,8 @@ interface WorkflowCanvasProps {
   onCanvasInteractionPosition?: (position: { x: number; y: number }) => void;
   onFlowGenerated?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
   onAlignAllNodes?: () => void;
+  onRunNow?: () => void;
+  isRunningNow?: boolean;
   showCopilotBar?: boolean;
   // Debug Mode Props
   isDebugMode?: boolean;
@@ -67,6 +69,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   onCanvasInteractionPosition,
   onFlowGenerated,
   onAlignAllNodes,
+  onRunNow,
+  isRunningNow = false,
   showCopilotBar = true,
   isDebugMode = false,
   failedNodeId,
@@ -211,70 +215,108 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         </div>
       )}
 
-      {/* Barra de Ferramentas de Alinhamento, Grid e Exportação */}
+      {/* Botão Flutuante Verde ▶ Executar Agora no Topo Direito do Canvas */}
+      {onRunNow && (
+        <button
+          type="button"
+          onClick={onRunNow}
+          disabled={isRunningNow}
+          title="Executar este fluxo de trabalho agora"
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            zIndex: 35,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 18px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            color: '#ffffff',
+            border: 'none',
+            fontWeight: 800,
+            fontSize: '13px',
+            cursor: isRunningNow ? 'not-allowed' : 'pointer',
+            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.45)',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Play size={16} fill="#ffffff" />
+          <span>{isRunningNow ? 'Iniciando...' : '▶ Executar Agora'}</span>
+        </button>
+      )}
+
+      {/* Barra Vertical de Ferramentas (Grid, Alinhamento e Exportação) à Esquerda no Meio da Tela */}
       <div style={{
         position: 'absolute',
-        top: '16px',
-        right: '16px',
+        top: '50%',
+        left: '16px',
+        transform: 'translateY(-50%)',
         zIndex: 30,
         display: 'flex',
+        flexDirection: 'column',
         gap: '8px',
         background: 'var(--bg-tertiary)',
         border: '1px solid var(--border-color)',
-        backdropFilter: 'blur(8px)',
-        padding: '6px 10px',
-        borderRadius: '10px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+        backdropFilter: 'blur(12px)',
+        padding: '10px 8px',
+        borderRadius: '12px',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
       }}>
+        {/* Toggle Grid */}
         <button
           type="button"
           onClick={() => setShowGrid(!showGrid)}
           title={showGrid ? "Ocultar linhas do Grid" : "Mostrar linhas do Grid"}
           style={{
-            background: showGrid ? 'rgba(0, 242, 254, 0.2)' : 'transparent',
-            border: showGrid ? '1px solid var(--accent-cyan)' : 'none',
+            background: showGrid ? 'rgba(0, 242, 254, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            border: showGrid ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
             color: showGrid ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            borderRadius: '6px',
-            padding: '4px 8px',
+            borderRadius: '8px',
+            padding: '8px 10px',
             fontSize: '11px',
             fontWeight: 700,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
+            whiteSpace: 'nowrap',
             transition: 'all 0.15s ease',
           }}
         >
-          <Grid size={14} />
+          <Grid size={15} />
           Grid: {showGrid ? 'LIGADO' : 'DESLIGADO'}
         </button>
 
+        {/* Alinhar Caixas */}
         {onAlignAllNodes && (
           <button
             type="button"
             onClick={onAlignAllNodes}
             title="Alinhar todas as caixas na grade de 20px"
             style={{
-              background: 'transparent',
-              border: 'none',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-color)',
               color: 'var(--text-secondary)',
-              borderRadius: '6px',
-              padding: '4px 8px',
+              borderRadius: '8px',
+              padding: '8px 10px',
               fontSize: '11px',
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '8px',
+              whiteSpace: 'nowrap',
               transition: 'all 0.15s ease',
             }}
           >
-            <LayoutGrid size={14} />
+            <LayoutGrid size={15} />
             Alinhar Caixas
           </button>
         )}
 
-        <div style={{ width: '1px', background: 'var(--border-color)', margin: '2px 2px' }} />
+        <div style={{ height: '1px', background: 'var(--border-color)', margin: '2px 0' }} />
 
         {/* Botão Exportar PDF */}
         <button
@@ -285,18 +327,19 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
             background: 'rgba(59, 130, 246, 0.15)',
             border: '1px solid rgba(59, 130, 246, 0.4)',
             color: '#60a5fa',
-            borderRadius: '6px',
-            padding: '4px 9px',
+            borderRadius: '8px',
+            padding: '8px 10px',
             fontSize: '11px',
             fontWeight: 700,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
+            whiteSpace: 'nowrap',
             transition: 'all 0.15s ease',
           }}
         >
-          <FileText size={14} />
+          <FileText size={15} />
           Exportar PDF
         </button>
 
@@ -309,18 +352,19 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
             background: 'rgba(249, 115, 22, 0.15)',
             border: '1px solid rgba(249, 115, 22, 0.4)',
             color: '#fb923c',
-            borderRadius: '6px',
-            padding: '4px 9px',
+            borderRadius: '8px',
+            padding: '8px 10px',
             fontSize: '11px',
             fontWeight: 700,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
+            whiteSpace: 'nowrap',
             transition: 'all 0.15s ease',
           }}
         >
-          <Presentation size={14} />
+          <Presentation size={15} />
           Exportar PPTX
         </button>
       </div>

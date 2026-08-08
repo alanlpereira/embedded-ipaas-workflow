@@ -455,9 +455,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         )}
 
         {/* Botões de Ação do Editor */}
-        {currentTab === 'editor' && canEdit && (
+        {currentTab === 'editor' && (
           <>
-            {onAnalyzeEfficiency && (
+            {canEdit && onAnalyzeEfficiency && (
               <button
                 onClick={onAnalyzeEfficiency}
                 disabled={isAnalyzingEfficiency}
@@ -480,7 +480,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {onSave && (
+            {canEdit && onSave && (
               <button
                 onClick={onSave}
                 disabled={isSaving}
@@ -507,6 +507,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={onRunNow}
                 disabled={isRunningNow}
+                title="Executar este fluxo de trabalho agora"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -519,8 +520,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   fontWeight: 800,
                   fontSize: '12px',
                   cursor: isRunningNow ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
+                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.4)',
                   transition: 'all 0.15s ease',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 <Play size={14} fill="#ffffff" />
