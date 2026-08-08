@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { CollaboratorInfo } from '../collaboration/useYjsCollaboration';
 import { EditionBadge } from './EditionBadge';
 
-export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings';
+export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions';
 
 interface NavbarProps {
   currentProfile: Profile | null;
@@ -182,6 +182,28 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <LayoutTemplate size={15} />
           {t.nav.templates}
+        </button>
+
+        <button
+          onClick={() => onNavigate('executions')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            background: currentTab === 'executions' ? 'var(--bg-tertiary)' : 'transparent',
+            color: currentTab === 'executions' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+            border: currentTab === 'executions' ? '1px solid var(--border-color)' : '1px solid transparent',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <History size={15} />
+          Execuções
         </button>
 
         <button

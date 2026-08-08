@@ -23,6 +23,7 @@ import { ZeroFrictionDecidePage } from './components/ZeroFrictionDecidePage';
 import { MagicDemoPage } from './components/MagicDemoPage';
 import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
 import { UserSettingsPage } from './components/UserSettingsPage';
+import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
 import { supabase } from './lib/supabase';
@@ -1018,6 +1019,10 @@ function WorkflowAppContent() {
           currentProfile={currentProfile}
           onUseTemplate={handleUseTemplate}
         />
+      )}
+
+      {currentTab === 'executions' && (
+        <ExecutionsPage currentProfile={currentProfile!} />
       )}
 
       {currentTab === 'audit' && (
