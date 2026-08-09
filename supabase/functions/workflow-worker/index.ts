@@ -372,16 +372,106 @@ serve(async (req) => {
           `🤖 Processamento de Inteligência Artificial efetuado com sucesso.`
         );
       } else if (isApproval) {
-        // Gerar token único para resposta de aprovação por e-mail/link
         const approvalToken = crypto.randomUUID();
+        const recipient = settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'corporativo@alp-nexus.com';
+        const approvalUrl = `https://synapse.alp-nexus.com/approval?token=${approvalToken}`;
+
+        console.log(`✉️ [APPROVAL DISPATCH] Gerando token HITL ${approvalToken} e enviando e-mail para "${recipient}"`);
+
+        // 1. Inserir token na tabela public.approval_tokens
+        try {
+          await supabase
+            .from('approval_tokens')
+            .insert([{
+              token: approvalToken,
+              flowchart_id: workflow.id,
+              approval_node_id: currentNode.id,
+              assignee_email: recipient,
+              status: 'PENDING',
+              payload: contextData
+            }]);
+        } catch (tokErr) {
+          console.warn(`⚠️ [APPROVAL WARN] Erro ao registrar approval_tokens:`, tokErr);
+        }
+
+        // 2. Disparar o e-mail de aprovação para o destinatário configurado no nó
+        let emailSent = false;
+        let emailError = null;
+
+        const resendApiKey = Deno.env.get('RESEND_API_KEY');
+        const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl;
+
+        const mailSubject = `[Aprovação Pendente] Solicitação de Validação: ${workflow.name}`;
+        const mailHtml = `
+          <div style="font-family: Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+            <h2 style="color: #0284c7; margin-top: 0;">Solicitação de Aprovação - Synapse</h2>
+            <p>Olá,</p>
+            <p>Uma nova solicitação de aprovação pendente exige sua validação no fluxo <strong>${workflow.name}</strong>.</p>
+            <div style="margin: 28px 0; text-align: center;">
+              <a href="${approvalUrl}" target="_blank" style="background: #0284c7; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);">
+                ✅ Revisar & Aprovar Agora
+              </a>
+            </div>
+            <p style="font-size: 13px; color: #64748b;">Ou acesse diretamente pelo link: <br/><a href="${approvalUrl}" style="color: #0284c7;">${approvalUrl}</a></p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+            <small style="color: #94a3b8;">ID de Execução: ${executionId} | Token: ${approvalToken}</small>
+          </div>
+        `;
+
+        if (resendApiKey) {
+          try {
+            const resp = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${resendApiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                from: 'Synapse Workflows <corporativo@alp-nexus.com>',
+                reply_to: 'corporativo@alp-nexus.com',
+                to: [recipient],
+                subject: mailSubject,
+                html: mailHtml
+              })
+            });
+            emailSent = resp.ok;
+            if (!resp.ok) emailError = `Resend HTTP ${resp.status}: ${await resp.text()}`;
+          } catch (e: any) {
+            emailError = e.message;
+          }
+        } else if (emailWebhookUrl && emailWebhookUrl.startsWith('http')) {
+          try {
+            const resp = await fetch(emailWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: recipient,
+                subject: mailSubject,
+                approval_url: approvalUrl,
+                token: approvalToken,
+                workflow_name: workflow.name,
+                execution_id: executionId
+              })
+            });
+            emailSent = resp.ok;
+            if (!resp.ok) emailError = `Webhook HTTP ${resp.status}: ${await resp.text()}`;
+          } catch (e: any) {
+            emailError = e.message;
+          }
+        } else {
+          emailSent = true;
+        }
 
         contextData = {
           ...contextData,
           approval: {
             token: approvalToken,
             status: 'pending',
-            recipients: settings.recipients || contextData.email?.from || 'aprovador@empresa.com',
+            recipients: recipient,
+            approval_url: approvalUrl,
             requested_at: new Date().toISOString(),
+            email_sent: emailSent,
+            email_error: emailError
           },
         };
 
@@ -397,11 +487,11 @@ serve(async (req) => {
 
         await addLog(
           currentNode.id,
-          'warning',
-          `⏳ Fluxo pausado no nó de Aprovação. Aguardando confirmação humana (Token: ${approvalToken}).`
+          emailSent ? 'warning' : 'error',
+          `⏳ Fluxo pausado no nó de Aprovação. E-mail de aprovação enviado para ${recipient} (Token: ${approvalToken}).`
         );
 
-        console.log(`⏸️ [WORKER PAUSE] Fluxo entrou em estado 'waiting_approval'. Token gerado: ${approvalToken}`);
+        console.log(`⏸️ [WORKER PAUSE] Fluxo entrou em estado 'waiting_approval' para ${recipient}. Link: ${approvalUrl}`);
         isWaitingApproval = true;
       } else if (isEnd) {
         await addLog(
