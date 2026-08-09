@@ -59,11 +59,15 @@ export async function exportFlowToImage(
       }
 
       path.style.stroke = strokeColor;
-      path.style.strokeWidth = '4.5px';
+      path.style.strokeWidth = '10.5px';
+      path.style.strokeLinecap = 'round';
+      path.style.strokeLinejoin = 'round';
       path.style.strokeOpacity = '1';
       path.style.fill = 'none';
       path.setAttribute('stroke', strokeColor);
-      path.setAttribute('stroke-width', '4.5');
+      path.setAttribute('stroke-width', '10.5');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
       path.setAttribute('stroke-opacity', '1');
       path.setAttribute('fill', 'none');
     });

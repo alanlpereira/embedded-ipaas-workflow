@@ -401,7 +401,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
         nodeTypes={nodeTypes}
         defaultEdgeOptions={{
           animated: true,
-          style: { stroke: '#00f2fe', strokeWidth: 3.5 },
+          style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 },
         }}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}

@@ -11,6 +11,12 @@
   --accent-blue: #0099ff;
   --accent-purple: #8b5cf6;
   --accent-pink: #ec4899;
+
+  /* Estilos de Edges para Modo Escuro (Neon Laser Cyan + Dark Shadow Outline) */
+  --edge-stroke-color: #00f2fe;
+  --edge-hover-color: #38bdf8;
+  --edge-filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.85)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.95));
+  --edge-hover-filter: drop-shadow(0 0 14px rgba(56, 189, 248, 1)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
 }
 
 html:not(.dark), html.light {
@@ -26,6 +32,12 @@ html:not(.dark), html.light {
   --accent-blue: #2563eb;
   --accent-purple: #7c3aed;
   --accent-pink: #db2777;
+
+  /* Estilos de Edges para Modo Claro (Deep Sapphire Blue + Light Shadow Outline) */
+  --edge-stroke-color: #0052cc;
+  --edge-hover-color: #0284c7;
+  --edge-filter: drop-shadow(0 0 10px rgba(0, 82, 204, 0.75)) drop-shadow(0 0 3px rgba(255, 255, 255, 0.95));
+  --edge-hover-filter: drop-shadow(0 0 14px rgba(2, 132, 199, 1)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.95));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -95,36 +107,41 @@ input, textarea, select, pre, code, [contenteditable="true"] {
 }
 
 /* -------------------------------------------------------------------------- */
-/* ESTILIZAÇÃO ULTRA DESTACADA DE LINHAS DE CONEXÃO (EDGES / PATHS SVG)       */
+/* ESTILIZAÇÃO ULTRA DESTACADA E TRIPLA ESPESSURA DAS LINHAS DE CONEXÃO      */
 /* -------------------------------------------------------------------------- */
 .react-flow__edge-path {
-  stroke: #00f2fe !important;
-  stroke-width: 3.5px !important;
-  filter: drop-shadow(0 0 5px rgba(0, 242, 254, 0.7));
+  stroke: var(--edge-stroke-color, #00f2fe) !important;
+  stroke-width: 10.5px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  filter: var(--edge-filter, drop-shadow(0 0 10px rgba(0, 242, 254, 0.85)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.95))) !important;
   transition: stroke 0.2s ease, stroke-width 0.2s ease;
 }
 
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: #38bdf8 !important;
-  stroke-width: 5px !important;
-  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.9));
+  stroke: var(--edge-hover-color, #38bdf8) !important;
+  stroke-width: 14px !important;
+  filter: var(--edge-hover-filter, drop-shadow(0 0 14px rgba(56, 189, 248, 1)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.95))) !important;
 }
 
 .react-flow__edge-textbg {
-  fill: #0f172a !important;
-  rx: 4px;
-  ry: 4px;
+  fill: var(--bg-secondary, #0f172a) !important;
+  rx: 6px;
+  ry: 6px;
+  stroke: var(--edge-stroke-color, #00f2fe) !important;
+  stroke-width: 1.5px !important;
 }
 
 .react-flow__edge-text {
-  fill: #00f2fe !important;
+  fill: var(--text-primary, #f8fafc) !important;
   font-weight: 800 !important;
   font-size: 11px !important;
 }
 
 .react-flow__arrowhead path {
-  fill: #00f2fe !important;
-  stroke: #00f2fe !important;
+  fill: var(--edge-stroke-color, #00f2fe) !important;
+  stroke: var(--edge-stroke-color, #00f2fe) !important;
+  stroke-width: 2px !important;
 }
 
