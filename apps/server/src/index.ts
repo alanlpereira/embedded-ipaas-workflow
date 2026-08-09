@@ -14,7 +14,16 @@ import { setupWebSocketServer } from './websocket.js';
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+const corsOptions: cors.CorsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-client-info', 'apikey'],
+  credentials: true,
+  maxAge: 86400,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Registrar Roteadores
