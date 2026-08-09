@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, ShieldCheck, UserCheck, Clock, AlertTriangle, Loader2, Smartphone, ArrowRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface FormattedField {
   key: string;
@@ -27,36 +28,64 @@ export const ZeroFrictionDecidePage: React.FC<{ token: string }> = ({ token }) =
   const [decisionState, setDecisionState] = useState<'APPROVED' | 'REJECTED' | null>(null);
 
   useEffect(() => {
-    fetch(`/api/approvals/decide/${token}`)
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then((err) => {
-            throw new Error(err.error || 'Token inválido ou não encontrado.');
-          });
+    async function loadToken() {
+      try {
+        // 1. Tentar buscar o token diretamente na tabela public.approval_tokens do Supabase Cloud
+        const { data: dbData, error: dbErr } = await supabase
+          .from('approval_tokens')
+          .select('*')
+          .eq('token', token)
+          .maybeSingle();
+
+        if (dbData) {
+          const formatted: ApprovalTokenData = {
+            token: dbData.token,
+            flowchart_id: dbData.flowchart_id,
+            flowchart_name: dbData.payload?.workflow_name || 'Fluxo Synapse',
+            assignee_email: dbData.assignee_email,
+            status: dbData.status || 'PENDING',
+            created_at: dbData.created_at,
+            decided_at: dbData.decided_at,
+            formattedFields: dbData.payload?.formattedFields || [],
+            rawPayload: dbData.payload || {}
+          };
+
+          setTokenData(formatted);
+          if (formatted.status !== 'PENDING') {
+            setDecisionState(formatted.status as any);
+          } else {
+            // Auto-executar a decisão se o link contiver o parâmetro ?action=APPROVED ou ?action=REJECTED
+            const searchParams = new URLSearchParams(window.location.search);
+            const act = searchParams.get('action') || searchParams.get('decision');
+            if (act === 'APPROVED' || act === 'APPROVE') {
+              setTimeout(() => handleDecision('APPROVED'), 300);
+            } else if (act === 'REJECTED' || act === 'REJECT') {
+              setTimeout(() => handleDecision('REJECTED'), 300);
+            }
+          }
+          setIsLoading(false);
+          return;
         }
-        return res.json();
-      })
-      .then((data) => {
+
+        // 2. Fallback via API backend se não encontrar na tabela direta
+        const res = await fetch(`/api/approvals/decide/${token}`);
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Token de aprovação inválido ou não encontrado.');
+        }
+        const data = await res.json();
         setTokenData(data);
         if (data.status !== 'PENDING') {
           setDecisionState(data.status);
-        } else {
-          // Auto-executar a decisão se o link contiver o parâmetro ?action=APPROVED ou ?action=REJECTED
-          const searchParams = new URLSearchParams(window.location.search);
-          const act = searchParams.get('action') || searchParams.get('decision');
-          if (act === 'APPROVED' || act === 'APPROVE') {
-            setTimeout(() => handleDecision('APPROVED'), 300);
-          } else if (act === 'REJECTED' || act === 'REJECT') {
-            setTimeout(() => handleDecision('REJECTED'), 300);
-          }
         }
-      })
-      .catch((err) => {
-        setError(err.message);
-      })
-      .finally(() => {
+      } catch (err: any) {
+        setError(err.message || 'Token de aprovação inválido ou não encontrado.');
+      } finally {
         setIsLoading(false);
-      });
+      }
+    }
+
+    loadToken();
   }, [token]);
 
   const handleDecision = async (decision: 'APPROVED' | 'REJECTED') => {
@@ -66,24 +95,35 @@ export const ZeroFrictionDecidePage: React.FC<{ token: string }> = ({ token }) =
     setError(null);
 
     try {
-      const response = await fetch(`/api/approvals/decide/${token}`, {
+      // 1. Enviar a decisão diretamente para a Edge Function workflow-worker no Supabase Cloud
+      const edgeResp = await fetch('https://wurfruxigmajgnqsyleq.supabase.co/functions/v1/workflow-worker', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cmZydXhpZ21hamducXN5bGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjI0MzcsImV4cCI6MjEwMTUzODQzN30.zWo05gnMB4INe27AyGCiR2M2L9q-Yh5enUFecC8Fn10'
+        },
         body: JSON.stringify({
+          approval_token: token,
           decision,
-          decided_by: 'Gestor Mobile (Zero Fricção)',
-        }),
+          decided_by: 'Gestor Mobile (Zero Fricção)'
+        })
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || 'Erro ao registrar decisão.');
+      if (!edgeResp.ok) {
+        // Fallback local via API Express
+        await fetch(`/api/approvals/decide/${token}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decision,
+            decided_by: 'Gestor Mobile (Zero Fricção)',
+          }),
+        });
       }
 
       setDecisionState(decision);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Erro ao registrar decisão.');
     } finally {
       setIsSubmitting(false);
     }
