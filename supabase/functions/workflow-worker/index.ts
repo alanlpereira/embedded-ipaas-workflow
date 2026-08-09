@@ -651,9 +651,9 @@ serve(async (req) => {
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl;
 
-        const approveUrl = `https://synapse.alp-nexus.com/decide/${approvalToken}?action=APPROVED`;
-        const rejectUrl = `https://synapse.alp-nexus.com/decide/${approvalToken}?action=REJECTED`;
-        const portalUrl = `https://synapse.alp-nexus.com/decide/${approvalToken}`;
+        const approveUrl = `${supabaseUrl}/functions/v1/approve-step?token=${approvalToken}&decision=APPROVED`;
+        const rejectUrl = `${supabaseUrl}/functions/v1/approve-step?token=${approvalToken}&decision=REJECTED`;
+        const portalUrl = `https://synapse.alp-nexus.com/approval?token=${approvalToken}`;
 
         const mailSubject = settings.subject ? interpolateVars(settings.subject) : `[Aprovação Pendente] Solicitação de Validação: ${workflow.name}`;
         const customMsg = settings.message ? interpolateVars(settings.message) : `Uma nova solicitação de aprovação exige sua validação no fluxo <strong>${workflow.name}</strong>.`;
