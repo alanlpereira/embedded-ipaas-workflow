@@ -205,6 +205,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
     const emailApprovalConfig = {
       sender: 'corporativo@alp-nexus.com',
       to: approvalRecipients.trim(),
+      recipients: approvalRecipients.trim(),
       subject: approvalSubject.trim(),
       message: approvalMessage,
     };
@@ -248,7 +249,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         finalDescription = `Inbound: ${inboundEmail}`;
       }
     } else if (isEmailApprovalNode) {
-      finalDescription = `Para: ${approvalRecipients.trim() || 'diretoria@empresa.com'}`;
+      finalDescription = `Para: ${approvalRecipients.trim() || 'corporativo@alp-nexus.com'}`;
     } else if (isJumpNode) {
       finalDescription = `Salto / Recomeço #${jumpId}`;
     } else if (isEndNode) {
@@ -272,11 +273,6 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       ...(isScheduleNode ? scheduleConfigClean : {}),
     };
 
-    // Remove legacy recipients if present
-    if (isEmailApprovalNode && 'recipients' in newConfig) {
-      delete (newConfig as any).recipients;
-    }
-
     const updatedData: WorkflowNodeData = {
       ...node.data,
       label,
@@ -284,6 +280,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       swapOutputs,
       settings: updatedSettings,
       config: newConfig,
+      approvalConfig: isEmailApprovalNode ? emailApprovalConfig : node.data.approvalConfig,
       httpConfig: isHttpNode ? {
         method: httpMethod,
         url,
@@ -303,11 +300,6 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         ? emailOutputs
         : node.data.outputs,
     };
-
-    // Remove redundant approvalConfig object to avoid duplicate JSON data
-    if ('approvalConfig' in updatedData) {
-      delete (updatedData as any).approvalConfig;
-    }
 
     const updated: WorkflowNode = {
       ...node,

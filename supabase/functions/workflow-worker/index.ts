@@ -215,14 +215,15 @@ serve(async (req) => {
       processedNodesCount++;
       const nodeType = currentNode.type || currentNode.data?.type || 'action';
       const nodeLabel = currentNode.data?.label || currentNode.label || currentNode.id;
-      const nodeConfig = 
-        currentNode.data?.approvalConfig || 
-        currentNode.data?.emailConfig || 
-        currentNode.data?.teamsConfig || 
-        currentNode.data?.config || 
-        currentNode.config || 
-        currentNode.data?.settings || 
-        currentNode.settings || {};
+      const nodeConfig = {
+        ...(currentNode.data?.approvalConfig || {}),
+        ...(currentNode.data?.emailConfig || {}),
+        ...(currentNode.data?.teamsConfig || {}),
+        ...(currentNode.data?.settings || {}),
+        ...(currentNode.settings || {}),
+        ...(currentNode.config || {}),
+        ...(currentNode.data?.config || {}),
+      };
       const settings = { ...currentNode.data, ...currentNode, ...nodeConfig };
 
       console.log(`\n➡️ [STEP ${processedNodesCount}] Processando Nó "${nodeLabel}" (ID: ${currentNode.id}, Tipo: ${nodeType})`);

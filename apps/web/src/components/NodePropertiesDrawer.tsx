@@ -68,6 +68,7 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
       ...(isApproval ? {
         sender: 'corporativo@alp-nexus.com',
         to: recipientVal || 'corporativo@alp-nexus.com',
+        recipients: recipientVal || 'corporativo@alp-nexus.com',
         subject: (config.subject || 'Aprovação Solicitada').trim(),
         message: config.message || '',
       } : {}),
@@ -80,20 +81,27 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
       } : {}),
     };
 
-    if (isApproval && 'recipients' in updatedConfig) {
-      delete (updatedConfig as any).recipients;
-    }
-
     const updatedData: any = {
       ...node.data,
       label,
       description: isApproval ? `Para: ${recipientVal}` : description,
       config: updatedConfig,
+      ...(isApproval ? {
+        approvalConfig: {
+          sender: 'corporativo@alp-nexus.com',
+          to: recipientVal || 'corporativo@alp-nexus.com',
+          recipients: recipientVal || 'corporativo@alp-nexus.com',
+          subject: (config.subject || 'Aprovação Solicitada').trim(),
+          message: config.message || '',
+        }
+      } : {}),
+      ...(isTeams ? {
+        teamsConfig: {
+          webhookUrl: (config.webhookUrl || '').trim(),
+          message: config.message || '',
+        }
+      } : {}),
     };
-
-    if ('approvalConfig' in updatedData) {
-      delete updatedData.approvalConfig;
-    }
 
     const updatedNode: WorkflowNode = {
       ...node,
