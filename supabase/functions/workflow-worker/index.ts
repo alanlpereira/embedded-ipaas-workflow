@@ -387,7 +387,30 @@ serve(async (req) => {
               })
             });
             sendSuccess = resp.ok;
-            if (!resp.ok) sendError = `Resend HTTP ${resp.status}: ${await resp.text()}`;
+            if (!resp.ok) {
+              const errText = await resp.text();
+              if (resp.status === 403 && (errText.includes('testing emails') || errText.includes('validation_error'))) {
+                console.warn(`⚠️ [RESEND 403 FALLBACK] Redirecionando envio para e-mail verificado (alanlpereira@hotmail.com)...`);
+                const fbResp = await fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${resendApiKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <onboarding@resend.dev>',
+                    reply_to: 'corporativo@alp-nexus.com',
+                    to: ['alanlpereira@hotmail.com'],
+                    subject: `[Para: ${recipientStr}] ${subject}`,
+                    html: `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h2>[Para: ${recipientStr}] ${subject}</h2><p>${bodyText}</p><hr/><small>ID Execução: ${executionId}</small></div>`
+                  })
+                });
+                sendSuccess = fbResp.ok;
+                if (!fbResp.ok) sendError = `Resend Fallback HTTP ${fbResp.status}: ${await fbResp.text()}`;
+              } else {
+                sendError = `Resend HTTP ${resp.status}: ${errText}`;
+              }
+            }
           } catch (e: any) {
             sendError = e.message;
           }
@@ -602,7 +625,30 @@ serve(async (req) => {
               })
             });
             emailSent = resp.ok;
-            if (!resp.ok) emailError = `Resend HTTP ${resp.status}: ${await resp.text()}`;
+            if (!resp.ok) {
+              const errText = await resp.text();
+              if (resp.status === 403 && (errText.includes('testing emails') || errText.includes('validation_error'))) {
+                console.warn(`⚠️ [RESEND 403 FALLBACK] Domínio de teste retido pelo Resend. Redirecionando envio para e-mail verificado (alanlpereira@hotmail.com)...`);
+                const fbResp = await fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${resendApiKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <onboarding@resend.dev>',
+                    reply_to: 'corporativo@alp-nexus.com',
+                    to: ['alanlpereira@hotmail.com'],
+                    subject: `[Para: ${recipientStr}] ${mailSubject}`,
+                    html: mailHtml
+                  })
+                });
+                emailSent = fbResp.ok;
+                if (!fbResp.ok) emailError = `Resend Fallback HTTP ${fbResp.status}: ${await fbResp.text()}`;
+              } else {
+                emailError = `Resend HTTP ${resp.status}: ${errText}`;
+              }
+            }
           } catch (e: any) {
             emailError = e.message;
           }
