@@ -950,6 +950,7 @@ function WorkflowAppContent() {
         nodes: nodes as any,
         edges: cleanedEdges as any,
         is_published: activeFlowchart.is_published ?? false,
+        is_active: activeFlowchart.is_active ?? false,
         updated_at: updatedFlow.updated_at,
       };
 
@@ -1010,6 +1011,7 @@ function WorkflowAppContent() {
         nodes: nodes as any,
         edges: cleanedEdges as any,
         is_published: activeFlowchart.is_published ?? false,
+        is_active: activeFlowchart.is_active ?? false,
         updated_at: updatedFlow.updated_at,
       };
 
