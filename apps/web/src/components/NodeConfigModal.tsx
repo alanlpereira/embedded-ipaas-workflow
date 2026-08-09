@@ -77,12 +77,12 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
 
   // Email Approval Action Configuration State
   const initialApproval: EmailApprovalConfig = node.data.approvalConfig || {
-    recipients: 'diretoria@empresa.com, {{email.from}}',
+    recipients: 'corporativo@alp-nexus.com',
     subject: 'Aprovação Solicitada: Reembolso de Despesas #1024',
     message: 'Olá,\n\nUm novo processo requer sua aprovação. Por favor, revise os detalhes abaixo e clique em um dos botões para prosseguir com o fluxo.',
   };
 
-  const [approvalRecipients, setApprovalRecipients] = useState(initialApproval.recipients || 'diretoria@empresa.com');
+  const [approvalRecipients, setApprovalRecipients] = useState(initialApproval.recipients || 'corporativo@alp-nexus.com');
   const [approvalSubject, setApprovalSubject] = useState(initialApproval.subject || 'Aprovação Solicitada');
   const [approvalMessage, setApprovalMessage] = useState(initialApproval.message || '');
 

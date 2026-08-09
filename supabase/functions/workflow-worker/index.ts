@@ -354,10 +354,12 @@ serve(async (req) => {
         let bodyText = settings.body || settings.message || `O fluxo "${workflow.name}" executou o nó ${nodeLabel} com sucesso.`;
 
         const interpolatedRecipient = interpolateVars(rawRecipient);
-        const recipientList = interpolatedRecipient
-          .split(',')
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && s.includes('@'));
+        const recipientList = Array.from(new Set(
+          interpolatedRecipient
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0 && s.includes('@'))
+        ));
         const finalRecipientArray = recipientList.length > 0 ? recipientList : ['corporativo@alp-nexus.com'];
         const recipientStr = finalRecipientArray.join(', ');
 
@@ -513,10 +515,12 @@ serve(async (req) => {
 
         const rawRecipient = settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'corporativo@alp-nexus.com';
         const interpolatedRecipient = interpolateVars(rawRecipient);
-        const recipientList = interpolatedRecipient
-          .split(',')
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && s.includes('@'));
+        const recipientList = Array.from(new Set(
+          interpolatedRecipient
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0 && s.includes('@'))
+        ));
         const finalRecipientArray = recipientList.length > 0 ? recipientList : ['corporativo@alp-nexus.com'];
         const recipientStr = finalRecipientArray.join(', ');
 
