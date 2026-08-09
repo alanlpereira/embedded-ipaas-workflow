@@ -95,7 +95,13 @@ serve(async (req) => {
 
         if (wf) {
           const edges: any[] = wf.edges || [];
-          const targetEdge = edges.find((e: any) => e.source === tokData.approval_node_id);
+          let targetEdge = edges.find((e: any) => e.source === tokData.approval_node_id && (
+            e.sourceHandle === 'approved' || e.sourceHandle === 'true' || e.sourceHandle?.includes('app') || e.label?.toLowerCase().includes('aprov')
+          ));
+          if (!targetEdge) {
+            targetEdge = edges.find((e: any) => e.source === tokData.approval_node_id);
+          }
+
           if (targetEdge) {
             console.log(`▶️ [RESUME SUCCESS] Retomando para a próxima caixa ID: ${targetEdge.target}`);
             await supabase
@@ -243,8 +249,22 @@ serve(async (req) => {
           `▶️ Nó Gatilho [${nodeLabel}] ativado. Contexto inicializado.`
         );
       } else if (isTeams) {
-        const webhookUrl = settings.webhookUrl || settings.url || contextData.teams_webhook_url;
-        const cardMsg = settings.cardMessage || settings.message || `Notificação de Execução do Workflow "${workflow.name}"`;
+        const interpolateVars = (str: string) => {
+          if (!str) return '';
+          return str.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (_, path) => {
+            const parts = path.split('.');
+            let curr: any = contextData;
+            for (const p of parts) {
+              if (curr && typeof curr === 'object') curr = curr[p];
+              else return '';
+            }
+            return curr !== undefined && curr !== null ? String(curr) : '';
+          });
+        };
+
+        const webhookUrl = settings.webhookUrl || settings.url || settings.teamsConfig?.webhookUrl || contextData.teams_webhook_url;
+        const rawCardMsg = settings.cardMessage || settings.message || settings.teamsConfig?.cardMessage || settings.teamsConfig?.message || `Notificação de Execução do Workflow "${workflow.name}"`;
+        const interpolatedMsg = interpolateVars(rawCardMsg);
 
         console.log(`📢 [WORKER DISPATCH] Disparando Notificação no MS Teams para: ${webhookUrl || 'URL Padrão'}`);
 
@@ -253,15 +273,39 @@ serve(async (req) => {
 
         if (webhookUrl && webhookUrl.startsWith('http')) {
           try {
+            const teamsPayload = {
+              text: `📢 **${workflow.name}**\n\n${interpolatedMsg}\n\n*ID de Execução: ${executionId}*`,
+              message: interpolatedMsg,
+              cardMessage: interpolatedMsg,
+              card_message: interpolatedMsg,
+              body: interpolatedMsg,
+              subject: `Notificação: ${workflow.name}`,
+              workflow_name: workflow.name,
+              execution_id: executionId,
+              status: 'executed',
+              timestamp: new Date().toISOString(),
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              "themeColor": "00F2FE",
+              "summary": `Notificação: ${workflow.name}`,
+              "sections": [
+                {
+                  "activityTitle": `📢 ${workflow.name}`,
+                  "activitySubtitle": `Notificação de Execução - Synapse`,
+                  "text": interpolatedMsg
+                }
+              ]
+            };
+
             const resp = await fetch(webhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                text: `📢 **${workflow.name}**\n\n${cardMsg}\n\n*ID de Execução: ${executionId}*`
-              })
+              body: JSON.stringify(teamsPayload)
             });
-            postSuccess = resp.ok;
-            if (!resp.ok) {
+
+            // Status 200, 201 ou 202 (Accepted) são considerados sucessos
+            postSuccess = resp.ok || resp.status === 202;
+            if (!postSuccess) {
               postError = `HTTP ${resp.status}: ${await resp.text()}`;
             }
           } catch (err: any) {
@@ -277,7 +321,7 @@ serve(async (req) => {
           ...contextData,
           teams: {
             webhook_url: webhookUrl,
-            card_message: cardMsg,
+            card_message: interpolatedMsg,
             status: postSuccess ? 'posted' : 'failed',
             error: postError,
             posted_at: new Date().toISOString(),
