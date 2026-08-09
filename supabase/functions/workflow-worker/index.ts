@@ -18,7 +18,7 @@ serve(async (req) => {
     body = { execution_id: url.searchParams.get('execution_id') };
   }
 
-  const executionId = body.execution_id;
+  const executionId = body.execution_id || body.executionId;
 
   if (!executionId) {
     return new Response(

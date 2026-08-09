@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock } from 'lucide-react';
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
 import { CodeEditorInput } from './CodeEditorInput';
+import { getApiUrl } from '../lib/api';
 
 interface NodePropertiesDrawerProps {
   node: WorkflowNode | null;
@@ -115,7 +116,7 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
     setVaultSuccessMsg(false);
 
     try {
-      const response = await fetch('/api/v1/vault/secrets', {
+      const response = await fetch(getApiUrl('/api/v1/vault/secrets'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secretText: plainApiToken }),
@@ -147,7 +148,7 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
         amount_usd: 15000,
       };
 
-      const response = await fetch('/api/v1/ai/generate-payload', {
+      const response = await fetch(getApiUrl('/api/v1/ai/generate-payload'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ script: config.script, input: sampleInput }),

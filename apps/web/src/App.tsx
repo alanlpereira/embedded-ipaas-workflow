@@ -526,19 +526,11 @@ function WorkflowAppContent() {
     try {
       await supabase
         .from('workflows')
-        .update({ is_published: isActive, is_active: isActive, updated_at: new Date().toISOString() })
+        .update({ is_published: isActive, updated_at: new Date().toISOString() })
         .eq('id', id);
     } catch (err) {
       console.warn('⚠️ [SUPABASE UPDATE WARN] Falha ao atualizar status de ativação do fluxo:', err);
     }
-
-    try {
-      await fetch(`/api/v1/flowcharts/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_published: isActive, is_active: isActive }),
-      });
-    } catch (err) {}
   };
 
   const handleUpdateProfile = (updatedFields: Partial<Profile>) => {
@@ -958,7 +950,6 @@ function WorkflowAppContent() {
         nodes: nodes as any,
         edges: cleanedEdges as any,
         is_published: activeFlowchart.is_published ?? false,
-        is_active: activeFlowchart.is_active ?? false,
         updated_at: updatedFlow.updated_at,
       };
 
@@ -972,19 +963,6 @@ function WorkflowAppContent() {
       if (fcErr) {
         console.warn('⚠️ [SUPABASE FLOWCHARTS UPSERT WARN]:', fcErr.message);
       }
-
-      // 3. Persistir nos endpoints REST do servidor Express
-      await fetch(getApiUrl(`/api/flowcharts/${activeFlowchart.id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
-      }).catch(() => {});
-
-      await fetch(getApiUrl(`/api/v1/flowcharts/${activeFlowchart.id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
-      }).catch(() => {});
 
       alert(t.messages.flowSaved);
     } catch (err: any) {
@@ -1032,7 +1010,6 @@ function WorkflowAppContent() {
         nodes: nodes as any,
         edges: cleanedEdges as any,
         is_published: activeFlowchart.is_published ?? false,
-        is_active: activeFlowchart.is_active ?? false,
         updated_at: updatedFlow.updated_at,
       };
 
@@ -1042,12 +1019,6 @@ function WorkflowAppContent() {
 
       const { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
       if (fcErr) console.warn('⚠️ flowcharts upsert:', fcErr.message);
-
-      await fetch(getApiUrl(`/api/flowcharts/${activeFlowchart.id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
-      }).catch(() => {});
 
       // B) Descobrir qual é o ID do primeiro nó (ex: ScheduleNode, EmailTriggerNode ou nodes[0])
       const startNode = nodes.find((n) => ['schedule', 'email_trigger', 'trigger'].includes(n.type)) || nodes[0];
@@ -1068,55 +1039,26 @@ function WorkflowAppContent() {
         started_at: new Date().toISOString(),
       };
 
-      // C) Fazer INSERT na tabela 'flow_executions' (com fallback para REST API backend em caso de RLS/sem credenciais)
-      console.log('🚀 [RUN NOW DIAGNOSTIC] Disparando execução ID:', executionId, 'Payload:', executionPayload);
+      // C) Fazer INSERT na tabela 'flow_executions' do Supabase
+      console.log('🚀 [RUN NOW DIAGNOSTIC] Registrando execução ID:', executionId, 'Payload:', executionPayload);
       const { error: insertErr } = await supabase.from('flow_executions').insert([executionPayload]);
 
       if (insertErr) {
-        console.warn('⚠️ [RUN NOW WARN] Insert Supabase falhou (RLS ou sem chave), utilizando fallback REST API:', insertErr.message || insertErr);
-        await fetch(getApiUrl('/api/v1/executions'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: executionId,
-            workflow_id: activeFlowchart.id,
-            workflow_name: activeFlowchart.name,
-            status: 'running',
-            current_node_id: firstNodeId,
-            context_data: executionPayload.context_data,
-          }),
-        }).catch((err) => {
-          console.warn('⚠️ [RUN NOW WARN] Fallback REST POST /executions falhou:', err);
-        });
+        console.error('❌ [RUN NOW SUPABASE INSERT ERROR]:', insertErr.message || insertErr);
       } else {
         console.log('✅ [RUN NOW SUCCESS] Execução registrada com sucesso na tabela flow_executions do Supabase!');
       }
 
-      // D) Disparar o Worker Engine de Traversal do Grafo
-      const runRes = await fetch(getApiUrl(`/api/v1/executions/${executionId}/run`), { method: 'POST' }).catch((err) => {
-        console.warn('⚠️ [RUN NOW WARN] Rota /run da API retornou erro:', err);
-        return null;
+      // D) Disparar a Edge Function "workflow-worker" EXCLUSIVAMENTE via SDK Oficial do Supabase
+      console.log('⚡ [RUN NOW] Acionando Edge Function "workflow-worker" via Supabase SDK...');
+      const { data: funcData, error: funcErr } = await supabase.functions.invoke('workflow-worker', {
+        body: { executionId, execution_id: executionId },
       });
 
-      if (runRes && runRes.ok) {
-        const runData = await runRes.json();
-        console.log('⚡ [RUN NOW ENGINE RESULT] Grafo de Nós processado:', runData);
-      }
-
-      // Se houver VITE_SUPABASE_URL configurada, acionar a Edge Function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (supabaseUrl && !supabaseUrl.includes('your-supabase-project')) {
-        const edgeWorkerUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/workflow-worker`;
-        fetch(edgeWorkerUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
-          },
-          body: JSON.stringify({ execution_id: executionId }),
-        }).catch((err) => {
-          console.warn('⚠️ [RUN NOW WARN] Disparo da Edge Function falhou:', err);
-        });
+      if (funcErr) {
+        console.warn('⚠️ [RUN NOW EDGE FUNCTION WARN]:', funcErr.message || funcErr);
+      } else {
+        console.log('⚡ [RUN NOW EDGE FUNCTION SUCCESS]:', funcData);
       }
 
       // 4. Exibir Toast/Snackbar de sucesso ao iniciar o fluxo

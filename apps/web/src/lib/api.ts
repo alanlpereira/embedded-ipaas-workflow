@@ -5,7 +5,7 @@
 export const API_BASE_URL = (
   import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_BACKEND_URL ||
-  ''
+  'https://synapse-api.onrender.com'
 ).replace(/\/$/, '');
 
 export function getApiUrl(endpoint: string): string {

@@ -3,6 +3,7 @@ import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, L
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
+import { getApiUrl } from '../lib/api';
 
 interface MasterAdminPageProps {
   currentProfile: Profile | null;
@@ -165,7 +166,7 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
     setGeneratedDemoOrg(org.name);
 
     try {
-      const response = await fetch('/api/v1/master/demo-link', {
+      const response = await fetch(getApiUrl('/api/v1/master/demo-link'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ organization_id: org.id }),
