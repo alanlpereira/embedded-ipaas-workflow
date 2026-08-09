@@ -1049,31 +1049,56 @@ function WorkflowAppContent() {
         started_at: new Date().toISOString(),
       };
 
-      // C) Fazer INSERT na tabela 'flow_executions'
+      // C) Fazer INSERT na tabela 'flow_executions' (com fallback para REST API backend em caso de RLS/sem credenciais)
+      console.log('🚀 [RUN NOW DIAGNOSTIC] Disparando execução ID:', executionId, 'Payload:', executionPayload);
       const { error: insertErr } = await supabase.from('flow_executions').insert([executionPayload]);
 
       if (insertErr) {
-        console.warn('⚠️ [RUN NOW WARN] Insert Supabase falhou, usando fallback REST API:', insertErr);
+        console.warn('⚠️ [RUN NOW WARN] Insert Supabase falhou (RLS ou sem chave), utilizando fallback REST API:', insertErr.message || insertErr);
         await fetch(getApiUrl('/api/v1/executions'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            id: executionId,
             workflow_id: activeFlowchart.id,
             workflow_name: activeFlowchart.name,
             status: 'running',
             current_node_id: firstNodeId,
             context_data: executionPayload.context_data,
           }),
-        }).catch(() => {});
+        }).catch((err) => {
+          console.warn('⚠️ [RUN NOW WARN] Fallback REST POST /executions falhou:', err);
+        });
+      } else {
+        console.log('✅ [RUN NOW SUCCESS] Execução registrada com sucesso na tabela flow_executions do Supabase!');
       }
 
-      // D) Disparar o Worker Engine (Edge Function & API Backend)
-      fetch(getApiUrl(`/api/v1/executions/${executionId}/run`), { method: 'POST' }).catch(() => {});
-      fetch('/functions/v1/workflow-worker', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ execution_id: executionId }),
-      }).catch(() => {});
+      // D) Disparar o Worker Engine de Traversal do Grafo
+      const runRes = await fetch(getApiUrl(`/api/v1/executions/${executionId}/run`), { method: 'POST' }).catch((err) => {
+        console.warn('⚠️ [RUN NOW WARN] Rota /run da API retornou erro:', err);
+        return null;
+      });
+
+      if (runRes && runRes.ok) {
+        const runData = await runRes.json();
+        console.log('⚡ [RUN NOW ENGINE RESULT] Grafo de Nós processado:', runData);
+      }
+
+      // Se houver VITE_SUPABASE_URL configurada, acionar a Edge Function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (supabaseUrl && !supabaseUrl.includes('your-supabase-project')) {
+        const edgeWorkerUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/workflow-worker`;
+        fetch(edgeWorkerUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
+          },
+          body: JSON.stringify({ execution_id: executionId }),
+        }).catch((err) => {
+          console.warn('⚠️ [RUN NOW WARN] Disparo da Edge Function falhou:', err);
+        });
+      }
 
       // 4. Exibir Toast/Snackbar de sucesso ao iniciar o fluxo
       setToastMessage(`🚀 Fluxo "${activeFlowchart.name}" disparado com sucesso! Acompanhe o progresso em tempo real na aba Execuções.`);

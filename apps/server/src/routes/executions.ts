@@ -233,7 +233,7 @@ router.post('/', async (req: Request, res: Response) => {
   const { workflow_id, workflow_name, status, current_node_id, context_data } = req.body;
 
   const newExecution: FlowExecutionRecord = {
-    id: `exec-${Date.now()}`,
+    id: req.body.id || req.body.execution_id || `exec-${Date.now()}`,
     workflow_id: workflow_id || 'flow-sample-1',
     workflow_name: workflow_name || 'Fluxo IPaaS',
     status: status || 'running',
