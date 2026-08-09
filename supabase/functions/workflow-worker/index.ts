@@ -313,7 +313,7 @@ serve(async (req) => {
         contextData = {
           ...contextData,
           email_out: {
-            recipient,
+            recipient: recipientStr,
             subject,
             body: bodyText,
             sent_at: new Date().toISOString(),
@@ -328,8 +328,8 @@ serve(async (req) => {
           sendSuccess ? (provider === 'simulation' ? 'warning' : 'success') : 'error',
           sendSuccess
             ? (provider === 'simulation'
-                ? `✉️ [SIMULAÇÃO] E-mail para ${recipient} registrado no fluxo. Para disparo real na caixa de entrada, configure RESEND_API_KEY no Supabase.`
-                : `✉️ E-mail disparado com sucesso via ${provider} para ${recipient}.`)
+                ? `✉️ [SIMULAÇÃO] E-mail para ${recipientStr} registrado no fluxo. Para disparo real na caixa de entrada, configure RESEND_API_KEY no Supabase.`
+                : `✉️ E-mail disparado com sucesso via ${provider} para ${recipientStr}.`)
             : `❌ Falha no envio de e-mail: ${sendError}`
         );
       } else if (isHttp) {
@@ -503,7 +503,7 @@ serve(async (req) => {
           approval: {
             token: approvalToken,
             status: 'pending',
-            recipients: recipient,
+            recipients: recipientStr,
             approval_url: approvalUrl,
             requested_at: new Date().toISOString(),
             email_sent: emailSent,
@@ -524,10 +524,10 @@ serve(async (req) => {
         await addLog(
           currentNode.id,
           emailSent ? 'warning' : 'error',
-          `⏳ Fluxo pausado no nó de Aprovação. E-mail de aprovação enviado para ${recipient} (Token: ${approvalToken}).`
+          `⏳ Fluxo pausado no nó de Aprovação. E-mail de aprovação enviado para ${recipientStr} (Token: ${approvalToken}).`
         );
 
-        console.log(`⏸️ [WORKER PAUSE] Fluxo entrou em estado 'waiting_approval' para ${recipient}. Link: ${approvalUrl}`);
+        console.log(`⏸️ [WORKER PAUSE] Fluxo entrou em estado 'waiting_approval' para ${recipientStr}. Link: ${approvalUrl}`);
         isWaitingApproval = true;
       } else if (isEnd) {
         await addLog(
