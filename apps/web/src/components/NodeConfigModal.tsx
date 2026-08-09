@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter, CheckCircle, ThumbsUp, ThumbsDown, Send, StopCircle, CircleDot, MessageCircle, MessageSquare, Lock } from 'lucide-react';
-import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig, EmailApprovalConfig, JumpNodeConfig, WhatsAppNodeConfig, TeamsNodeConfig } from '@ipaas/shared-types';
+import { WorkflowNode, WorkflowNodeData, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig, EmailApprovalConfig, JumpNodeConfig, WhatsAppNodeConfig, TeamsNodeConfig } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
 import { getApiUrl } from '../lib/api';
@@ -197,12 +197,30 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       return;
     }
 
-    const updatedApprovalConfig: any = {
+    if (isTeamsNode && !teamsWebhookUrl.trim()) {
+      alert('O campo Webhook URL é obrigatório no MS Teams.');
+      return;
+    }
+
+    const emailApprovalConfig = {
       sender: 'corporativo@alp-nexus.com',
-      recipients: approvalRecipients.trim(),
       to: approvalRecipients.trim(),
       subject: approvalSubject.trim(),
       message: approvalMessage,
+    };
+
+    const teamsConfigClean = {
+      webhookUrl: teamsWebhookUrl.trim(),
+      message: teamsCardMessage,
+      cardMessage: teamsCardMessage,
+    };
+
+    const scheduleConfigClean = {
+      cron: computedCron,
+      recurrenceType,
+      time: scheduleTime,
+      daysOfWeek,
+      dayOfMonth: scheduleDayOfMonth,
     };
 
     const approvalOutputs = [
@@ -214,11 +232,6 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
     const updatedWhatsAppConfig: WhatsAppNodeConfig = {
       destinationNumber: whatsappDestination,
       message: whatsappMessage,
-    };
-
-    const updatedTeamsConfig: TeamsNodeConfig = {
-      webhookUrl: teamsWebhookUrl,
-      cardMessage: teamsCardMessage,
     };
 
     let finalDescription = description;
@@ -235,7 +248,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         finalDescription = `Inbound: ${inboundEmail}`;
       }
     } else if (isEmailApprovalNode) {
-      finalDescription = `Para: ${approvalRecipients || 'diretoria@empresa.com'}`;
+      finalDescription = `Para: ${approvalRecipients.trim() || 'diretoria@empresa.com'}`;
     } else if (isJumpNode) {
       finalDescription = `Salto / Recomeço #${jumpId}`;
     } else if (isEndNode) {
@@ -249,37 +262,56 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
     const updatedSettings = {
       ...(node.data.settings || {}),
       ...(isWhatsAppNode ? { destinationNumber: whatsappDestination, message: whatsappMessage } : {}),
-      ...(isTeamsNode ? { webhookUrl: teamsWebhookUrl, cardMessage: teamsCardMessage } : {}),
+      ...(isTeamsNode ? teamsConfigClean : {}),
     };
+
+    const newConfig = {
+      ...(node.data.config || {}),
+      ...(isEmailApprovalNode ? emailApprovalConfig : {}),
+      ...(isTeamsNode ? teamsConfigClean : {}),
+      ...(isScheduleNode ? scheduleConfigClean : {}),
+    };
+
+    // Remove legacy recipients if present
+    if (isEmailApprovalNode && 'recipients' in newConfig) {
+      delete (newConfig as any).recipients;
+    }
+
+    const updatedData: WorkflowNodeData = {
+      ...node.data,
+      label,
+      description: finalDescription,
+      swapOutputs,
+      settings: updatedSettings,
+      config: newConfig,
+      httpConfig: isHttpNode ? {
+        method: httpMethod,
+        url,
+        credential_id: credentialId,
+        headers: headersText,
+        body: bodyText,
+      } : node.data.httpConfig,
+      scheduleConfig: isScheduleNode ? updatedScheduleConfig : node.data.scheduleConfig,
+      emailConfig: isEmailTriggerNode ? updatedEmailConfig : node.data.emailConfig,
+      jumpConfig: isJumpNode ? { jumpId } : node.data.jumpConfig,
+      whatsappConfig: isWhatsAppNode ? updatedWhatsAppConfig : node.data.whatsappConfig,
+      teamsConfig: isTeamsNode ? teamsConfigClean : node.data.teamsConfig,
+      cronExpression: isScheduleNode ? computedCron : node.data.cronExpression,
+      outputs: isEmailApprovalNode
+        ? approvalOutputs
+        : isEmailTriggerNode
+        ? emailOutputs
+        : node.data.outputs,
+    };
+
+    // Remove redundant approvalConfig object to avoid duplicate JSON data
+    if ('approvalConfig' in updatedData) {
+      delete (updatedData as any).approvalConfig;
+    }
 
     const updated: WorkflowNode = {
       ...node,
-      data: {
-        ...node.data,
-        label,
-        description: finalDescription,
-        swapOutputs,
-        settings: updatedSettings,
-        httpConfig: isHttpNode ? {
-          method: httpMethod,
-          url,
-          credential_id: credentialId,
-          headers: headersText,
-          body: bodyText,
-        } : node.data.httpConfig,
-        scheduleConfig: isScheduleNode ? updatedScheduleConfig : node.data.scheduleConfig,
-        emailConfig: isEmailTriggerNode ? updatedEmailConfig : node.data.emailConfig,
-        approvalConfig: isEmailApprovalNode ? updatedApprovalConfig : node.data.approvalConfig,
-        jumpConfig: isJumpNode ? { jumpId } : node.data.jumpConfig,
-        whatsappConfig: isWhatsAppNode ? updatedWhatsAppConfig : node.data.whatsappConfig,
-        teamsConfig: isTeamsNode ? updatedTeamsConfig : node.data.teamsConfig,
-        cronExpression: isScheduleNode ? computedCron : node.data.cronExpression,
-        outputs: isEmailApprovalNode
-          ? approvalOutputs
-          : isEmailTriggerNode
-          ? emailOutputs
-          : node.data.outputs,
-      },
+      data: updatedData,
     };
 
     onSave(updated);

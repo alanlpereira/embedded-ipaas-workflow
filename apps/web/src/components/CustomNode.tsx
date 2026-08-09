@@ -273,7 +273,7 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
           gap: '4px',
         }}>
           <Clock size={12} />
-          <span>{formatScheduleSummary(nodeData.scheduleConfig, language)}</span>
+          <span>{nodeData.config?.cron ? `Cron: ${nodeData.config.cron}` : formatScheduleSummary(nodeData.scheduleConfig, language)}</span>
         </div>
       )}
 
@@ -317,9 +317,9 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
 
       {/* Badge de Aprovação por E-mail */}
       {(nodeType === 'email_approval' || nodeType === 'approval') && (() => {
-        const appCfg: any = nodeData.approvalConfig || nodeData.config || {};
+        const appCfg: any = nodeData.config || nodeData.approvalConfig || {};
         const sender = appCfg.sender || 'corporativo@alp-nexus.com';
-        const recipients = appCfg.recipients || appCfg.to || 'diretoria@empresa.com';
+        const recipients = appCfg.to || appCfg.recipients || 'diretoria@empresa.com';
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
             <div style={{
@@ -390,7 +390,7 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
 
       {/* Badge de MS Teams */}
       {nodeType === 'teams' && (() => {
-        const url = nodeData.teamsConfig?.webhookUrl || nodeData.settings?.webhookUrl || '';
+        const url = nodeData.config?.webhookUrl || nodeData.teamsConfig?.webhookUrl || nodeData.settings?.webhookUrl || '';
         const shortUrl = url ? url.replace('https://', '').slice(0, 22) + '...' : 'Canal Webhook MS Teams';
         return (
           <div style={{

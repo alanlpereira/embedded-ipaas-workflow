@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video } from 'lucide-react';
+import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock } from 'lucide-react';
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
 import { CodeEditorInput } from './CodeEditorInput';
 
@@ -47,33 +47,58 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
 
   const handleSave = () => {
     const isApproval = nodeType === 'email_approval' || nodeType === 'approval';
-    const recipientVal = (config.recipients || config.to || node.data.approvalConfig?.recipients || '').trim();
+    const isTeams = nodeType === 'teams';
+    const isSchedule = nodeType === 'schedule';
+
+    const recipientVal = (config.to || config.recipients || node.data.approvalConfig?.recipients || '').trim();
 
     if (isApproval && !recipientVal) {
       alert('O campo Destinatário é obrigatório na Aprovação por E-mail.');
       return;
     }
 
-    const updatedApprovalConfig = isApproval ? {
-      sender: 'corporativo@alp-nexus.com',
-      recipients: recipientVal || 'diretoria@empresa.com',
-      subject: (config.subject || node.data.approvalConfig?.subject || 'Aprovação Solicitada').trim(),
-      message: config.message !== undefined ? config.message : (node.data.approvalConfig?.message || ''),
-    } : node.data.approvalConfig;
+    if (isTeams && !(config.webhookUrl || '').trim()) {
+      alert('O campo Webhook URL é obrigatório no MS Teams.');
+      return;
+    }
+
+    const updatedConfig = {
+      ...config,
+      ...(isApproval ? {
+        sender: 'corporativo@alp-nexus.com',
+        to: recipientVal || 'diretoria@empresa.com',
+        subject: (config.subject || 'Aprovação Solicitada').trim(),
+        message: config.message || '',
+      } : {}),
+      ...(isTeams ? {
+        webhookUrl: (config.webhookUrl || '').trim(),
+        message: config.message || '',
+      } : {}),
+      ...(isSchedule ? {
+        cron: config.cron || '0 9 * * 1-5',
+      } : {}),
+    };
+
+    if (isApproval && 'recipients' in updatedConfig) {
+      delete (updatedConfig as any).recipients;
+    }
+
+    const updatedData: any = {
+      ...node.data,
+      label,
+      description: isApproval ? `Para: ${recipientVal}` : description,
+      config: updatedConfig,
+    };
+
+    if ('approvalConfig' in updatedData) {
+      delete updatedData.approvalConfig;
+    }
 
     const updatedNode: WorkflowNode = {
       ...node,
-      data: {
-        ...node.data,
-        label,
-        description: isApproval ? `Para: ${recipientVal}` : description,
-        config: {
-          ...config,
-          ...(isApproval ? updatedApprovalConfig : {}),
-        },
-        approvalConfig: updatedApprovalConfig,
-      },
+      data: updatedData,
     };
+
     onUpdateNode(updatedNode);
     onClose();
   };
@@ -614,6 +639,126 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
                   resize: 'vertical',
                 }}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Formulário de Microsoft Teams */}
+        {nodeType === 'teams' && (
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
+            borderRadius: '12px',
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#60a5fa', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ExternalLink size={16} />
+              Configuração do Microsoft Teams
+            </h3>
+
+            {/* 1) Webhook URL */}
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Webhook URL <strong style={{ color: '#ef4444' }}>* (Obrigatório)</strong>
+              </label>
+              <input
+                type="text"
+                placeholder="https://outlook.office.com/webhook/..."
+                value={config.webhookUrl !== undefined ? config.webhookUrl : (node.data.teamsConfig?.webhookUrl || '')}
+                onChange={(e) => {
+                  handleConfigChange('webhookUrl', e.target.value);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: !(config.webhookUrl !== undefined ? config.webhookUrl : (node.data.teamsConfig?.webhookUrl || '')).trim() ? '1px solid #ef4444' : '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              />
+              {!(config.webhookUrl !== undefined ? config.webhookUrl : (node.data.teamsConfig?.webhookUrl || '')).trim() && (
+                <span style={{ fontSize: '10px', color: '#ef4444', marginTop: '4px', display: 'block', fontWeight: 700 }}>
+                  ⚠️ O campo Webhook URL é obrigatório!
+                </span>
+              )}
+            </div>
+
+            {/* 2) Mensagem */}
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Mensagem do Card
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Informe a mensagem ou template do Card..."
+                value={config.message !== undefined ? config.message : (node.data.teamsConfig?.cardMessage || '')}
+                onChange={(e) => {
+                  handleConfigChange('message', e.target.value);
+                  handleConfigChange('cardMessage', e.target.value);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Formulário de Agendamento (Schedule Trigger) */}
+        {nodeType === 'schedule' && (
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            borderRadius: '12px',
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#c084fc', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Clock size={16} />
+              Configuração de Agendamento (Cron)
+            </h3>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Expressão Cron (node.data.config.cron)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: 0 9 * * 1-5"
+                value={config.cron !== undefined ? config.cron : (node.data.cronExpression || '0 9 * * 1-5')}
+                onChange={(e) => handleConfigChange('cron', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Frequência no formato Cron de 5 campos (min hora dia mês semana). Ex: <code>0 9 * * 1-5</code> (Seg a Sex às 09:00).
+              </span>
             </div>
           </div>
         )}
