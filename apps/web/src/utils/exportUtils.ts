@@ -38,9 +38,9 @@ export async function exportFlowToImage(
       svg.setAttribute('overflow', 'visible');
     });
 
-    // 2. Processar todas as linhas (paths SVG) mantendo a espessura padronizada de 3px (1.5x da base)
+    // 2. Processar todas as linhas (paths SVG) mantendo a espessura refinada de 2.5px (1.5x da base original)
     const edgePaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges path, .react-flow__edge-path, svg.react-flow__edges path, svg path');
-    const restoredPaths: Array<{ el: SVGPathElement; stroke: string; strokeWidth: string; strokeOpacity: string; fill: string }> = [];
+    const restoredPaths: Array<{ el: SVGPathElement; stroke: string; strokeWidth: string; strokeOpacity: string; fill: string; filter: string }> = [];
 
     edgePaths.forEach((path) => {
       restoredPaths.push({
@@ -49,6 +49,7 @@ export async function exportFlowToImage(
         strokeWidth: path.style.strokeWidth,
         strokeOpacity: path.style.strokeOpacity,
         fill: path.style.fill,
+        filter: path.style.filter,
       });
 
       const computedStyle = window.getComputedStyle(path);
@@ -69,7 +70,7 @@ export async function exportFlowToImage(
         }
 
         path.style.stroke = strokeColor;
-        path.style.strokeWidth = '3px';
+        path.style.strokeWidth = '2.5px';
         path.style.strokeLinecap = 'round';
         path.style.strokeLinejoin = 'round';
         path.style.strokeOpacity = '1';
@@ -77,13 +78,15 @@ export async function exportFlowToImage(
         path.style.display = 'inline';
         path.style.visibility = 'visible';
         path.style.opacity = '1';
+        path.style.filter = 'none'; // Remover filtros CSS para evitar corte de curvas no rasterizador
 
         path.setAttribute('stroke', strokeColor);
-        path.setAttribute('stroke-width', '3');
+        path.setAttribute('stroke-width', '2.5');
         path.setAttribute('stroke-linecap', 'round');
         path.setAttribute('stroke-linejoin', 'round');
         path.setAttribute('stroke-opacity', '1');
         path.setAttribute('fill', 'none');
+        path.removeAttribute('filter');
       }
     });
 
@@ -111,11 +114,12 @@ export async function exportFlowToImage(
     });
 
     // 5. Restaurar inline styles originais
-    restoredPaths.forEach(({ el, stroke, strokeWidth, strokeOpacity, fill }) => {
+    restoredPaths.forEach(({ el, stroke, strokeWidth, strokeOpacity, fill, filter }) => {
       el.style.stroke = stroke;
       el.style.strokeWidth = strokeWidth;
       el.style.strokeOpacity = strokeOpacity;
       el.style.fill = fill;
+      el.style.filter = filter;
     });
 
     // 5. Acionar o download do arquivo PNG

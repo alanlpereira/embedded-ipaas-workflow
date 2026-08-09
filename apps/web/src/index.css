@@ -107,22 +107,18 @@ input, textarea, select, pre, code, [contenteditable="true"] {
 }
 
 /* -------------------------------------------------------------------------- */
-/* ESTILIZAÇÃO ULTRA DESTACADA E TRIPLA ESPESSURA DAS LINHAS DE CONEXÃO      */
+/* ESTILIZAÇÃO HARMONIOSA E SUAVE DAS LINHAS DE CONEXÃO (1.5x ESPESSURA BASE) */
 /* -------------------------------------------------------------------------- */
 .react-flow__edge-path {
-  stroke: var(--edge-stroke-color, #00f2fe) !important;
-  stroke-width: 10.5px !important;
+  stroke-width: 2.5px !important;
   stroke-linecap: round !important;
   stroke-linejoin: round !important;
-  filter: var(--edge-filter, drop-shadow(0 0 10px rgba(0, 242, 254, 0.85)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.95))) !important;
   transition: stroke 0.2s ease, stroke-width 0.2s ease;
 }
 
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--edge-hover-color, #38bdf8) !important;
-  stroke-width: 14px !important;
-  filter: var(--edge-hover-filter, drop-shadow(0 0 14px rgba(56, 189, 248, 1)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.95))) !important;
+  stroke-width: 3.5px !important;
 }
 
 .react-flow__edge-textbg {
