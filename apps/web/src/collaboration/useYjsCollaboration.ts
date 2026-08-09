@@ -47,9 +47,13 @@ export function useYjsCollaboration({
 
     const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
     const wsProtocol = isHttps ? 'wss:' : 'ws:';
-    const customBackend = import.meta.env.VITE_BACKEND_URL
+    let customBackend = import.meta.env.VITE_BACKEND_URL
       ? import.meta.env.VITE_BACKEND_URL.replace(/^https?:\/\//, '')
-      : (typeof window !== 'undefined' ? window.location.host : 'synapse.alp-nexus.com');
+      : 'synapse-api.onrender.com';
+
+    if (customBackend === 'synapse.alp-nexus.com') {
+      customBackend = 'synapse-api.onrender.com';
+    }
 
     const wsUrl = `${wsProtocol}//${customBackend}/collaboration?flowId=${encodeURIComponent(
       flowchartId
@@ -57,6 +61,10 @@ export function useYjsCollaboration({
 
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
+
+    socket.onerror = () => {
+      console.warn('⚡ [REALTIME WARN] Servidor de Colaboração (WebSockets) indisponível ou reconectando...');
+    };
 
     socket.onopen = () => {
       setIsConnected(true);
