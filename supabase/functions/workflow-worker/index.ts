@@ -275,6 +275,7 @@ serve(async (req) => {
         if (webhookUrl && webhookUrl.startsWith('http')) {
           try {
             const teamsPayload = {
+              title: `📢 Notificação: ${workflow.name}`,
               text: `📢 **${workflow.name}**\n\n${interpolatedMsg}\n\n*ID de Execução: ${executionId}*`,
               message: interpolatedMsg,
               cardMessage: interpolatedMsg,
@@ -282,20 +283,12 @@ serve(async (req) => {
               body: interpolatedMsg,
               subject: `Notificação: ${workflow.name}`,
               workflow_name: workflow.name,
+              workflow: workflow.name,
               execution_id: executionId,
               status: 'executed',
               timestamp: new Date().toISOString(),
-              "@type": "MessageCard",
-              "@context": "http://schema.org/extensions",
-              "themeColor": "00F2FE",
-              "summary": `Notificação: ${workflow.name}`,
-              "sections": [
-                {
-                  "activityTitle": `📢 ${workflow.name}`,
-                  "activitySubtitle": `Notificação de Execução - Synapse`,
-                  "text": interpolatedMsg
-                }
-              ]
+              summary: `Notificação: ${workflow.name}`,
+              url: 'https://synapse.alp-nexus.com',
             };
 
             const resp = await fetch(webhookUrl, {
