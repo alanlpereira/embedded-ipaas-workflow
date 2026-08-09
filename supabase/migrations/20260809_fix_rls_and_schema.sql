@@ -1,9 +1,11 @@
 -- Migration: Correção Definitiva de RLS (Eliminação de Loop Infinito) e Inconsistências de Schema
 
 -- 1. Adicionar colunas faltantes em workflows e flowcharts
+ALTER TABLE IF EXISTS public.workflows ADD COLUMN IF NOT EXISTS organization_id text DEFAULT 'org-alp-nexus';
 ALTER TABLE IF EXISTS public.workflows ADD COLUMN IF NOT EXISTS is_published boolean DEFAULT false;
 ALTER TABLE IF EXISTS public.workflows ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 
+ALTER TABLE IF EXISTS public.flowcharts ADD COLUMN IF NOT EXISTS organization_id text DEFAULT 'org-alp-nexus';
 ALTER TABLE IF EXISTS public.flowcharts ADD COLUMN IF NOT EXISTS is_published boolean DEFAULT false;
 ALTER TABLE IF EXISTS public.flowcharts ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 

@@ -30,3 +30,12 @@ jwt_expiry = 3600
 
 [analytics]
 enabled = false
+
+[functions.workflow-worker]
+verify_jwt = false
+
+[functions.approve-step]
+verify_jwt = false
+
+[functions.workflow-scheduler]
+verify_jwt = false

@@ -955,12 +955,22 @@ function WorkflowAppContent() {
       };
 
       // 2. Persistir nas tabelas 'workflows' e 'flowcharts' do Supabase
-      const { error: wfErr } = await supabase.from('workflows').upsert(payload);
+      let { error: wfErr } = await supabase.from('workflows').upsert(payload);
+      if (wfErr && wfErr.message?.includes('organization_id')) {
+        const { organization_id, ...fallbackPayload } = payload;
+        const retry = await supabase.from('workflows').upsert(fallbackPayload);
+        wfErr = retry.error;
+      }
       if (wfErr) {
         console.warn('⚠️ [SUPABASE WORKFLOWS UPSERT WARN]:', wfErr.message);
       }
 
-      const { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
+      let { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
+      if (fcErr && fcErr.message?.includes('organization_id')) {
+        const { organization_id, ...fallbackPayload } = payload;
+        const retry = await supabase.from('flowcharts').upsert(fallbackPayload);
+        fcErr = retry.error;
+      }
       if (fcErr) {
         console.warn('⚠️ [SUPABASE FLOWCHARTS UPSERT WARN]:', fcErr.message);
       }
@@ -1016,10 +1026,20 @@ function WorkflowAppContent() {
       };
 
       // Gravação garantida no Supabase workflows e flowcharts
-      const { error: wfErr } = await supabase.from('workflows').upsert(payload);
+      let { error: wfErr } = await supabase.from('workflows').upsert(payload);
+      if (wfErr && wfErr.message?.includes('organization_id')) {
+        const { organization_id, ...fallbackPayload } = payload;
+        const retry = await supabase.from('workflows').upsert(fallbackPayload);
+        wfErr = retry.error;
+      }
       if (wfErr) console.warn('⚠️ workflows upsert:', wfErr.message);
 
-      const { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
+      let { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
+      if (fcErr && fcErr.message?.includes('organization_id')) {
+        const { organization_id, ...fallbackPayload } = payload;
+        const retry = await supabase.from('flowcharts').upsert(fallbackPayload);
+        fcErr = retry.error;
+      }
       if (fcErr) console.warn('⚠️ flowcharts upsert:', fcErr.message);
 
       // B) Descobrir qual é o ID do primeiro nó (ex: ScheduleNode, EmailTriggerNode ou nodes[0])
