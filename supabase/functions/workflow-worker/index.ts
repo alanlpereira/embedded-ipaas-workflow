@@ -45,6 +45,72 @@ serve(async (req) => {
     }
   }
 
+  // Se recebemos um token de aprovação (decisão HITL enviada via e-mail ou portal)
+  if (body.approval_token || body.token) {
+    const tokenStr = body.approval_token || body.token;
+    const decision = body.decision || 'APPROVED';
+    const decidedBy = body.decided_by || 'Gestor Mobile (Zero Fricção)';
+
+    console.log(`📱 [WORKER APPROVAL DECISION] Token: ${tokenStr} | Decisão: ${decision}`);
+
+    // 1. Atualizar o token de aprovação
+    await supabase
+      .from('approval_tokens')
+      .update({
+        status: decision,
+        decided_at: new Date().toISOString(),
+        decided_by: decidedBy
+      })
+      .eq('token', tokenStr);
+
+    // 2. Buscar o registro do token para obter o workflow_id e nó de origem
+    const { data: tokData } = await supabase
+      .from('approval_tokens')
+      .select('*')
+      .eq('token', tokenStr)
+      .single();
+
+    if (tokData) {
+      // Buscar a execução pendente correspondente
+      const { data: pendingExec } = await supabase
+        .from('flow_executions')
+        .select('*')
+        .eq('workflow_id', tokData.flowchart_id)
+        .eq('status', 'waiting_approval')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (pendingExec) {
+        executionId = pendingExec.id;
+
+        // Buscar as edges do fluxo para descobrir a próxima caixa após a aprovação
+        let wf: any = null;
+        const { data: wfRes } = await supabase.from('workflows').select('edges').eq('id', tokData.flowchart_id).single();
+        if (wfRes) wf = wfRes;
+        else {
+          const { data: fcRes } = await supabase.from('flowcharts').select('edges').eq('id', tokData.flowchart_id).single();
+          if (fcRes) wf = fcRes;
+        }
+
+        if (wf) {
+          const edges: any[] = wf.edges || [];
+          const targetEdge = edges.find((e: any) => e.source === tokData.approval_node_id);
+          if (targetEdge) {
+            console.log(`▶️ [RESUME SUCCESS] Retomando para a próxima caixa ID: ${targetEdge.target}`);
+            await supabase
+              .from('flow_executions')
+              .update({
+                status: 'running',
+                current_node_id: targetEdge.target
+              })
+              .eq('id', executionId);
+          }
+        }
+      }
+    }
+  }
+
   if (!executionId) {
     return new Response(
       JSON.stringify({ error: 'Parâmetro execution_id ou workflow_id é obrigatório.' }),
