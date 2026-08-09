@@ -46,13 +46,32 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
   const nodeType = node.type || node.data?.type || 'action';
 
   const handleSave = () => {
+    const isApproval = nodeType === 'email_approval' || nodeType === 'approval';
+    const recipientVal = (config.recipients || config.to || node.data.approvalConfig?.recipients || '').trim();
+
+    if (isApproval && !recipientVal) {
+      alert('O campo Destinatário é obrigatório na Aprovação por E-mail.');
+      return;
+    }
+
+    const updatedApprovalConfig = isApproval ? {
+      sender: 'corporativo@alp-nexus.com',
+      recipients: recipientVal || 'diretoria@empresa.com',
+      subject: (config.subject || node.data.approvalConfig?.subject || 'Aprovação Solicitada').trim(),
+      message: config.message !== undefined ? config.message : (node.data.approvalConfig?.message || ''),
+    } : node.data.approvalConfig;
+
     const updatedNode: WorkflowNode = {
       ...node,
       data: {
         ...node.data,
         label,
-        description,
-        config,
+        description: isApproval ? `Para: ${recipientVal}` : description,
+        config: {
+          ...config,
+          ...(isApproval ? updatedApprovalConfig : {}),
+        },
+        approvalConfig: updatedApprovalConfig,
       },
     };
     onUpdateNode(updatedNode);
@@ -467,6 +486,135 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Formulário de Aprovação por E-mail (Email Approval Node) */}
+        {(nodeType === 'email_approval' || nodeType === 'approval') && (
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            borderRadius: '12px',
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#34d399', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CheckCircle2 size={16} />
+              Configuração da Aprovação por E-mail
+            </h3>
+
+            {/* 1) Campo Remetente (Read-only / Disabled) */}
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Remetente (Fixo Corporativo)
+              </label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value="corporativo@alp-nexus.com"
+                  disabled
+                  readOnly
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px 8px 32px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-muted)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'not-allowed',
+                  }}
+                />
+                <Lock size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px' }} />
+              </div>
+            </div>
+
+            {/* 2) Campo Destinatário (Obrigatório) */}
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Destinatário(s) <strong style={{ color: '#ef4444' }}>* (Obrigatório)</strong>
+              </label>
+              <input
+                type="email"
+                placeholder="ex: diretoria@empresa.com, {{email.from}}"
+                value={config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'diretoria@empresa.com')}
+                onChange={(e) => {
+                  handleConfigChange('recipients', e.target.value);
+                  handleConfigChange('to', e.target.value);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: !(config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'diretoria@empresa.com')).trim() ? '1px solid #ef4444' : '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+              {!(config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'diretoria@empresa.com')).trim() ? (
+                <span style={{ fontSize: '10px', color: '#ef4444', marginTop: '4px', display: 'block', fontWeight: 700 }}>
+                  ⚠️ O campo Destinatário é obrigatório!
+                </span>
+              ) : (
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  Suporta múltiplos e-mails e interpolação de variáveis.
+                </span>
+              )}
+            </div>
+
+            {/* 3) Campo Assunto */}
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Assunto do E-mail
+              </label>
+              <input
+                type="text"
+                placeholder="ex: Aprovação Solicitada: Reembolso #1024"
+                value={config.subject !== undefined ? config.subject : (node.data.approvalConfig?.subject || 'Aprovação Solicitada')}
+                onChange={(e) => handleConfigChange('subject', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* 4) Campo Mensagem Contextual */}
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Mensagem Contextual
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Explique o contexto para o aprovador..."
+                value={config.message !== undefined ? config.message : (node.data.approvalConfig?.message || '')}
+                onChange={(e) => handleConfigChange('message', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
           </div>
         )}
       </div>

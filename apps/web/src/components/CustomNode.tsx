@@ -316,28 +316,48 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
       })()}
 
       {/* Badge de Aprovação por E-mail */}
-      {nodeType === 'email_approval' && (() => {
-        const appCfg = nodeData.approvalConfig;
-        const recipients = appCfg?.recipients || 'diretoria@empresa.com';
+      {(nodeType === 'email_approval' || nodeType === 'approval') && (() => {
+        const appCfg: any = nodeData.approvalConfig || nodeData.config || {};
+        const sender = appCfg.sender || 'corporativo@alp-nexus.com';
+        const recipients = appCfg.recipients || appCfg.to || 'diretoria@empresa.com';
         return (
-          <div style={{
-            marginTop: '6px',
-            padding: '4px 8px',
-            borderRadius: '6px',
-            background: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid rgba(16, 185, 129, 0.4)',
-            color: '#34d399',
-            fontSize: '10px',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            <CheckCircle size={12} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Para: {recipients}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
+            <div style={{
+              padding: '3px 7px',
+              borderRadius: '5px',
+              background: 'rgba(59, 130, 246, 0.15)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              color: '#60a5fa',
+              fontSize: '9px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              <span>De: <strong>{sender}</strong></span>
+            </div>
+
+            <div style={{
+              padding: '3px 7px',
+              borderRadius: '5px',
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              color: '#34d399',
+              fontSize: '9.5px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              <CheckCircle size={11} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Para: <strong>{recipients}</strong></span>
+            </div>
           </div>
         );
       })()}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter, CheckCircle, ThumbsUp, ThumbsDown, Send, StopCircle, CircleDot, MessageCircle, MessageSquare } from 'lucide-react';
+import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash2, Clock, Calendar, CheckSquare, Mail, Copy, Paperclip, Server, Filter, CheckCircle, ThumbsUp, ThumbsDown, Send, StopCircle, CircleDot, MessageCircle, MessageSquare, Lock } from 'lucide-react';
 import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig, EmailApprovalConfig, JumpNodeConfig, WhatsAppNodeConfig, TeamsNodeConfig } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
@@ -192,9 +192,16 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       { key: 'email.attachments', label: 'Lista de Anexos (email.attachments)', type: 'array' },
     ];
 
-    const updatedApprovalConfig: EmailApprovalConfig = {
-      recipients: approvalRecipients,
-      subject: approvalSubject,
+    if (isEmailApprovalNode && !approvalRecipients.trim()) {
+      alert('O campo Destinatário é obrigatório na Aprovação por E-mail.');
+      return;
+    }
+
+    const updatedApprovalConfig: any = {
+      sender: 'corporativo@alp-nexus.com',
+      recipients: approvalRecipients.trim(),
+      to: approvalRecipients.trim(),
+      subject: approvalSubject.trim(),
       message: approvalMessage,
     };
 
@@ -906,13 +913,40 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               Configuração da Aprovação por E-mail
             </h3>
 
-            {/* 3) Campos de Configuração */}
+            {/* 1) Campo Remetente (Read-only / Travado) */}
             <div style={{ marginBottom: '14px' }}>
               <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
-                Destinatário(s) da Aprovação (E-mails ou Variáveis)
+                Remetente (Fixo Corporativo)
+              </label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value="corporativo@alp-nexus.com"
+                  disabled
+                  readOnly
+                  style={{
+                    width: '100%',
+                    padding: '9px 11px 9px 36px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-muted)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'not-allowed',
+                  }}
+                />
+                <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '11px' }} />
+              </div>
+            </div>
+
+            {/* 2) Campo Destinatário (Obrigatório) */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                <span>Destinatário(s) da Aprovação <strong style={{ color: '#ef4444' }}>* (Obrigatório)</strong></span>
               </label>
               <input
-                type="text"
+                type="email"
                 placeholder="ex: diretoria@empresa.com, {{email.from}}"
                 value={approvalRecipients}
                 onChange={(e) => setApprovalRecipients(e.target.value)}
@@ -921,16 +955,22 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
                   padding: '9px 11px',
                   borderRadius: '8px',
                   background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-color)',
+                  border: !approvalRecipients.trim() ? '1px solid #ef4444' : '1px solid var(--border-color)',
                   color: 'var(--text-primary)',
                   fontSize: '13px',
                   fontWeight: 600,
                   outline: 'none',
                 }}
               />
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Aceita múltiplos e-mails separados por vírgula e interpolação de variáveis como <code>{'{{email.from}}'}</code>.
-              </span>
+              {!approvalRecipients.trim() ? (
+                <span style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px', display: 'block', fontWeight: 700 }}>
+                  ⚠️ O campo Destinatário é obrigatório! Informe um e-mail válido ou variável.
+                </span>
+              ) : (
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  Aceita múltiplos e-mails separados por vírgula e interpolação de variáveis como <code>{'{{email.from}}'}</code>.
+                </span>
+              )}
             </div>
 
             <div style={{ marginBottom: '14px' }}>

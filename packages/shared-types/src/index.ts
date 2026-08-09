@@ -57,9 +57,12 @@ export interface EmailTriggerConfig {
 }
 
 export interface EmailApprovalConfig {
+  sender?: string;
   recipients: string;
+  to?: string;
   subject: string;
   message: string;
+  [key: string]: any;
 }
 
 export interface JumpNodeConfig {
