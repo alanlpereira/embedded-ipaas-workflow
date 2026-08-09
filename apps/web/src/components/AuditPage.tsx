@@ -65,6 +65,8 @@ const sampleAuditLogs: AuditLogItem[] = [
   },
 ];
 
+import { getApiUrl } from '../lib/api';
+
 export const AuditPage: React.FC<AuditPageProps> = ({ currentProfile, onInspectDebugLog }) => {
   const { t } = useLanguage();
 
@@ -73,7 +75,7 @@ export const AuditPage: React.FC<AuditPageProps> = ({ currentProfile, onInspectD
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
   useEffect(() => {
-    fetch('/api/v1/audit/logs')
+    fetch(getApiUrl('/api/v1/audit/logs'))
       .then((res) => res.json())
       .then((data) => {
         if (data.logs && data.logs.length > 0) setLogs(data.logs);

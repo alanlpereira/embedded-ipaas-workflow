@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, GitBranch, Edit3, Trash2, Eye, Calendar, Layers, ShieldAlert, Folder as FolderIcon, FolderPlus, MoreVertical, MoveRight, FileText, DollarSign, Key, ShoppingCart, UserPlus, X, Power } from 'lucide-react';
 import { Flowchart, Profile, Folder } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { getApiUrl } from '../lib/api';
 
 interface DashboardPageProps {
   currentProfile: Profile;
@@ -51,7 +52,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   // Carregar Pastas
   useEffect(() => {
-    fetch('/api/v1/folders')
+    fetch(getApiUrl('/api/v1/folders'))
       .then((res) => res.json())
       .then((data) => {
         if (data && Array.isArray(data.folders) && data.folders.length > 0) {
@@ -77,7 +78,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     setIsNewAreaModalOpen(false);
 
     try {
-      await fetch('/api/v1/folders', {
+      await fetch(getApiUrl('/api/v1/folders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newFolder.name, icon: newFolder.icon }),

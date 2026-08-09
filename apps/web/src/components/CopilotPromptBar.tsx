@@ -4,6 +4,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { AIErrorBoundary } from './AIErrorBoundary';
 import { WorkflowNode, WorkflowEdge } from '@ipaas/shared-types';
 import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../lib/api';
 
 interface CopilotPromptBarProps {
   onFlowGenerated?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
@@ -39,13 +40,11 @@ const CopilotPromptBarInner: React.FC<CopilotPromptBarProps> = ({ onFlowGenerate
         safeEdges = data.edges || [];
       }
     } catch (edgeErr) {
-      console.warn('⚠️ [EDGE FUNCTION WARN] Supabase Edge Function indisponível no Dashboard Cloud. Alternando para a API local...', edgeErr);
+      console.warn('⚠️ [EDGE FUNCTION WARN] Supabase Edge Function indisponível. Alternando para o backend...', edgeErr);
     }
-
-    // TENTATIVA 2: Fallback para a Rota Backend Synapse (/api/v1/ai/generate-flow)
     if (safeNodes.length === 0) {
       try {
-        const proxyRes = await fetch('/api/v1/ai/generate-flow', {
+        const proxyRes = await fetch(getApiUrl('/api/v1/ai/generate-flow'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: textoDigitadoPeloUsuario }),

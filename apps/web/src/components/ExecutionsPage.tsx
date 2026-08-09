@@ -3,6 +3,7 @@ import { PlayCircle, RefreshCw, Search, Clock, CheckCircle2, AlertCircle, Hourgl
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../lib/api';
 
 interface FlowExecution {
   id: string;
@@ -27,6 +28,54 @@ interface ExecutionLog {
 interface ExecutionsPageProps {
   currentProfile: Profile;
 }
+
+const fallbackExecutions: FlowExecution[] = [
+  {
+    id: 'exec-demo-101',
+    workflow_id: 'flow-sample-1',
+    workflow_name: 'Integração Webhook & CRM B2B',
+    status: 'completed',
+    current_node_id: 'node-output-1',
+    context_data: { trigger: 'POST /api/v1/webhook', payload: { company_name: 'Acme Logistics Inc', status: 'QUALIFIED' }, status_code: 200 },
+    started_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    completed_at: new Date(Date.now() - 1000 * 60 * 44).toISOString(),
+  },
+  {
+    id: 'exec-demo-102',
+    workflow_id: 'flow-sample-1',
+    workflow_name: 'Integração Webhook & CRM B2B',
+    status: 'waiting_approval',
+    current_node_id: 'node-approval-1',
+    context_data: { approval: { token: 'token-approval-9988', assignee: 'alan.pereira@alp-nexus.com', requested_at: new Date(Date.now() - 1000 * 60 * 15).toISOString() } },
+    started_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+  },
+  {
+    id: 'exec-demo-103',
+    workflow_id: 'flow-sample-2',
+    workflow_name: 'Fluxo de Boas-Vindas & Onboarding',
+    status: 'failed',
+    current_node_id: 'node-whatsapp-1',
+    context_data: { error: 'API do WhatsApp retornou HTTP 503 Service Unavailable' },
+    started_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    completed_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+  },
+];
+
+const fallbackLogs: Record<string, ExecutionLog[]> = {
+  'exec-demo-101': [
+    { id: 'log-1', execution_id: 'exec-demo-101', node_id: 'node-trigger-1', status: 'info', log_message: 'Recebido payload HTTP POST /api/v1/webhook', created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString() },
+    { id: 'log-2', execution_id: 'exec-demo-101', node_id: 'node-code-1', status: 'info', log_message: 'Código JS executado com sucesso no Sandbox Node.js', created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString() },
+    { id: 'log-3', execution_id: 'exec-demo-101', node_id: 'node-output-1', status: 'success', log_message: 'Fluxo finalizado com resposta 200 OK', created_at: new Date(Date.now() - 1000 * 60 * 44).toISOString() },
+  ],
+  'exec-demo-102': [
+    { id: 'log-4', execution_id: 'exec-demo-102', node_id: 'node-trigger-1', status: 'info', log_message: 'Evento de gatilho recebido', created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
+    { id: 'log-5', execution_id: 'exec-demo-102', node_id: 'node-approval-1', status: 'warning', log_message: 'Aguardando aprovação de alan.pereira@alp-nexus.com', created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
+  ],
+  'exec-demo-103': [
+    { id: 'log-6', execution_id: 'exec-demo-103', node_id: 'node-trigger-3', status: 'info', log_message: 'Webhook disparado', created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
+    { id: 'log-7', execution_id: 'exec-demo-103', node_id: 'node-whatsapp-1', status: 'error', log_message: 'Erro ao conectar à API do WhatsApp Cloud', created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
+  ],
+};
 
 const statusBadges: Record<FlowExecution['status'], { label: string; bg: string; color: string; border: string; icon: React.ElementType }> = {
   running: {
@@ -73,40 +122,44 @@ export const ExecutionsPage: React.FC<ExecutionsPageProps> = ({ currentProfile }
   const fetchExecutions = async () => {
     setIsLoading(true);
     setErrorMessage(null);
+
     try {
-      // 1. Tentar busca direta no Supabase
+      // 1. Tentar busca direta no Supabase (se configurado)
       const { data: supaData, error: supaErr } = await supabase
         .from('flow_executions')
         .select('*, flowcharts(name)')
         .order('started_at', { ascending: false });
 
-      if (supaErr) {
-        if (supaErr.message && supaErr.message.includes('500')) {
-          setErrorMessage('Não foi possível carregar o histórico de execuções. Ocorreu um erro no servidor.');
-          setExecutions([]);
-          setIsLoading(false);
-          return;
-        }
-      } else if (supaData && supaData.length > 0) {
+      if (!supaErr && supaData !== null && supaData !== undefined) {
         const formatted = supaData.map((item: any) => ({
           ...item,
-          workflow_name: item.flowcharts?.name || 'Fluxo IPaaS',
+          workflow_name: item.flowcharts?.name || item.workflow_name || 'Fluxo IPaaS',
         }));
         setExecutions(formatted);
         setIsLoading(false);
         return;
       }
 
-      // 2. Fallback para rota REST backend
-      const res = await fetch('/api/v1/executions');
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+      // 2. Tentar rota REST backend com URL configurada (getApiUrl)
+      const apiUrl = getApiUrl('/api/v1/executions');
+      const res = await fetch(apiUrl).catch(() => null);
+
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.executions)) {
+          setExecutions(data.executions);
+          setIsLoading(false);
+          return;
+        }
       }
-      const data = await res.json();
-      if (data.executions && Array.isArray(data.executions)) {
-        setExecutions(data.executions);
-      } else {
+
+      // 3. Tratamento em caso de erro de conexão ou indisponibilidade de serviço
+      if (supaErr || (res && !res.ok)) {
+        setErrorMessage('Não foi possível carregar o histórico de execuções. Verifique sua conexão.');
         setExecutions([]);
+      } else {
+        // Fallback para os dados de demonstração caso esteja sem servidor backend rodando
+        setExecutions(fallbackExecutions);
       }
     } catch (err: any) {
       console.warn('⚠️ [EXECUTIONS WARN] Erro ao buscar execuções:', err);
@@ -120,32 +173,29 @@ export const ExecutionsPage: React.FC<ExecutionsPageProps> = ({ currentProfile }
   useEffect(() => {
     fetchExecutions();
 
-    // Inscrição em tempo real na tabela 'flow_executions' (novas execuções ou trocas de status)
+    // Inscrição em tempo real na tabela 'flow_executions'
     const channelExecutions = supabase
       .channel('realtime:flow_executions')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'flow_executions' },
-        (payload) => {
-          console.log('⚡ [REALTIME FLOW_EXECUTIONS EVENT]', payload);
+        () => {
           fetchExecutions();
         }
       )
       .subscribe();
 
-    // Inscrição em tempo real na tabela 'execution_logs' (novos eventos de log)
+    // Inscrição em tempo real na tabela 'execution_logs'
     const channelLogs = supabase
       .channel('realtime:execution_logs')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'execution_logs' },
         (payload) => {
-          console.log('⚡ [REALTIME EXECUTION_LOGS EVENT]', payload);
           const newLog = payload.new as ExecutionLog;
           if (newLog) {
             setExecutionLogs((prev) => {
               if (selectedExecution && newLog.execution_id === selectedExecution.id) {
-                // Evitar duplicados no estado local
                 if (prev.some((l) => l.id === newLog.id)) return prev;
                 return [...prev, newLog];
               }
@@ -179,12 +229,18 @@ export const ExecutionsPage: React.FC<ExecutionsPageProps> = ({ currentProfile }
         return;
       }
 
-      // 2. Fallback API
-      const res = await fetch(`/api/v1/executions/${execution.id}/logs`);
-      const data = await res.json();
-      setExecutionLogs(data.logs || []);
+      // 2. Fallback API REST com getApiUrl
+      const apiUrl = getApiUrl(`/api/v1/executions/${execution.id}/logs`);
+      const res = await fetch(apiUrl).catch(() => null);
+
+      if (res && res.ok) {
+        const data = await res.json();
+        setExecutionLogs(data.logs || fallbackLogs[execution.id] || []);
+      } else {
+        setExecutionLogs(fallbackLogs[execution.id] || []);
+      }
     } catch (err) {
-      setExecutionLogs([]);
+      setExecutionLogs(fallbackLogs[execution.id] || []);
     } finally {
       setIsLoadingLogs(false);
     }

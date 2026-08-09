@@ -28,6 +28,7 @@ import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
 import { supabase } from './lib/supabase';
+import { getApiUrl } from './lib/api';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { ThemeProvider, useTheme, ExtendedOrganization } from './context/ThemeContext';
 import { useYjsCollaboration } from './collaboration/useYjsCollaboration';
@@ -379,7 +380,7 @@ function WorkflowAppContent() {
     setIsAnalyzingEfficiency(true);
 
     try {
-      const response = await fetch('/api/v1/ai/optimize-flow', {
+      const response = await fetch(getApiUrl('/api/v1/ai/optimize-flow'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -954,14 +955,14 @@ function WorkflowAppContent() {
         console.warn('⚠️ [SUPABASE FLOWCHARTS UPSERT WARN]:', fcErr.message);
       }
 
-      // 3. Persistir nos endpoints REST do servidor local Express
-      await fetch(`/api/flowcharts/${activeFlowchart.id}`, {
+      // 3. Persistir nos endpoints REST do servidor Express
+      await fetch(getApiUrl(`/api/flowcharts/${activeFlowchart.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
       }).catch(() => {});
 
-      await fetch(`/api/v1/flowcharts/${activeFlowchart.id}`, {
+      await fetch(getApiUrl(`/api/v1/flowcharts/${activeFlowchart.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
@@ -1024,7 +1025,7 @@ function WorkflowAppContent() {
       const { error: fcErr } = await supabase.from('flowcharts').upsert(payload);
       if (fcErr) console.warn('⚠️ flowcharts upsert:', fcErr.message);
 
-      await fetch(`/api/flowcharts/${activeFlowchart.id}`, {
+      await fetch(getApiUrl(`/api/flowcharts/${activeFlowchart.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes: nodes as any, edges: cleanedEdges as any }),
@@ -1053,7 +1054,7 @@ function WorkflowAppContent() {
 
       if (insertErr) {
         console.warn('⚠️ [RUN NOW WARN] Insert Supabase falhou, usando fallback REST API:', insertErr);
-        await fetch('/api/v1/executions', {
+        await fetch(getApiUrl('/api/v1/executions'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1063,11 +1064,11 @@ function WorkflowAppContent() {
             current_node_id: firstNodeId,
             context_data: executionPayload.context_data,
           }),
-        });
+        }).catch(() => {});
       }
 
       // D) Disparar o Worker Engine (Edge Function & API Backend)
-      fetch(`/api/v1/executions/${executionId}/run`, { method: 'POST' }).catch(() => {});
+      fetch(getApiUrl(`/api/v1/executions/${executionId}/run`), { method: 'POST' }).catch(() => {});
       fetch('/functions/v1/workflow-worker', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

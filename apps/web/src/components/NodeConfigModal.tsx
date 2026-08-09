@@ -3,6 +3,7 @@ import { Globe, ShieldCheck, Play, X, Check, Loader2, Code, Zap, FileText, Trash
 import { WorkflowNode, HttpNodeConfig, CredentialVaultItem, ScheduleNodeConfig, EmailTriggerConfig, EmailApprovalConfig, JumpNodeConfig, WhatsAppNodeConfig, TeamsNodeConfig } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
+import { getApiUrl } from '../lib/api';
 
 interface NodeConfigModalProps {
   node: WorkflowNode | null;
@@ -120,7 +121,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const isTeamsNode = node.type === 'teams' || node.data.type === 'teams' || (node.data.label && node.data.label.toLowerCase().includes('teams'));
 
   useEffect(() => {
-    fetch('/api/v1/vault/credentials')
+    fetch(getApiUrl('/api/v1/vault/credentials'))
       .then((res) => res.json())
       .then((data) => {
         if (data.credentials && Array.isArray(data.credentials)) {
@@ -135,7 +136,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
     setTestResult(null);
 
     try {
-      const res = await fetch('/api/v1/vault/execute-http', {
+      const res = await fetch(getApiUrl('/api/v1/vault/execute-http'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { KeyRound, Plus, ShieldCheck, Trash2, Lock, Eye, EyeOff, Check, MessageSquare, Mail, Slack, Cpu, AlertCircle } from 'lucide-react';
 import { Profile, CredentialVaultItem } from '@ipaas/shared-types';
+import { getApiUrl } from '../lib/api';
 
 interface IntegrationsVaultPageProps {
   currentProfile: Profile | null;
@@ -31,7 +32,7 @@ export const IntegrationsVaultPage: React.FC<IntegrationsVaultPageProps> = ({ cu
   const fetchCredentials = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/v1/vault/credentials');
+      const res = await fetch(getApiUrl('/api/v1/vault/credentials'));
       const data = await res.json();
       if (data.credentials && Array.isArray(data.credentials)) {
         setCredentials(data.credentials);
@@ -47,7 +48,7 @@ export const IntegrationsVaultPage: React.FC<IntegrationsVaultPageProps> = ({ cu
     if (!name || !secretValue) return;
 
     try {
-      const res = await fetch('/api/v1/vault/credentials', {
+      const res = await fetch(getApiUrl('/api/v1/vault/credentials'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

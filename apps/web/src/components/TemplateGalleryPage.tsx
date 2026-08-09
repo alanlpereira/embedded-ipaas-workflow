@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LayoutTemplate, Sparkles, ArrowRight, DollarSign, CreditCard, PieChart, AlertCircle, ShoppingCart, Package, Truck, UserPlus, Calendar, Award, UserX, Key, ShieldAlert, Database, Lock, Wrench, Activity, Home, FileText, CheckSquare, Layers } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { getApiUrl } from '../lib/api';
 
 export type TemplateCategory = 'Todos' | 'Financeiro' | 'Suprimentos' | 'RH' | 'TI' | 'Manutenção' | 'Jurídico';
 
@@ -454,9 +455,7 @@ export const TemplateGalleryPage: React.FC<TemplateGalleryPageProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    console.log('📚 [TEMPLATES GALLERY] Inicializando Galeria de Templates com', fallback21Templates.length, 'itens:', fallback21Templates);
-
-    fetch('/api/templates')
+    fetch(getApiUrl('/api/templates'))
       .then((res) => res.json())
       .then((data) => {
         if (data.templates && Array.isArray(data.templates) && data.templates.length > 0) {
