@@ -218,7 +218,7 @@ serve(async (req) => {
             : `❌ Falha ao enviar para o MS Teams: ${postError}`
         );
       } else if (isEmail) {
-        let recipient = settings.recipient || settings.to || contextData.email_to || contextData.email?.from || 'notificacoes@alp-nexus.com';
+        let recipient = settings.recipient || settings.to || contextData.email_to || contextData.email?.from || 'corporativo@alp-nexus.com';
         let subject = settings.subject || `Notificação: Workflow "${workflow.name}"`;
         let bodyText = settings.body || settings.message || `O fluxo "${workflow.name}" executou o nó ${nodeLabel} com sucesso.`;
 
@@ -258,7 +258,8 @@ serve(async (req) => {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                from: 'Synapse Workflows <onboarding@resend.dev>',
+                from: 'Synapse Workflows <corporativo@alp-nexus.com>',
+                reply_to: 'corporativo@alp-nexus.com',
                 to: [recipient],
                 subject: subject,
                 html: `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h2>${subject}</h2><p>${bodyText}</p><hr/><small>ID Execução: ${executionId}</small></div>`
