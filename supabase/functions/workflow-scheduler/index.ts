@@ -82,8 +82,10 @@ serve(async (req) => {
           if (isDue) {
             console.log(`🚀 [SCHEDULER MATCH!] O cron '${cronExpression}' bateu com o horário atual! Disparando execução do fluxo "${workflow.name}"...`);
 
-            // 3. Insere registro na tabela 'flow_executions'
+            // 3. Insere registro na tabela 'flow_executions' com UUID autêntico
+            const schedExecId = crypto.randomUUID();
             const executionPayload = {
+              id: schedExecId,
               workflow_id: workflow.id,
               status: 'running',
               current_node_id: scheduleNode.id,
@@ -107,7 +109,7 @@ serve(async (req) => {
             } else {
               triggeredCount++;
               triggeredExecutions.push({
-                execution_id: newExec?.id || 'exec-scheduled',
+                execution_id: newExec?.id || schedExecId,
                 workflow_id: workflow.id,
                 workflow_name: workflow.name,
                 cron_expression: cronExpression,

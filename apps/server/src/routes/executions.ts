@@ -141,7 +141,7 @@ router.post('/trigger-scheduler', async (req: Request, res: Response) => {
       for (const node of scheduleNodes) {
         const cron = node.data?.cronExpression || node.data?.scheduleConfig?.cronExpression || '0 9 * * *';
         const newExec: FlowExecutionRecord = {
-          id: `exec-sched-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          id: crypto.randomUUID(),
           workflow_id: flow.id,
           workflow_name: flow.name,
           status: 'running',
@@ -233,7 +233,7 @@ router.post('/', async (req: Request, res: Response) => {
   const { workflow_id, workflow_name, status, current_node_id, context_data } = req.body;
 
   const newExecution: FlowExecutionRecord = {
-    id: req.body.id || req.body.execution_id || `exec-${Date.now()}`,
+    id: req.body.id || req.body.execution_id || crypto.randomUUID(),
     workflow_id: workflow_id || 'flow-sample-1',
     workflow_name: workflow_name || 'Fluxo IPaaS',
     status: status || 'running',

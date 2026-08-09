@@ -1034,7 +1034,7 @@ function WorkflowAppContent() {
       // B) Descobrir qual é o ID do primeiro nó (ex: ScheduleNode, EmailTriggerNode ou nodes[0])
       const startNode = nodes.find((n) => ['schedule', 'email_trigger', 'trigger'].includes(n.type)) || nodes[0];
       const firstNodeId = startNode ? startNode.id : 'node-start';
-      const executionId = `exec-run-${Date.now()}`;
+      const executionId = crypto.randomUUID();
 
       const executionPayload = {
         id: executionId,

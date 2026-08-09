@@ -13,7 +13,7 @@ class WorkflowExecutionQueue {
    * Adiciona uma nova execução de workflow à fila
    */
   public async addJob(flowchartId: string, payload: any): Promise<ExecutionJobData> {
-    const executionId = `exec-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const executionId = crypto.randomUUID();
     const jobData: ExecutionJobData = {
       executionId,
       flowchartId,
@@ -42,7 +42,7 @@ class WorkflowExecutionQueue {
     const job = this.inMemoryQueue.shift();
 
     if (job) {
-      const execId = job.executionId || `exec-${Date.now()}`;
+      const execId = job.executionId || crypto.randomUUID();
       try {
         const result = await processWorkflowJob(job);
         this.completedExecutions.set(execId, result);
