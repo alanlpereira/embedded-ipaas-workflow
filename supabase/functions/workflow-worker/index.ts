@@ -143,7 +143,14 @@ serve(async (req) => {
       processedNodesCount++;
       const nodeType = currentNode.type || currentNode.data?.type || 'action';
       const nodeLabel = currentNode.data?.label || currentNode.label || currentNode.id;
-      const nodeConfig = currentNode.data?.config || currentNode.config || currentNode.data?.settings || currentNode.settings || {};
+      const nodeConfig = 
+        currentNode.data?.approvalConfig || 
+        currentNode.data?.emailConfig || 
+        currentNode.data?.teamsConfig || 
+        currentNode.data?.config || 
+        currentNode.config || 
+        currentNode.data?.settings || 
+        currentNode.settings || {};
       const settings = { ...currentNode.data, ...currentNode, ...nodeConfig };
 
       console.log(`\n➡️ [STEP ${processedNodesCount}] Processando Nó "${nodeLabel}" (ID: ${currentNode.id}, Tipo: ${nodeType})`);
@@ -219,10 +226,6 @@ serve(async (req) => {
             : `❌ Falha ao enviar para o MS Teams: ${postError}`
         );
       } else if (isEmail) {
-        let recipient = settings.recipient || settings.to || contextData.email_to || contextData.email?.from || 'corporativo@alp-nexus.com';
-        let subject = settings.subject || `Notificação: Workflow "${workflow.name}"`;
-        let bodyText = settings.body || settings.message || `O fluxo "${workflow.name}" executou o nó ${nodeLabel} com sucesso.`;
-
         // Interpolador de variáveis de template (ex: {{email.from}} -> valor)
         const interpolateVars = (str: string) => {
           return str.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (_, path) => {
@@ -236,11 +239,22 @@ serve(async (req) => {
           });
         };
 
-        recipient = interpolateVars(recipient);
+        const rawRecipient = settings.to || settings.recipient || settings.recipients || contextData.email_to || contextData.email?.from || 'corporativo@alp-nexus.com';
+        let subject = settings.subject || `Notificação: Workflow "${workflow.name}"`;
+        let bodyText = settings.body || settings.message || `O fluxo "${workflow.name}" executou o nó ${nodeLabel} com sucesso.`;
+
+        const interpolatedRecipient = interpolateVars(rawRecipient);
+        const recipientList = interpolatedRecipient
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 0 && s.includes('@'));
+        const finalRecipientArray = recipientList.length > 0 ? recipientList : ['corporativo@alp-nexus.com'];
+        const recipientStr = finalRecipientArray.join(', ');
+
         subject = interpolateVars(subject);
         bodyText = interpolateVars(bodyText);
 
-        console.log(`✉️ [WORKER DISPATCH] Enviando e-mail para "${recipient}": "${subject}"`);
+        console.log(`✉️ [WORKER DISPATCH] Enviando e-mail para "${recipientStr}": "${subject}"`);
 
         let sendSuccess = false;
         let sendError = null;
@@ -259,9 +273,9 @@ serve(async (req) => {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                from: 'Synapse Workflows <corporativo@alp-nexus.com>',
+                from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <onboarding@resend.dev>',
                 reply_to: 'corporativo@alp-nexus.com',
-                to: [recipient],
+                to: finalRecipientArray,
                 subject: subject,
                 html: `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h2>${subject}</h2><p>${bodyText}</p><hr/><small>ID Execução: ${executionId}</small></div>`
               })
@@ -278,7 +292,7 @@ serve(async (req) => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                to: recipient,
+                to: finalRecipientArray,
                 subject: subject,
                 body: bodyText,
                 workflow_name: workflow.name,
@@ -374,10 +388,31 @@ serve(async (req) => {
         );
       } else if (isApproval) {
         const approvalToken = crypto.randomUUID();
-        const recipient = settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'corporativo@alp-nexus.com';
+
+        const interpolateVars = (str: string) => {
+          return str.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (_, path) => {
+            const parts = path.split('.');
+            let curr: any = contextData;
+            for (const p of parts) {
+              if (curr && typeof curr === 'object') curr = curr[p];
+              else return '';
+            }
+            return curr !== undefined && curr !== null ? String(curr) : '';
+          });
+        };
+
+        const rawRecipient = settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'corporativo@alp-nexus.com';
+        const interpolatedRecipient = interpolateVars(rawRecipient);
+        const recipientList = interpolatedRecipient
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 0 && s.includes('@'));
+        const finalRecipientArray = recipientList.length > 0 ? recipientList : ['corporativo@alp-nexus.com'];
+        const recipientStr = finalRecipientArray.join(', ');
+
         const approvalUrl = `https://synapse.alp-nexus.com/approval?token=${approvalToken}`;
 
-        console.log(`✉️ [APPROVAL DISPATCH] Gerando token HITL ${approvalToken} e enviando e-mail para "${recipient}"`);
+        console.log(`✉️ [APPROVAL DISPATCH] Gerando token HITL ${approvalToken} e enviando e-mail para "${recipientStr}"`);
 
         // 1. Inserir token na tabela public.approval_tokens
         try {
@@ -387,7 +422,7 @@ serve(async (req) => {
               token: approvalToken,
               flowchart_id: workflow.id,
               approval_node_id: currentNode.id,
-              assignee_email: recipient,
+              assignee_email: recipientStr,
               status: 'PENDING',
               payload: contextData
             }]);
@@ -428,9 +463,9 @@ serve(async (req) => {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                from: 'Synapse Workflows <corporativo@alp-nexus.com>',
+                from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <onboarding@resend.dev>',
                 reply_to: 'corporativo@alp-nexus.com',
-                to: [recipient],
+                to: finalRecipientArray,
                 subject: mailSubject,
                 html: mailHtml
               })
@@ -446,7 +481,7 @@ serve(async (req) => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                to: recipient,
+                to: finalRecipientArray,
                 subject: mailSubject,
                 approval_url: approvalUrl,
                 token: approvalToken,
