@@ -142,8 +142,9 @@ serve(async (req) => {
 
       processedNodesCount++;
       const nodeType = currentNode.type || currentNode.data?.type || 'action';
-      const nodeLabel = currentNode.data?.label || currentNode.id;
-      const settings = currentNode.data?.settings || currentNode.data || {};
+      const nodeLabel = currentNode.data?.label || currentNode.label || currentNode.id;
+      const nodeConfig = currentNode.data?.config || currentNode.config || currentNode.data?.settings || currentNode.settings || {};
+      const settings = { ...currentNode.data, ...currentNode, ...nodeConfig };
 
       console.log(`\n➡️ [STEP ${processedNodesCount}] Processando Nó "${nodeLabel}" (ID: ${currentNode.id}, Tipo: ${nodeType})`);
 
