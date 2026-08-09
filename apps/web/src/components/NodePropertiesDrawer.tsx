@@ -67,7 +67,7 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
       ...config,
       ...(isApproval ? {
         sender: 'corporativo@alp-nexus.com',
-        to: recipientVal || 'diretoria@empresa.com',
+        to: recipientVal || 'corporativo@alp-nexus.com',
         subject: (config.subject || 'Aprovação Solicitada').trim(),
         message: config.message || '',
       } : {}),
@@ -565,8 +565,8 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
               </label>
               <input
                 type="email"
-                placeholder="ex: diretoria@empresa.com, {{email.from}}"
-                value={config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'diretoria@empresa.com')}
+                placeholder="ex: corporativo@alp-nexus.com, {{email.from}}"
+                value={config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'corporativo@alp-nexus.com')}
                 onChange={(e) => {
                   handleConfigChange('recipients', e.target.value);
                   handleConfigChange('to', e.target.value);
@@ -576,14 +576,14 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
                   padding: '8px 10px',
                   borderRadius: '6px',
                   background: 'var(--bg-primary)',
-                  border: !(config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'diretoria@empresa.com')).trim() ? '1px solid #ef4444' : '1px solid var(--border-color)',
+                  border: !(config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'corporativo@alp-nexus.com')).trim() ? '1px solid #ef4444' : '1px solid var(--border-color)',
                   color: 'var(--text-primary)',
                   fontSize: '12px',
                   fontWeight: 600,
                   outline: 'none',
                 }}
               />
-              {!(config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'diretoria@empresa.com')).trim() ? (
+              {!(config.recipients !== undefined ? config.recipients : (node.data.approvalConfig?.recipients || 'corporativo@alp-nexus.com')).trim() ? (
                 <span style={{ fontSize: '10px', color: '#ef4444', marginTop: '4px', display: 'block', fontWeight: 700 }}>
                   ⚠️ O campo Destinatário é obrigatório!
                 </span>

@@ -319,7 +319,7 @@ export const CustomNode: React.FC<NodeProps<any>> = memo(({ id, data, selected }
       {(nodeType === 'email_approval' || nodeType === 'approval') && (() => {
         const appCfg: any = nodeData.config || nodeData.approvalConfig || {};
         const sender = appCfg.sender || 'corporativo@alp-nexus.com';
-        const recipients = appCfg.to || appCfg.recipients || 'diretoria@empresa.com';
+        const recipients = appCfg.to || appCfg.recipients || 'corporativo@alp-nexus.com';
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
             <div style={{
