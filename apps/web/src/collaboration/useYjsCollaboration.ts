@@ -63,7 +63,8 @@ export function useYjsCollaboration({
     socketRef.current = socket;
 
     socket.onerror = () => {
-      console.warn('⚡ [REALTIME WARN] Servidor de Colaboração (WebSockets) indisponível ou reconectando...');
+      // Servidor de tempo real opcional indisponível - degradar suavemente para modo single-user
+      setIsConnected(false);
     };
 
     socket.onopen = () => {
@@ -98,7 +99,6 @@ export function useYjsCollaboration({
 
     socket.onclose = () => {
       setIsConnected(false);
-      console.log(`🔌 [REALTIME] Desconectado da sala "${flowchartId}"`);
     };
 
     return () => {
