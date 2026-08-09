@@ -218,17 +218,38 @@ serve(async (req) => {
             : `❌ Falha ao enviar para o MS Teams: ${postError}`
         );
       } else if (isEmail) {
-        const recipient = settings.recipient || settings.to || contextData.email_to || contextData.email?.from || 'notificacoes@alp-nexus.com';
-        const subject = settings.subject || `Notificação: Workflow "${workflow.name}"`;
-        const bodyText = settings.body || settings.message || `O fluxo "${workflow.name}" executou o nó ${nodeLabel} com sucesso.`;
+        let recipient = settings.recipient || settings.to || contextData.email_to || contextData.email?.from || 'notificacoes@alp-nexus.com';
+        let subject = settings.subject || `Notificação: Workflow "${workflow.name}"`;
+        let bodyText = settings.body || settings.message || `O fluxo "${workflow.name}" executou o nó ${nodeLabel} com sucesso.`;
 
-        console.log(`✉️ [WORKER DISPATCH] Enviando e-mail para ${recipient}: "${subject}"`);
+        // Interpolador de variáveis de template (ex: {{email.from}} -> valor)
+        const interpolateVars = (str: string) => {
+          return str.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (_, path) => {
+            const parts = path.split('.');
+            let curr: any = contextData;
+            for (const p of parts) {
+              if (curr && typeof curr === 'object') curr = curr[p];
+              else return '';
+            }
+            return curr !== undefined && curr !== null ? String(curr) : '';
+          });
+        };
+
+        recipient = interpolateVars(recipient);
+        subject = interpolateVars(subject);
+        bodyText = interpolateVars(bodyText);
+
+        console.log(`✉️ [WORKER DISPATCH] Enviando e-mail para "${recipient}": "${subject}"`);
 
         let sendSuccess = false;
         let sendError = null;
+        let provider = 'simulation';
 
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
+        const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl || settings.url;
+
         if (resendApiKey) {
+          provider = 'resend';
           try {
             const resp = await fetch('https://api.resend.com/emails', {
               method: 'POST',
@@ -244,12 +265,32 @@ serve(async (req) => {
               })
             });
             sendSuccess = resp.ok;
-            if (!resp.ok) sendError = await resp.text();
+            if (!resp.ok) sendError = `Resend HTTP ${resp.status}: ${await resp.text()}`;
+          } catch (e: any) {
+            sendError = e.message;
+          }
+        } else if (emailWebhookUrl && emailWebhookUrl.startsWith('http')) {
+          provider = 'email_webhook';
+          try {
+            const resp = await fetch(emailWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: recipient,
+                subject: subject,
+                body: bodyText,
+                workflow_name: workflow.name,
+                execution_id: executionId
+              })
+            });
+            sendSuccess = resp.ok;
+            if (!resp.ok) sendError = `Webhook HTTP ${resp.status}: ${await resp.text()}`;
           } catch (e: any) {
             sendError = e.message;
           }
         } else {
-          // Registro de simulação se a chave de SMTP/Resend não estiver configurada no Deno env
+          // Sem provedor ativo de e-mail cadastrado em Supabase secrets
+          provider = 'simulation';
           sendSuccess = true;
         }
 
@@ -258,18 +299,22 @@ serve(async (req) => {
           email_out: {
             recipient,
             subject,
+            body: bodyText,
             sent_at: new Date().toISOString(),
-            status: sendSuccess ? 'sent' : 'failed',
+            provider,
+            status: sendSuccess ? (provider === 'simulation' ? 'simulated' : 'sent') : 'failed',
             error: sendError
           }
         };
 
         await addLog(
           currentNode.id,
-          sendSuccess ? 'success' : 'warning',
+          sendSuccess ? (provider === 'simulation' ? 'warning' : 'success') : 'error',
           sendSuccess
-            ? `✉️ E-mail enviado com sucesso para ${recipient}.`
-            : `⚠️ Tentativa de envio de e-mail registrada (${sendError || 'Sem provedor SMTP ativo'}).`
+            ? (provider === 'simulation'
+                ? `✉️ [SIMULAÇÃO] E-mail para ${recipient} registrado no fluxo. Para disparo real na caixa de entrada, configure RESEND_API_KEY no Supabase.`
+                : `✉️ E-mail disparado com sucesso via ${provider} para ${recipient}.`)
+            : `❌ Falha no envio de e-mail: ${sendError}`
         );
       } else if (isHttp) {
         const httpUrl = settings.url || settings.endpoint;
