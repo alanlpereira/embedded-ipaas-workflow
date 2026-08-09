@@ -45,6 +45,9 @@ serve(async (req) => {
     let triggeredCount = 0;
     const triggeredExecutions: any[] = [];
 
+    // Formatação de hora local no fuso horário do Brasil (America/Sao_Paulo UTC-3)
+    const localHourMin = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+
     // 2. Iterar e avaliar cada fluxo
     for (const workflow of allWorkflows) {
       evaluatedCount++;
@@ -75,19 +78,51 @@ serve(async (req) => {
           scheduleNode.data?.scheduleConfig?.cronExpression ||
           scheduleNode.data?.config?.cronExpression ||
           '0 9 * * *';
+        const scheduledTime = scheduleNode.data?.scheduleConfig?.time || scheduleNode.data?.config?.time;
 
-        console.log(`🔍 [SCHEDULER CHECK] Avaliando nó agendado "${scheduleNode.data?.label || scheduleNode.id}" no fluxo "${workflow.name}". Cron: '${cronExpression}'`);
+        console.log(`🔍 [SCHEDULER CHECK] Avaliando nó agendado "${scheduleNode.data?.label || scheduleNode.id}" no fluxo "${workflow.name}". Cron: '${cronExpression}' | Time: '${scheduledTime || 'N/A'}' | Hora SP Atual: '${localHourMin}'`);
 
         try {
-          const interval = cronParser.parseExpression(cronExpression, { currentDate: now });
-          const prevDate = interval.prev().toDate();
-          const diffSeconds = Math.abs((now.getTime() - prevDate.getTime()) / 1000);
+          let isDue = false;
 
-          // Disparar se a ocorrência do cron ocorreu no minuto atual (< 60 segundos)
-          const isDue = diffSeconds < 60;
+          // A) Verificação estrita se o horário configurado ("HH:MM") coincide com a hora de São Paulo no minuto atual
+          if (scheduledTime && scheduledTime === localHourMin) {
+            isDue = true;
+          }
+
+          // B) Verificação complementar via cron-parser com suporte a America/Sao_Paulo e UTC
+          if (!isDue) {
+            try {
+              const intervalSp = cronParser.parseExpression(cronExpression, { tz: 'America/Sao_Paulo', currentDate: now });
+              const prevSp = intervalSp.prev().toDate();
+              const diffSp = Math.abs((now.getTime() - prevSp.getTime()) / 1000);
+
+              const intervalUtc = cronParser.parseExpression(cronExpression, { currentDate: now });
+              const prevUtc = intervalUtc.prev().toDate();
+              const diffUtc = Math.abs((now.getTime() - prevUtc.getTime()) / 1000);
+
+              isDue = diffSp < 60 || diffUtc < 60;
+            } catch (pErr) {
+              // Ignore cron parse errors and proceed
+            }
+          }
 
           if (isDue) {
-            console.log(`🚀 [SCHEDULER MATCH!] Cron '${cronExpression}' devido! Iniciando execução do fluxo "${workflow.name}"...`);
+            // Deduplicação estrita: impedir múltiplos disparos no mesmo minuto
+            const minuteCutoff = new Date(now.getTime() - 55000).toISOString();
+            const { data: existingExec } = await supabase
+              .from('flow_executions')
+              .select('id')
+              .eq('workflow_id', workflow.id)
+              .gte('started_at', minuteCutoff)
+              .maybeSingle();
+
+            if (existingExec) {
+              console.log(`⏸️ [SCHEDULER DEDUP] Fluxo "${workflow.name}" já foi disparado no minuto atual (Exec ID: ${existingExec.id}). Ignorando duplicata.`);
+              continue;
+            }
+
+            console.log(`🚀 [SCHEDULER MATCH!] Cron '${cronExpression}' / Time '${scheduledTime}' devido! Iniciando execução do fluxo "${workflow.name}"...`);
 
             const schedExecId = crypto.randomUUID();
             const executionPayload = {
@@ -100,6 +135,7 @@ serve(async (req) => {
                 cron_expression: cronExpression,
                 schedule_node_id: scheduleNode.id,
                 fired_at: now.toISOString(),
+                fired_local_time: localHourMin
               },
               started_at: now.toISOString(),
             };
@@ -120,6 +156,7 @@ serve(async (req) => {
                 workflow_id: workflow.id,
                 workflow_name: workflow.name,
                 cron_expression: cronExpression,
+                local_time: localHourMin
               });
 
               // Log inicial na tabela execution_logs
@@ -128,7 +165,7 @@ serve(async (req) => {
                   execution_id: execId,
                   node_id: scheduleNode.id,
                   status: 'info',
-                  log_message: `⏰ Disparo automático acionado pelo Ticker 24/7 (Cron: '${cronExpression}')`,
+                  log_message: `⏰ Disparo automático acionado pelo Ticker 24/7 (Hora SP: '${localHourMin}', Cron: '${cronExpression}')`,
                   created_at: now.toISOString(),
                 },
               ]);
@@ -155,7 +192,7 @@ serve(async (req) => {
               }
             }
           } else {
-            console.log(`⏳ [SCHEDULER NO MATCH] Cron '${cronExpression}' não é devido no minuto atual.`);
+            console.log(`⏳ [SCHEDULER NO MATCH] Cron '${cronExpression}' / Time '${scheduledTime}' não é devido no minuto atual.`);
           }
         } catch (cronErr: any) {
           console.error(`⚠️ [SCHEDULER INVALID CRON] Expressão cron inválida '${cronExpression}' no fluxo "${workflow.name}":`, cronErr.message);
@@ -178,6 +215,7 @@ serve(async (req) => {
         triggered_executions: triggeredCount,
         executions: triggeredExecutions,
         timestamp: now.toISOString(),
+        local_time_sp: localHourMin
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
