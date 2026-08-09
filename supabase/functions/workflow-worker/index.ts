@@ -161,13 +161,13 @@ serve(async (req) => {
       const service = (currentNode.data?.service || '').toLowerCase();
       const label = (currentNode.data?.label || '').toLowerCase();
 
+      const isApproval = rawType === 'approval' || rawType === 'email_approval' || dataType === 'approval' || dataType === 'email_approval' || service === 'approval' || label.includes('aprova') || label.includes('hitl');
       const isTrigger = rawType === 'trigger' || rawType === 'schedule' || dataType === 'trigger' || label.includes('gatilho') || label.includes('webhook entrada');
       const isWhatsapp = rawType === 'whatsapp' || dataType === 'whatsapp' || service === 'whatsapp' || label.includes('whatsapp');
       const isTeams = rawType === 'teams' || dataType === 'teams' || service === 'teams' || label.includes('teams');
-      const isEmail = rawType === 'email' || dataType === 'email' || service === 'email' || label.includes('e-mail') || label.includes('email');
+      const isEmail = !isApproval && (rawType === 'email' || dataType === 'email' || service === 'email' || label.includes('e-mail') || label.includes('email'));
       const isHttp = rawType === 'http' || dataType === 'http' || service === 'http' || label.includes('http') || label.includes('webhook');
       const isAi = rawType === 'ai' || dataType === 'ai' || service === 'ai' || label.includes('inteligência') || label.includes('gemini') || label.includes('ia');
-      const isApproval = rawType === 'approval' || dataType === 'approval' || service === 'approval' || label.includes('aprova') || label.includes('hitl');
       const isEnd = rawType === 'end' || rawType === 'output' || dataType === 'output' || label.includes('final') || label.includes('fim');
 
       if (isTrigger) {
@@ -437,20 +437,43 @@ serve(async (req) => {
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl;
 
-        const mailSubject = `[Aprovação Pendente] Solicitação de Validação: ${workflow.name}`;
+        const approveUrl = `https://synapse.alp-nexus.com/decide/${approvalToken}?action=APPROVED`;
+        const rejectUrl = `https://synapse.alp-nexus.com/decide/${approvalToken}?action=REJECTED`;
+        const portalUrl = `https://synapse.alp-nexus.com/decide/${approvalToken}`;
+
+        const mailSubject = settings.subject ? interpolateVars(settings.subject) : `[Aprovação Pendente] Solicitação de Validação: ${workflow.name}`;
+        const customMsg = settings.message ? interpolateVars(settings.message) : `Uma nova solicitação de aprovação exige sua validação no fluxo <strong>${workflow.name}</strong>.`;
+
         const mailHtml = `
-          <div style="font-family: Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
-            <h2 style="color: #0284c7; margin-top: 0;">Solicitação de Aprovação - Synapse</h2>
-            <p>Olá,</p>
-            <p>Uma nova solicitação de aprovação pendente exige sua validação no fluxo <strong>${workflow.name}</strong>.</p>
-            <div style="margin: 28px 0; text-align: center;">
-              <a href="${approvalUrl}" target="_blank" style="background: #0284c7; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);">
-                ✅ Revisar & Aprovar Agora
+          <div style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; padding: 32px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <span style="background: rgba(2, 132, 199, 0.1); color: #0284c7; padding: 6px 16px; border-radius: 20px; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Aprovação Pendente</span>
+              <h2 style="color: #0f172a; margin-top: 12px; font-size: 22px; font-weight: 800;">${mailSubject}</h2>
+            </div>
+            
+            <div style="font-size: 15px; line-height: 1.6; color: #334155; margin-bottom: 28px;">
+              ${customMsg}
+            </div>
+            
+            <div style="margin: 32px 0; text-align: center;">
+              <a href="${approveUrl}" target="_blank" style="background: #10b981; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 15px; margin-right: 12px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);">
+                ✅ Aprovar Fluxo
+              </a>
+              <a href="${rejectUrl}" target="_blank" style="background: #ef4444; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 15px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);">
+                ❌ Rejeitar Fluxo
               </a>
             </div>
-            <p style="font-size: 13px; color: #64748b;">Ou acesse diretamente pelo link: <br/><a href="${approvalUrl}" style="color: #0284c7;">${approvalUrl}</a></p>
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-            <small style="color: #94a3b8;">ID de Execução: ${executionId} | Token: ${approvalToken}</small>
+
+            <div style="text-align: center; margin-top: 24px;">
+              <a href="${portalUrl}" target="_blank" style="color: #0284c7; text-decoration: underline; font-size: 13px; font-weight: 600;">
+                📋 Acessar Central de Aprovação no Portal
+              </a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+            <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0;">
+              ID de Execução: <code>${executionId}</code> | Token HITL: <code>${approvalToken}</code>
+            </p>
           </div>
         `;
 

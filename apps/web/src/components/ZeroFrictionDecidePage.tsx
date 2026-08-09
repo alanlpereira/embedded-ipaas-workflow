@@ -40,6 +40,15 @@ export const ZeroFrictionDecidePage: React.FC<{ token: string }> = ({ token }) =
         setTokenData(data);
         if (data.status !== 'PENDING') {
           setDecisionState(data.status);
+        } else {
+          // Auto-executar a decisão se o link contiver o parâmetro ?action=APPROVED ou ?action=REJECTED
+          const searchParams = new URLSearchParams(window.location.search);
+          const act = searchParams.get('action') || searchParams.get('decision');
+          if (act === 'APPROVED' || act === 'APPROVE') {
+            setTimeout(() => handleDecision('APPROVED'), 300);
+          } else if (act === 'REJECTED' || act === 'REJECT') {
+            setTimeout(() => handleDecision('REJECTED'), 300);
+          }
         }
       })
       .catch((err) => {
