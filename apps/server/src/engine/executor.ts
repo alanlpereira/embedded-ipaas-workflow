@@ -37,7 +37,33 @@ export interface ExecutionContext {
 }
 
 export async function processWorkflowJob(data: ExecutionJobData): Promise<ExecutionResult> {
-  return await executeFlowchartGraph(data.flowchartId, data.payload);
+  console.log(`⚡ [DEPRECATED EXECUTOR] Redirecionando execução Express para a Edge Function unificada 'workflow-worker'...`);
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://wurfruxigmajgnqsyleq.supabase.co';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+  try {
+    const resp = await fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+      },
+      body: JSON.stringify({
+        workflow_id: data.flowchartId,
+        execution_id: data.executionId,
+        payload: data.payload
+      })
+    });
+    const result = await resp.json();
+    return {
+      status: result.status === 'waiting_approval' ? 'WAITING_APPROVAL' : (result.success ? 'COMPLETED' : 'FAILED'),
+      finalOutput: result.context_data,
+      executionLog: []
+    };
+  } catch (e: any) {
+    return await executeFlowchartGraph(data.flowchartId, data.payload);
+  }
 }
 
 /**

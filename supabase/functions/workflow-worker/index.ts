@@ -203,6 +203,21 @@ serve(async (req) => {
       ]);
     };
 
+    function getNestedValue(obj: any, path: string): any {
+      if (!obj || !path) return null;
+      const cleanPath = path.replace(/^body\./, '').replace(/^context\./, '').replace(/^payload\./, '');
+      const keys = cleanPath.split('.');
+      let current = obj;
+      for (const k of keys) {
+        if (current && typeof current === 'object' && k in current) {
+          current = current[k];
+        } else {
+          return null;
+        }
+      }
+      return current;
+    }
+
     // 3. Loop de Processamento (Traversal do Grafo)
     while (currentNodeId) {
       const currentNode = nodes.find(n => n.id === currentNodeId);
@@ -240,6 +255,7 @@ serve(async (req) => {
       const isTeams = rawType === 'teams' || dataType === 'teams' || service === 'teams' || label.includes('teams');
       const isEmail = !isApproval && (rawType === 'email' || dataType === 'email' || service === 'email' || label.includes('e-mail') || label.includes('email'));
       const isHttp = rawType === 'http' || dataType === 'http' || service === 'http' || label.includes('http') || label.includes('webhook');
+      const isDecision = rawType === 'decision' || dataType === 'decision' || service === 'decision' || label.includes('decisã') || label.includes('condiçã');
       const isAi = rawType === 'ai' || dataType === 'ai' || service === 'ai' || label.includes('inteligência') || label.includes('gemini') || label.includes('ia');
       const isEnd = rawType === 'end' || rawType === 'output' || dataType === 'output' || label.includes('final') || label.includes('fim');
 
@@ -379,7 +395,7 @@ serve(async (req) => {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <onboarding@resend.dev>',
+                from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <corporativo@alp-nexus.com>',
                 reply_to: 'corporativo@alp-nexus.com',
                 to: finalRecipientArray,
                 subject: subject,
@@ -443,12 +459,49 @@ serve(async (req) => {
       } else if (isHttp) {
         const httpUrl = settings.url || settings.endpoint;
         const method = (settings.method || 'POST').toUpperCase();
+        const credentialId = settings.credential_id || settings.vault_secret_id || nodeConfig.credential_id || nodeConfig.vault_secret_id;
+
+        let ephemeralAuthToken = '';
+
+        if (credentialId) {
+          try {
+            const { data: vaultRow } = await supabase
+              .from('vault_secrets')
+              .select('*')
+              .eq('id', credentialId)
+              .maybeSingle();
+
+            if (vaultRow) {
+              ephemeralAuthToken = vaultRow.secret_value || vaultRow.encrypted_secret || vaultRow.secret || '';
+            } else {
+              const { data: credRow } = await supabase
+                .from('credentials_vault')
+                .select('*')
+                .eq('id', credentialId)
+                .maybeSingle();
+              if (credRow) {
+                ephemeralAuthToken = credRow.secret_value || credRow.masked_value || '';
+              }
+            }
+          } catch (vaultErr: any) {
+            console.warn(`⚠️ [VAULT WARN] Erro ao carregar credencial ${credentialId} do Cofre:`, vaultErr);
+          }
+        }
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          ...(settings.headers || {}),
+        };
+
+        if (ephemeralAuthToken) {
+          headers['Authorization'] = `Bearer ${ephemeralAuthToken}`;
+        }
 
         if (httpUrl && httpUrl.startsWith('http')) {
           try {
             const resp = await fetch(httpUrl, {
               method,
-              headers: { 'Content-Type': 'application/json', ...(settings.headers || {}) },
+              headers,
               body: method !== 'GET' ? JSON.stringify(settings.body || contextData) : undefined
             });
             const responseData = await resp.text();
@@ -457,13 +510,64 @@ serve(async (req) => {
             await addLog(
               currentNode.id,
               resp.ok ? 'success' : 'warning',
-              `🌐 Requisição HTTP ${method} para ${httpUrl} finalizada (Status: ${resp.status}).`
+              `🌐 Requisição HTTP ${method} para ${httpUrl} finalizada (Status: ${resp.status}). Auth Cofre: ${ephemeralAuthToken ? 'ATIVADO' : 'NÃO'}.`
             );
           } catch (err: any) {
             await addLog(currentNode.id, 'error', `❌ Erro na requisição HTTP: ${err.message}`);
+          } finally {
+            ephemeralAuthToken = '';
           }
         } else {
           await addLog(currentNode.id, 'info', `🌐 Requisição HTTP [${nodeLabel}] processada.`);
+        }
+      } else if (isDecision) {
+        const field = nodeConfig.field || settings.field || 'body.user.role';
+        const operator = nodeConfig.operator || settings.operator || 'equals';
+        const expectedValue = nodeConfig.value || settings.value || 'Master';
+
+        const evaluatedValue = getNestedValue(contextData, field);
+        let decisionResult = false;
+
+        if (operator === 'equals') {
+          decisionResult = String(evaluatedValue ?? '').toLowerCase() === String(expectedValue ?? '').toLowerCase();
+        } else if (operator === 'not_equals') {
+          decisionResult = String(evaluatedValue ?? '').toLowerCase() !== String(expectedValue ?? '').toLowerCase();
+        } else if (operator === 'greater_than') {
+          decisionResult = Number(evaluatedValue) > Number(expectedValue);
+        } else if (operator === 'less_than') {
+          decisionResult = Number(evaluatedValue) < Number(expectedValue);
+        } else if (operator === 'contains') {
+          decisionResult = String(evaluatedValue ?? '').toLowerCase().includes(String(expectedValue ?? '').toLowerCase());
+        }
+
+        console.log(`🤔 [DECISION WORKER] Nó "${nodeLabel}" -> Campo "${field}" (${evaluatedValue}) ${operator} "${expectedValue}" => Resultado: ${decisionResult}`);
+
+        contextData = {
+          ...contextData,
+          decision_result: decisionResult,
+          evaluated_field: field,
+          evaluated_value: evaluatedValue,
+        };
+
+        await addLog(
+          currentNode.id,
+          'info',
+          `🤔 [DECISÃO] Campo "${field}" = "${evaluatedValue}". Condição (${operator} "${expectedValue}") => ${decisionResult ? 'VERDADEIRO (Sim)' : 'FALSO (Não)'}.`
+        );
+
+        const targetHandle = decisionResult ? 'true' : 'false';
+        const outgoingEdge = edges.find((e: any) => e.source === currentNode.id && (
+          e.sourceHandle === targetHandle ||
+          e.label?.toLowerCase().includes(decisionResult ? 'sim' : 'não') ||
+          e.label?.toLowerCase().includes(decisionResult ? 'true' : 'false')
+        ));
+
+        if (outgoingEdge) {
+          currentNodeId = outgoingEdge.target;
+          console.log(`🔀 [DECISION ROUTE] Roteando para próximo nó ID: ${currentNodeId} (Handle: ${targetHandle})`);
+          continue;
+        } else {
+          console.warn(`⚠️ [DECISION WARN] Nenhum conector de saída encontrado para handle "${targetHandle}" no nó ${currentNode.id}.`);
         }
       } else if (isWhatsapp) {
         const destNumber = settings.destinationNumber || contextData.email?.from || '+5511999998888';
@@ -596,7 +700,7 @@ serve(async (req) => {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <onboarding@resend.dev>',
+                from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <corporativo@alp-nexus.com>',
                 reply_to: 'corporativo@alp-nexus.com',
                 to: finalRecipientArray,
                 subject: mailSubject,
