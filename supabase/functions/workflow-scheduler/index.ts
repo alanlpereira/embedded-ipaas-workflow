@@ -12,7 +12,7 @@ serve(async (req) => {
 
   const now = new Date();
   console.log(`\n==================================================`);
-  console.log(`⏰ [WORKFLOW SCHEDULER] Ticker iniciado às: ${now.toISOString()}`);
+  console.log(`⏰ [WORKFLOW SCHEDULER 24/7] Ticker iniciado às: ${now.toISOString()}`);
   console.log(`==================================================`);
 
   try {
@@ -52,13 +52,6 @@ serve(async (req) => {
     for (const workflow of allWorkflows) {
       evaluatedCount++;
 
-      // Considerar o fluxo ativo se is_active não for explicitamente false OU se is_published for true/null
-      const isActive = workflow.is_active !== false || workflow.is_published === true;
-      if (!isActive) {
-        console.log(`⏸️ [SCHEDULER] Fluxo "${workflow.name}" (ID: ${workflow.id}) está INATIVO. Ignorando.`);
-        continue;
-      }
-
       const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : [];
       const scheduleNodes = nodes.filter((n: any) => 
         n.type === 'schedule' || 
@@ -85,7 +78,7 @@ serve(async (req) => {
         try {
           let isDue = false;
 
-          // A) Verificação estrita se o horário configurado ("HH:MM") coincide com a hora de São Paulo no minuto atual
+          // A) Verificação se o horário configurado ("HH:MM") coincide com a hora de São Paulo no minuto atual
           if (scheduledTime && scheduledTime === localHourMin) {
             isDue = true;
           }
@@ -103,7 +96,7 @@ serve(async (req) => {
 
               isDue = diffSp < 60 || diffUtc < 60;
             } catch (pErr) {
-              // Ignore cron parse errors and proceed
+              // Ignorar erros de parse do cron
             }
           }
 

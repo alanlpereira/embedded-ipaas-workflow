@@ -942,6 +942,7 @@ function WorkflowAppContent() {
       setFlowcharts((prev) => prev.map((f) => (f.id === activeFlowchart.id ? updatedFlow : f)));
       setActiveFlowchart(updatedFlow);
 
+      const hasScheduleNode = (nodes as any[]).some(n => n.type === 'schedule' || n.data?.type === 'schedule');
       const payload = {
         id: activeFlowchart.id,
         organization_id: activeFlowchart.organization_id || 'org-alp-nexus',
@@ -949,8 +950,8 @@ function WorkflowAppContent() {
         description: activeFlowchart.description || '',
         nodes: nodes as any,
         edges: cleanedEdges as any,
-        is_published: activeFlowchart.is_published ?? false,
-        is_active: activeFlowchart.is_active ?? false,
+        is_published: hasScheduleNode ? true : (activeFlowchart.is_published ?? true),
+        is_active: hasScheduleNode ? true : (activeFlowchart.is_active ?? true),
         updated_at: updatedFlow.updated_at,
       };
 
