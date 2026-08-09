@@ -27,18 +27,20 @@ export async function exportFlowToImage(
       return;
     }
 
-    // 1. Assegurar visibilidade dos containers de SVG do React Flow
-    const edgeSvgs = targetElement.querySelectorAll<SVGSVGElement>('svg.react-flow__edges, .react-flow__edges');
+    // 1. Assegurar visibilidade dos containers de SVG e Viewport do React Flow
+    const edgeSvgs = targetElement.querySelectorAll<SVGSVGElement>('svg.react-flow__edges, .react-flow__edges, .react-flow__viewport svg');
     edgeSvgs.forEach((svg) => {
       svg.style.overflow = 'visible';
       svg.style.display = 'block';
       svg.style.visibility = 'visible';
+      svg.style.width = '100%';
+      svg.style.height = '100%';
       svg.setAttribute('overflow', 'visible');
     });
 
-    // 2. Processar todas as linhas (paths) e aplicar estilos ultra destacados e espessos (stroke 4.5px)
+    // 2. Processar todas as linhas (paths SVG) mantendo a espessura padronizada de 3px (1.5x da base)
     const edgePaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges path, .react-flow__edge-path, svg.react-flow__edges path, svg path');
-    const restoredPaths: Array<{ el: SVGPathElement; stroke: string; strokeWidth: string; strokeOpacity: string }> = [];
+    const restoredPaths: Array<{ el: SVGPathElement; stroke: string; strokeWidth: string; strokeOpacity: string; fill: string }> = [];
 
     edgePaths.forEach((path) => {
       restoredPaths.push({
@@ -46,33 +48,46 @@ export async function exportFlowToImage(
         stroke: path.style.stroke,
         strokeWidth: path.style.strokeWidth,
         strokeOpacity: path.style.strokeOpacity,
+        fill: path.style.fill,
       });
 
       const computedStyle = window.getComputedStyle(path);
       const rawStroke = computedStyle.stroke;
-      const rawWidth = computedStyle.strokeWidth;
+      const isMarker = path.parentElement?.tagName.toLowerCase() === 'marker' || path.closest('marker');
 
-      // Manter a cor se for uma cor válida específica (ex: verde, vermelho ou laranja de erro/sucesso) senão aplicar Ciano Neon #00f2fe
-      let strokeColor = '#00f2fe';
-      if (rawStroke && rawStroke !== 'none' && rawStroke !== 'rgba(0, 0, 0, 0)') {
-        strokeColor = rawStroke;
+      if (isMarker) {
+        let fill = (computedStyle.fill && computedStyle.fill !== 'none' && computedStyle.fill !== 'rgba(0, 0, 0, 0)') ? computedStyle.fill : '#00f2fe';
+        path.style.fill = fill;
+        path.style.stroke = fill;
+        path.setAttribute('fill', fill);
+        path.setAttribute('stroke', fill);
+      } else {
+        // Manter a cor exata da linha (verde, vermelho, laranja de loop ou ciano neon)
+        let strokeColor = '#00f2fe';
+        if (rawStroke && rawStroke !== 'none' && rawStroke !== 'rgba(0, 0, 0, 0)') {
+          strokeColor = rawStroke;
+        }
+
+        path.style.stroke = strokeColor;
+        path.style.strokeWidth = '3px';
+        path.style.strokeLinecap = 'round';
+        path.style.strokeLinejoin = 'round';
+        path.style.strokeOpacity = '1';
+        path.style.fill = 'none';
+        path.style.display = 'inline';
+        path.style.visibility = 'visible';
+        path.style.opacity = '1';
+
+        path.setAttribute('stroke', strokeColor);
+        path.setAttribute('stroke-width', '3');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-opacity', '1');
+        path.setAttribute('fill', 'none');
       }
-
-      path.style.stroke = strokeColor;
-      path.style.strokeWidth = '10.5px';
-      path.style.strokeLinecap = 'round';
-      path.style.strokeLinejoin = 'round';
-      path.style.strokeOpacity = '1';
-      path.style.fill = 'none';
-      path.setAttribute('stroke', strokeColor);
-      path.setAttribute('stroke-width', '10.5');
-      path.setAttribute('stroke-linecap', 'round');
-      path.setAttribute('stroke-linejoin', 'round');
-      path.setAttribute('stroke-opacity', '1');
-      path.setAttribute('fill', 'none');
     });
 
-    // 3. Garantir que as pontas de flechas (markers SVG) também tenham o preenchimento de cor correto
+    // 3. Garantir que as pontas de flechas (markers SVG) também tenham o preenchimento correto
     const markerPaths = targetElement.querySelectorAll<SVGPathElement>('.react-flow__edges marker path, svg defs marker path, .react-flow__arrowhead path');
     markerPaths.forEach((mPath) => {
       const computedStyle = window.getComputedStyle(mPath);
@@ -84,7 +99,7 @@ export async function exportFlowToImage(
       mPath.setAttribute('stroke', fill);
     });
 
-    // 4. Gerar o snapshot PNG do container em alta definição (pixelRatio 2)
+    // 4. Gerar o snapshot PNG do container em alta definição (pixelRatio 2) sem cortar linhas curvadas
     const dataUrl = await toPng(targetElement, {
       backgroundColor: '#07090e',
       pixelRatio: 2,
@@ -96,10 +111,11 @@ export async function exportFlowToImage(
     });
 
     // 5. Restaurar inline styles originais
-    restoredPaths.forEach(({ el, stroke, strokeWidth, strokeOpacity }) => {
+    restoredPaths.forEach(({ el, stroke, strokeWidth, strokeOpacity, fill }) => {
       el.style.stroke = stroke;
       el.style.strokeWidth = strokeWidth;
       el.style.strokeOpacity = strokeOpacity;
+      el.style.fill = fill;
     });
 
     // 5. Acionar o download do arquivo PNG

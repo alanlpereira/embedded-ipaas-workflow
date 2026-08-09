@@ -132,12 +132,12 @@ const sampleInitialFlowcharts: Flowchart[] = [
       },
     ] as any,
     edges: [
-      { id: 'e1-2', source: SAMPLE_NODE_TRIGGER_ID, target: SAMPLE_NODE_CODE_ID, animated: true, label: 'Payload HTTP', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
-      { id: 'e2-media', source: SAMPLE_NODE_CODE_ID, target: SAMPLE_NODE_MEDIA_ID, animated: true, label: 'Async Render', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
-      { id: 'e-media-decision', source: SAMPLE_NODE_MEDIA_ID, target: SAMPLE_NODE_DECISION_ID, animated: true, label: 'Video URL Callback', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
-      { id: 'e3-true', source: SAMPLE_NODE_DECISION_ID, sourceHandle: 'true', target: SAMPLE_NODE_OUTPUT_ID, animated: true, label: 'Sim (Master)', style: { stroke: '#34d399', strokeWidth: 10.5 } },
-      { id: 'e3-false', source: SAMPLE_NODE_DECISION_ID, sourceHandle: 'false', target: SAMPLE_NODE_APPROVAL_ID, animated: true, label: 'Não (Aprovação)', style: { stroke: '#f43f5e', strokeWidth: 10.5 } },
-      { id: 'e-loop-approval-action', source: SAMPLE_NODE_APPROVAL_ID, target: SAMPLE_NODE_CODE_ID, animated: true, label: 'Re-tentar (Loop Cíclico)', style: { stroke: '#f97316', strokeWidth: 10.5, strokeDasharray: '6,6' } },
+      { id: 'e1-2', source: SAMPLE_NODE_TRIGGER_ID, target: SAMPLE_NODE_CODE_ID, animated: true, label: 'Payload HTTP', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 3 } },
+      { id: 'e2-media', source: SAMPLE_NODE_CODE_ID, target: SAMPLE_NODE_MEDIA_ID, animated: true, label: 'Async Render', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 3 } },
+      { id: 'e-media-decision', source: SAMPLE_NODE_MEDIA_ID, target: SAMPLE_NODE_DECISION_ID, animated: true, label: 'Video URL Callback', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 3 } },
+      { id: 'e3-true', source: SAMPLE_NODE_DECISION_ID, sourceHandle: 'true', target: SAMPLE_NODE_OUTPUT_ID, animated: true, label: 'Sim (Master)', style: { stroke: '#34d399', strokeWidth: 3 } },
+      { id: 'e3-false', source: SAMPLE_NODE_DECISION_ID, sourceHandle: 'false', target: SAMPLE_NODE_APPROVAL_ID, animated: true, label: 'Não (Aprovação)', style: { stroke: '#f43f5e', strokeWidth: 3 } },
+      { id: 'e-loop-approval-action', source: SAMPLE_NODE_APPROVAL_ID, target: SAMPLE_NODE_CODE_ID, animated: true, label: 'Re-tentar (Loop Cíclico)', style: { stroke: '#f97316', strokeWidth: 3, strokeDasharray: '6,6' } },
     ] as any,
     is_published: true,
     created_at: new Date('2026-08-01').toISOString(),
@@ -668,7 +668,7 @@ function WorkflowAppContent() {
           {
             ...connection,
             animated: true,
-            style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 },
+            style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 3 },
           } as any,
           eds as any
         ) as any;
