@@ -13,16 +13,41 @@ serve(async (req) => {
   try {
     body = await req.json();
   } catch (e) {
-    // Tentar ler da query string se não for JSON no corpo
     const url = new URL(req.url);
-    body = { execution_id: url.searchParams.get('execution_id') };
+    body = { 
+      execution_id: url.searchParams.get('execution_id'),
+      workflow_id: url.searchParams.get('workflow_id')
+    };
   }
 
-  const executionId = body.execution_id || body.executionId;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  let executionId = body.execution_id || body.executionId;
+  const workflowId = body.workflow_id || body.workflowId;
+
+  // Se não foi fornecido execution_id mas temos workflow_id, criar nova execução automaticamente
+  if (!executionId && workflowId) {
+    console.log(`ℹ️ [WORKFLOW WORKER] Criando nova execução para workflow_id: ${workflowId}`);
+    const { data: newExec, error: createErr } = await supabase
+      .from('flow_executions')
+      .insert([{
+        workflow_id: workflowId,
+        status: 'running',
+        context_data: body.payload || body.context_data || {}
+      }])
+      .select()
+      .single();
+
+    if (!createErr && newExec) {
+      executionId = newExec.id;
+    }
+  }
 
   if (!executionId) {
     return new Response(
-      JSON.stringify({ error: 'Parâmetro execution_id é obrigatório.' }),
+      JSON.stringify({ error: 'Parâmetro execution_id ou workflow_id é obrigatório.' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -32,13 +57,8 @@ serve(async (req) => {
   console.log(`==================================================`);
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://embedded-ipaas-workflow.supabase.co';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     // 1. Buscar o registro em 'flow_executions'
-    const { data: execution, error: execErr } = await supabase
+    let { data: execution, error: execErr } = await supabase
       .from('flow_executions')
       .select('*')
       .eq('id', executionId)

@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS public.approval_tokens (
 -- Ativar RLS e permitir leitura pública para tokens válidos
 ALTER TABLE public.approval_tokens ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tokens de aprovação são acessíveis publicamente via token" ON public.approval_tokens;
+DROP POLICY IF EXISTS "Tokens de aprovação podem ser atualizados publicamente via token" ON public.approval_tokens;
+
 CREATE POLICY "Tokens de aprovação são acessíveis publicamente via token"
     ON public.approval_tokens FOR SELECT
     USING (true);

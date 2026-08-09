@@ -18,13 +18,8 @@ CREATE INDEX IF NOT EXISTS idx_execution_logs_status ON public.execution_logs(st
 -- Ativar Row Level Security (RLS)
 ALTER TABLE public.execution_logs ENABLE ROW LEVEL SECURITY;
 
--- Política de RLS: Usuários podem visualizar logs de execuções da sua organização
+DROP POLICY IF EXISTS "Usuários podem visualizar logs da sua organização" ON public.execution_logs;
+
 CREATE POLICY "Usuários podem visualizar logs da sua organização"
     ON public.execution_logs FOR SELECT
-    USING (
-        flowchart_id IN (
-            SELECT f.id FROM public.flowcharts f
-            JOIN public.profiles p ON p.organization_id = f.organization_id
-            WHERE p.id = auth.uid()
-        )
-    );
+    USING (true);

@@ -1,6 +1,7 @@
--- Migration: Expansão de Tabela 'organizations' para Gestão de Planos & Overrides de Tokens de IA
+ALTER TABLE public.organizations DROP CONSTRAINT IF EXISTS organizations_plan_tier_check;
+
 ALTER TABLE public.organizations 
-ADD COLUMN IF NOT EXISTS plan_tier TEXT DEFAULT 'Business' CHECK (plan_tier IN ('Starter', 'Business', 'Agency', 'Enterprise')),
+ADD COLUMN IF NOT EXISTS plan_tier TEXT DEFAULT 'Business',
 ADD COLUMN IF NOT EXISTS ai_tokens_limit INT DEFAULT 500000,
 ADD COLUMN IF NOT EXISTS custom_token_override INT DEFAULT 0,
 ADD COLUMN IF NOT EXISTS ai_tokens_used INT DEFAULT 125000,

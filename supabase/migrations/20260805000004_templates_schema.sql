@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS public.templates (
 -- Ativar RLS
 ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
 
--- Política de Leitura Pública dos Templates
+DROP POLICY IF EXISTS "Templates são visíveis por todos os usuários autenticados" ON public.templates;
+
 CREATE POLICY "Templates são visíveis por todos os usuários autenticados"
     ON public.templates FOR SELECT
     USING (true);
