@@ -26,6 +26,7 @@ interface NavbarProps {
   onOpenImportModal?: () => void;
   onAnalyzeEfficiency?: () => void;
   isAnalyzingEfficiency?: boolean;
+  onClearCache?: () => void;
   collaborators?: CollaboratorInfo[];
 }
 
@@ -47,6 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenImportModal,
   onAnalyzeEfficiency,
   isAnalyzingEfficiency,
+  onClearCache,
   collaborators = [],
 }) => {
   const { language, setLanguage, t } = useLanguage();
@@ -531,6 +533,32 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
           </>
+        )}
+
+        {/* BOTÃO LIMPAR CACHE / RESETAR IDs UUID */}
+        {onClearCache && (
+          <button
+            onClick={onClearCache}
+            title="Limpar Cache Local & Resetar IDs para UUID autêntico"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#ef4444',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <X size={14} />
+            <span>Resetar Cache</span>
+          </button>
         )}
 
         {/* SELETOR RÁPIDO DE TEMA (DARK / LIGHT) */}

@@ -40,7 +40,7 @@ templatesRouter.post('/:id/clone', async (req: Request, res: Response): Promise<
   const tpl = corporate21Templates.find((t) => t.id === id) || corporate21Templates[0];
 
   const clonedFlowchart = {
-    id: `flow-clone-${Date.now()}`,
+    id: crypto.randomUUID(),
     organization_id: orgId,
     name: `${tpl.name} (Cópia)`,
     description: tpl.description,

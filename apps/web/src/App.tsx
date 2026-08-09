@@ -34,15 +34,33 @@ import { ThemeProvider, useTheme, ExtendedOrganization } from './context/ThemeCo
 import { useYjsCollaboration } from './collaboration/useYjsCollaboration';
 import { useResponsiveLayout } from './hooks/useResponsiveLayout';
 
+const SAMPLE_FLOW_1_ID = '38b9f1d0-9988-4c22-9011-8849c2a11b01';
+const SAMPLE_FLOW_2_ID = '72c1a890-55e1-4b3e-812d-9918c5f22e02';
+const SAMPLE_NODE_TRIGGER_ID = 'a1111111-1111-4111-a111-111111111111';
+const SAMPLE_NODE_CODE_ID = 'a2222222-2222-4222-a222-222222222222';
+const SAMPLE_NODE_MEDIA_ID = 'a3333333-3333-4333-a333-333333333333';
+const SAMPLE_NODE_DECISION_ID = 'a4444444-4444-4444-a444-444444444444';
+const SAMPLE_NODE_APPROVAL_ID = 'a5555555-5555-4555-a555-555555555555';
+const SAMPLE_NODE_OUTPUT_ID = 'a6666666-6666-4666-a666-666666666666';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function ensureUUID(val?: any, fallback?: string): string {
+  if (typeof val === 'string' && UUID_REGEX.test(val)) {
+    return val;
+  }
+  return fallback || crypto.randomUUID();
+}
+
 const sampleInitialFlowcharts: Flowchart[] = [
   {
-    id: 'flow-sample-1',
+    id: SAMPLE_FLOW_1_ID,
     organization_id: 'org-alp-nexus',
     name: 'Integração Webhook & CRM B2B',
     description: 'Processa entrada de novos leads e valida role com notificação por e-mail.',
     nodes: [
       {
-        id: 'node-trigger-1',
+        id: SAMPLE_NODE_TRIGGER_ID,
         type: 'trigger',
         position: { x: 250, y: 50 },
         data: {
@@ -53,7 +71,7 @@ const sampleInitialFlowcharts: Flowchart[] = [
         },
       },
       {
-        id: 'node-code-1',
+        id: SAMPLE_NODE_CODE_ID,
         type: 'code',
         position: { x: 250, y: 190 },
         data: {
@@ -66,7 +84,7 @@ const sampleInitialFlowcharts: Flowchart[] = [
         },
       },
       {
-        id: 'node-media-1',
+        id: SAMPLE_NODE_MEDIA_ID,
         type: 'media',
         position: { x: 250, y: 350 },
         data: {
@@ -80,7 +98,7 @@ const sampleInitialFlowcharts: Flowchart[] = [
         },
       },
       {
-        id: 'node-decision-1',
+        id: SAMPLE_NODE_DECISION_ID,
         type: 'decision',
         position: { x: 275, y: 510 },
         data: {
@@ -91,7 +109,7 @@ const sampleInitialFlowcharts: Flowchart[] = [
         },
       },
       {
-        id: 'node-approval-1',
+        id: SAMPLE_NODE_APPROVAL_ID,
         type: 'approval',
         position: { x: 50, y: 680 },
         data: {
@@ -102,7 +120,7 @@ const sampleInitialFlowcharts: Flowchart[] = [
         },
       },
       {
-        id: 'node-output-1',
+        id: SAMPLE_NODE_OUTPUT_ID,
         type: 'output',
         position: { x: 450, y: 680 },
         data: {
@@ -114,19 +132,19 @@ const sampleInitialFlowcharts: Flowchart[] = [
       },
     ] as any,
     edges: [
-      { id: 'e1-2', source: 'node-trigger-1', target: 'node-code-1', animated: true, label: 'Payload HTTP', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
-      { id: 'e2-media', source: 'node-code-1', target: 'node-media-1', animated: true, label: 'Async Render', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
-      { id: 'e-media-decision', source: 'node-media-1', target: 'node-decision-1', animated: true, label: 'Video URL Callback', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
-      { id: 'e3-true', source: 'node-decision-1', sourceHandle: 'true', target: 'node-output-1', animated: true, label: 'Sim (Master)', style: { stroke: '#34d399', strokeWidth: 10.5 } },
-      { id: 'e3-false', source: 'node-decision-1', sourceHandle: 'false', target: 'node-approval-1', animated: true, label: 'Não (Aprovação)', style: { stroke: '#f43f5e', strokeWidth: 10.5 } },
-      { id: 'e-loop-approval-action', source: 'node-approval-1', target: 'node-code-1', animated: true, label: 'Re-tentar (Loop Cíclico)', style: { stroke: '#f97316', strokeWidth: 10.5, strokeDasharray: '6,6' } },
+      { id: 'e1-2', source: SAMPLE_NODE_TRIGGER_ID, target: SAMPLE_NODE_CODE_ID, animated: true, label: 'Payload HTTP', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
+      { id: 'e2-media', source: SAMPLE_NODE_CODE_ID, target: SAMPLE_NODE_MEDIA_ID, animated: true, label: 'Async Render', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
+      { id: 'e-media-decision', source: SAMPLE_NODE_MEDIA_ID, target: SAMPLE_NODE_DECISION_ID, animated: true, label: 'Video URL Callback', style: { stroke: 'var(--edge-stroke-color, #00f2fe)', strokeWidth: 10.5 } },
+      { id: 'e3-true', source: SAMPLE_NODE_DECISION_ID, sourceHandle: 'true', target: SAMPLE_NODE_OUTPUT_ID, animated: true, label: 'Sim (Master)', style: { stroke: '#34d399', strokeWidth: 10.5 } },
+      { id: 'e3-false', source: SAMPLE_NODE_DECISION_ID, sourceHandle: 'false', target: SAMPLE_NODE_APPROVAL_ID, animated: true, label: 'Não (Aprovação)', style: { stroke: '#f43f5e', strokeWidth: 10.5 } },
+      { id: 'e-loop-approval-action', source: SAMPLE_NODE_APPROVAL_ID, target: SAMPLE_NODE_CODE_ID, animated: true, label: 'Re-tentar (Loop Cíclico)', style: { stroke: '#f97316', strokeWidth: 10.5, strokeDasharray: '6,6' } },
     ] as any,
     is_published: true,
     created_at: new Date('2026-08-01').toISOString(),
     updated_at: new Date('2026-08-04').toISOString(),
   },
   {
-    id: 'flow-sample-2',
+    id: SAMPLE_FLOW_2_ID,
     organization_id: 'org-alp-nexus',
     name: 'Fluxo de Boas-Vindas & Onboarding',
     description: 'Envia kit de boas-vindas para novas contas de clientes corporativos.',
@@ -426,14 +444,14 @@ function WorkflowAppContent() {
     }
 
     const newFlow: Flowchart = {
-      id: `flow-${Date.now()}`,
+      id: crypto.randomUUID(),
       organization_id: currentProfile?.organization_id || 'org-alp-nexus',
       folder_id: folderId || undefined,
       name: `Novo Fluxograma #${flowcharts.length + 1}`,
       description: 'Descrição do novo processo automatizado.',
       nodes: [
         {
-          id: `node-trigger-${Date.now()}`,
+          id: crypto.randomUUID(),
           type: 'trigger',
           position: { x: 250, y: 100 },
           data: {
@@ -543,7 +561,7 @@ function WorkflowAppContent() {
 
       const data = await response.json();
       const clonedFlow: Flowchart = data.flowchart ? { ...data.flowchart, is_published: false, is_active: false } : {
-        id: `flow-clone-${Date.now()}`,
+        id: crypto.randomUUID(),
         organization_id: currentProfile?.organization_id || 'org-alp-nexus',
         name: `${template.name} (Cópia)`,
         description: template.description,
@@ -560,7 +578,7 @@ function WorkflowAppContent() {
       alert(t.messages.templateCloned);
     } catch (err: any) {
       const clonedFlow: Flowchart = {
-        id: `flow-clone-${Date.now()}`,
+        id: crypto.randomUUID(),
         organization_id: currentProfile?.organization_id || 'org-alp-nexus',
         name: `${template.name} (Cópia)`,
         description: template.description,
@@ -702,8 +720,8 @@ function WorkflowAppContent() {
         media: 'Processamento de Mídia / Assíncrono',
       };
 
-      // 4. GARANTE ID ÚNICO E POSITION VÁLIDO NO ONDROP
-      const uniqueId = `node-${type}-${crypto.randomUUID()}`;
+      // 4. GARANTE ID ÚNICO (UUID AUTÊNTICO) E POSITION VÁLIDO NO ONDROP
+      const uniqueId = crypto.randomUUID();
       const validPosition = {
         x: typeof position?.x === 'number' && !isNaN(position.x) ? position.x : 250,
         y: typeof position?.y === 'number' && !isNaN(position.y) ? position.y : 150,
@@ -1033,12 +1051,13 @@ function WorkflowAppContent() {
 
       // B) Descobrir qual é o ID do primeiro nó (ex: ScheduleNode, EmailTriggerNode ou nodes[0])
       const startNode = nodes.find((n) => ['schedule', 'email_trigger', 'trigger'].includes(n.type)) || nodes[0];
-      const firstNodeId = startNode ? startNode.id : 'node-start';
+      const firstNodeId = ensureUUID(startNode ? startNode.id : undefined, SAMPLE_NODE_TRIGGER_ID);
       const executionId = crypto.randomUUID();
+      const validWorkflowId = ensureUUID(activeFlowchart.id, SAMPLE_FLOW_1_ID);
 
       const executionPayload = {
         id: executionId,
-        workflow_id: activeFlowchart.id,
+        workflow_id: validWorkflowId,
         status: 'running',
         current_node_id: firstNodeId,
         context_data: {
@@ -1164,6 +1183,15 @@ function WorkflowAppContent() {
   // Determinar se deve renderizar a Visão Linear Mobile em vez do Canvas do React Flow
   const shouldRenderMobileLinearView = isMobilePortrait && !forceMobileCanvasView;
 
+  const handleClearCache = () => {
+    if (confirm('Deseja limpar todo o cache local e recarregar os fluxos com IDs UUID válidos?')) {
+      localStorage.removeItem('synapse_flowcharts_cache');
+      localStorage.removeItem('active_flowchart_id');
+      localStorage.removeItem('flowcharts');
+      window.location.reload();
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <Navbar
@@ -1184,6 +1212,7 @@ function WorkflowAppContent() {
         onOpenImportModal={() => setIsImportModalOpen(true)}
         onAnalyzeEfficiency={handleAnalyzeEfficiency}
         isAnalyzingEfficiency={isAnalyzingEfficiency}
+        onClearCache={handleClearCache}
         collaborators={activeCollaborators}
       />
 

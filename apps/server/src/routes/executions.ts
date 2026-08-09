@@ -228,16 +228,25 @@ router.post('/:id/run', async (req: Request, res: Response) => {
   }
 });
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function ensureUUID(val?: any, fallback?: string): string {
+  if (typeof val === 'string' && UUID_REGEX.test(val)) {
+    return val;
+  }
+  return fallback || crypto.randomUUID();
+}
+
 // POST /api/v1/executions - Registrar Nova Execução
 router.post('/', async (req: Request, res: Response) => {
   const { workflow_id, workflow_name, status, current_node_id, context_data } = req.body;
 
   const newExecution: FlowExecutionRecord = {
-    id: req.body.id || req.body.execution_id || crypto.randomUUID(),
-    workflow_id: workflow_id || 'flow-sample-1',
+    id: ensureUUID(req.body.id || req.body.execution_id),
+    workflow_id: ensureUUID(workflow_id, '38b9f1d0-9988-4c22-9011-8849c2a11b01'),
     workflow_name: workflow_name || 'Fluxo IPaaS',
     status: status || 'running',
-    current_node_id: current_node_id || 'node-start',
+    current_node_id: ensureUUID(current_node_id, 'a1111111-1111-4111-a111-111111111111'),
     context_data: context_data || {},
     started_at: new Date().toISOString(),
   };
