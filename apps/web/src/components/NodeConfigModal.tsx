@@ -110,6 +110,16 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [vaultCredentials, setVaultCredentials] = useState<CredentialVaultItem[]>([]);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any | null>(null);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+
+  const supabaseBaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://wurfruxigmajgnqsyleq.supabase.co';
+  const exclusiveWebhookUrl = `${supabaseBaseUrl}/functions/v1/webhook-handler?nodeId=${node.id}`;
+
+  const handleCopyWebhookUrl = () => {
+    navigator.clipboard.writeText(exclusiveWebhookUrl);
+    setCopiedWebhook(true);
+    setTimeout(() => setCopiedWebhook(false), 2000);
+  };
 
   const isHttpNode = node.type === 'http' || node.data.type === 'http' || (node.data.label && node.data.label.toLowerCase().includes('http'));
   const isTriggerNode = node.type === 'trigger' || node.data.type === 'trigger' || (node.data.label && node.data.label.toLowerCase().includes('gatilho / evento')) || (node.data.label && node.data.label.toLowerCase().includes('gatilho de entrada'));
@@ -1323,8 +1333,66 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         }}>
           <h3 style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent-cyan)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Globe size={16} />
-            {isTriggerNode ? 'Configuração do Gatilho / Evento (Polling 60s)' : 'Parâmetros da Requisição HTTP Externa'}
+            {isTriggerNode ? 'Configuração do Gatilho / Evento' : 'Parâmetros da Requisição HTTP Externa'}
           </h3>
+
+          {/* Box da URL Exclusiva do Webhook de Entrada */}
+          {isTriggerNode && (
+            <div style={{
+              background: 'rgba(0, 242, 254, 0.05)',
+              border: '1px solid rgba(0, 242, 254, 0.4)',
+              borderRadius: '12px',
+              padding: '14px',
+              marginBottom: '16px',
+            }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--accent-cyan)', fontWeight: 800, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                🔗 URL Exclusiva do Webhook (Endpoint de Entrada)
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  readOnly
+                  value={exclusiveWebhookUrl}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--accent-cyan)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyWebhookUrl}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    background: copiedWebhook ? 'rgba(16, 185, 129, 0.2)' : 'var(--accent-cyan)',
+                    border: copiedWebhook ? '1px solid #34d399' : 'none',
+                    color: copiedWebhook ? '#34d399' : '#0f172a',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Copy size={13} />
+                  {copiedWebhook ? 'Copiado!' : 'Copiar URL'}
+                </button>
+              </div>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
+                Qualquer sistema externo que enviar uma requisição HTTP para este endpoint exclusivo ativará o fluxo e executará este nó.
+              </span>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '10px', marginBottom: '14px' }}>
             <div>

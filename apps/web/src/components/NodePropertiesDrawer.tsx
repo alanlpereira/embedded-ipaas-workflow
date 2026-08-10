@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock, Globe } from 'lucide-react';
+import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock, Globe, Copy, Link2 } from 'lucide-react';
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
 import { CodeEditorInput } from './CodeEditorInput';
 import { getApiUrl } from '../lib/api';
@@ -34,6 +34,16 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
   const [plainApiToken, setPlainApiToken] = useState('');
   const [isEncryptingVault, setIsEncryptingVault] = useState(false);
   const [vaultSuccessMsg, setVaultSuccessMsg] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+
+  const supabaseBaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://wurfruxigmajgnqsyleq.supabase.co';
+  const exclusiveWebhookUrl = `${supabaseBaseUrl}/functions/v1/webhook-handler?nodeId=${node.id}`;
+
+  const handleCopyWebhookUrl = () => {
+    navigator.clipboard.writeText(exclusiveWebhookUrl);
+    setCopiedWebhook(true);
+    setTimeout(() => setCopiedWebhook(false), 2000);
+  };
 
   useEffect(() => {
     setLabel(node.data?.label || '');
@@ -843,8 +853,60 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
           }}>
             <h3 style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent-cyan)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Globe size={16} />
-              Configuração do Gatilho / Evento (Polling 60s)
+              Configuração do Gatilho / Evento
             </h3>
+
+            {/* Box da URL Exclusiva do Webhook de Entrada */}
+            <div style={{
+              background: 'rgba(0, 242, 254, 0.05)',
+              border: '1px solid rgba(0, 242, 254, 0.3)',
+              borderRadius: '8px',
+              padding: '10px',
+            }}>
+              <label style={{ fontSize: '10px', color: 'var(--accent-cyan)', fontWeight: 800, display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                🔗 URL Exclusiva do Webhook (Entrada)
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  readOnly
+                  value={exclusiveWebhookUrl}
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    borderRadius: '4px',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--accent-cyan)',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyWebhookUrl}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    background: copiedWebhook ? 'rgba(16, 185, 129, 0.2)' : 'var(--accent-cyan)',
+                    border: copiedWebhook ? '1px solid #34d399' : 'none',
+                    color: copiedWebhook ? '#34d399' : '#0f172a',
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Copy size={12} />
+                  {copiedWebhook ? 'Copiado!' : 'Copiar'}
+                </button>
+              </div>
+            </div>
 
             <div>
               <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
