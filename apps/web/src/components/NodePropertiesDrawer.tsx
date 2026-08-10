@@ -3,6 +3,7 @@ import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, Check
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
 import { CodeEditorInput } from './CodeEditorInput';
 import { getApiUrl } from '../lib/api';
+import { generateCronExpression, formatScheduleSummary } from '../utils/cronUtils';
 
 interface NodePropertiesDrawerProps {
   node: WorkflowNode | null;
@@ -63,7 +64,11 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
       return;
     }
 
-    const updatedConfig = {
+    let finalDescription = isApproval ? `Para: ${recipientVal}` : description;
+    let updatedSchedConfig = node.data.scheduleConfig;
+    let computedCronVal = node.data.cronExpression || '0 9 * * *';
+
+    const updatedConfig: Record<string, any> = {
       ...config,
       ...(isApproval ? {
         sender: 'corporativo@alp-nexus.com',
@@ -76,16 +81,47 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
         webhookUrl: (config.webhookUrl || '').trim(),
         message: config.message || '',
       } : {}),
-      ...(isSchedule ? {
-        cron: config.cron || '0 9 * * 1-5',
-      } : {}),
     };
+
+    if (isSchedule) {
+      const timeVal = config.time || node.data.scheduleConfig?.time || '09:00';
+      const recType = config.recurrenceType || node.data.scheduleConfig?.recurrenceType || 'daily';
+      const daysOfWeekVal = config.daysOfWeek || node.data.scheduleConfig?.daysOfWeek || [0, 1, 2, 3, 4, 5, 6];
+      const dayOfMonthVal = config.dayOfMonth || node.data.scheduleConfig?.dayOfMonth || 1;
+
+      computedCronVal = config.cron && config.cron.split(' ').length >= 5
+        ? config.cron.trim()
+        : generateCronExpression({
+            recurrenceType: recType,
+            time: timeVal,
+            daysOfWeek: daysOfWeekVal,
+            dayOfMonth: dayOfMonthVal,
+          });
+
+      updatedSchedConfig = {
+        recurrenceType: recType,
+        time: timeVal,
+        daysOfWeek: daysOfWeekVal,
+        dayOfMonth: dayOfMonthVal,
+        cronExpression: computedCronVal,
+      };
+
+      updatedConfig.cron = computedCronVal;
+      updatedConfig.cronExpression = computedCronVal;
+      updatedConfig.time = timeVal;
+
+      finalDescription = formatScheduleSummary(updatedSchedConfig, 'pt');
+    }
 
     const updatedData: any = {
       ...node.data,
       label,
-      description: isApproval ? `Para: ${recipientVal}` : description,
+      description: finalDescription,
       config: updatedConfig,
+      ...(isSchedule ? {
+        scheduleConfig: updatedSchedConfig,
+        cronExpression: computedCronVal,
+      } : {}),
       ...(isApproval ? {
         approvalConfig: {
           sender: 'corporativo@alp-nexus.com',
@@ -740,17 +776,39 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
           }}>
             <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#c084fc', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Clock size={16} />
-              Configuração de Agendamento (Cron)
+              Configuração de Agendamento
             </h3>
 
             <div>
               <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
-                Expressão Cron (node.data.config.cron)
+                Horário de Disparo (Horário de Brasília)
+              </label>
+              <input
+                type="time"
+                value={config.time || node.data?.scheduleConfig?.time || '09:00'}
+                onChange={(e) => handleConfigChange('time', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Expressão Cron Customizada (Opcional)
               </label>
               <input
                 type="text"
-                placeholder="ex: 0 9 * * 1-5"
-                value={config.cron !== undefined ? config.cron : (node.data.cronExpression || '0 9 * * 1-5')}
+                placeholder="ex: 45 20 * * *"
+                value={config.cron !== undefined ? config.cron : (node.data.cronExpression || '')}
                 onChange={(e) => handleConfigChange('cron', e.target.value)}
                 style={{
                   width: '100%',
@@ -766,7 +824,7 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
                 }}
               />
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Frequência no formato Cron de 5 campos (min hora dia mês semana). Ex: <code>0 9 * * 1-5</code> (Seg a Sex às 09:00).
+                Formato de 5 campos (min hora dia mês semana). Ex: <code>45 20 * * *</code> (Diariamente às 20:45).
               </span>
             </div>
           </div>
