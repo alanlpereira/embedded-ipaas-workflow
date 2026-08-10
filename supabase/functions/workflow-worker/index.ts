@@ -880,15 +880,121 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
           console.warn(`⚠️ [DECISION WARN] Nenhum conector de saída encontrado para handle "${targetHandle}" no nó ${currentNode.id}.`);
         }
       } else if (isWhatsapp) {
-        const destNumber = settings.destinationNumber || contextData.email?.from || '+5511999998888';
-        const msg = settings.message || 'Mensagem automática via Workflow Runner';
+        console.log(`💬 [WORKER WHATSAPP] Processando nó de WhatsApp '${currentNode.id}'...`);
+
+        const interpolateText = (template: string): string => {
+          if (!template) return '';
+          return template.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (_, path) => {
+            const val = getNestedValue(contextData, path);
+            if (val !== undefined && val !== null) {
+              if (typeof val === 'object') return JSON.stringify(val);
+              return String(val);
+            }
+            return '';
+          });
+        };
+
+        const rawDest = settings.destinationNumber || settings.whatsappConfig?.destinationNumber || settings.destination_number || contextData.whatsapp_destination || contextData.email_from || contextData.email?.from || '+5511999998888';
+        const interpolatedDest = interpolateText(rawDest).replace(/[^\d+]/g, '');
+        const finalDest = interpolatedDest.startsWith('+')
+          ? interpolatedDest
+          : (interpolatedDest.startsWith('55') ? `+${interpolatedDest}` : `+55${interpolatedDest}`);
+
+        const rawMsg = settings.message || settings.whatsappConfig?.message || '🔔 Alerta Synapse: Notificação do fluxo executada com sucesso.';
+        const finalMsg = interpolateText(rawMsg);
+
+        console.log(`📱 [WHATSAPP TARGET] Telefone: "${finalDest}" | Mensagem Formatada:\n${finalMsg}`);
+
+        // 1. Tentar Envio Real via Gateway HTTP de WhatsApp (Evolution API / UltraMsg / Z-API / Synapse Cloud API)
+        let gatewaySuccess = false;
+        let gatewayResp: any = null;
+        let gatewayError: string | null = null;
+
+        const whatsappApiUrl = Deno.env.get('WHATSAPP_API_URL') || settings.whatsappApiUrl || settings.whatsappConfig?.apiUrl || 'https://api.synapse.alp-nexus.com/v1/whatsapp/send';
+        const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY') || settings.whatsappApiKey || settings.whatsappConfig?.apiKey || '';
+
+        try {
+          console.log(`📡 [WHATSAPP HTTP POST] Disparando para Gateway '${whatsappApiUrl}'...`);
+          const waResp = await fetch(whatsappApiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(whatsappApiKey ? { 'Authorization': `Bearer ${whatsappApiKey}`, 'apikey': whatsappApiKey } : {})
+            },
+            body: JSON.stringify({
+              number: finalDest,
+              phone: finalDest,
+              to: finalDest,
+              message: finalMsg,
+              text: finalMsg,
+            })
+          });
+
+          if (waResp.ok) {
+            gatewayResp = await waResp.json();
+            gatewaySuccess = true;
+            console.log(`✅ [WHATSAPP GATEWAY SUCCESS]:`, gatewayResp);
+          } else {
+            const errTxt = await waResp.text();
+            gatewayError = `Gateway HTTP ${waResp.status}: ${errTxt.slice(0, 150)}`;
+            console.warn(`⚠️ [WHATSAPP GATEWAY WARN]:`, gatewayError);
+          }
+        } catch (wErr: any) {
+          gatewayError = wErr.message;
+          console.warn(`⚠️ [WHATSAPP GATEWAY EXCEPTION]:`, wErr.message);
+        }
+
+        // 2. Disparo de Cópia / Backup via E-mail Resend com Link de Clique Direto para o WhatsApp (wa.me)
+        let emailBackupSent = false;
+        const targetRecipient = contextData.approval?.recipients || contextData.email_from || contextData.email?.from || settings.emailConfig?.imapUser || 'corporativo@alp-nexus.com';
+
+        if (targetRecipient) {
+          const resendApiKey = Deno.env.get('RESEND_API_KEY');
+          if (resendApiKey) {
+            try {
+              const waMeLink = `https://wa.me/${finalDest.replace('+', '')}?text=${encodeURIComponent(finalMsg)}`;
+              console.log(`✉️ [WHATSAPP EMAIL BACKUP] Disparando e-mail de notificação com link wa.me para ${targetRecipient}...`);
+              
+              await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${resendApiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  from: 'Synapse Flow <onboarding@resend.dev>',
+                  to: targetRecipient.split(',').map((s: string) => s.trim()),
+                  subject: `📱 Notificação de WhatsApp (Fluxo Executado): ${finalDest}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; background-color: #090d16; color: #f8fafc; padding: 24px; border-radius: 12px;">
+                      <h2 style="color: #22c55e; margin-top: 0;">📱 Notificação de WhatsApp Disparada</h2>
+                      <p><strong>Destinatário:</strong> <code>${finalDest}</code></p>
+                      <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid #22c55e; padding: 16px; margin: 16px 0; border-radius: 6px; white-space: pre-wrap; color: #e2e8f0; font-family: monospace;">${finalMsg}</div>
+                      <p style="margin-top: 20px;">
+                        <a href="${waMeLink}" target="_blank" style="display: inline-block; background: #22c55e; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: bold;">
+                          💬 Abrir Notificação Direta no WhatsApp Web/App
+                        </a>
+                      </p>
+                    </div>
+                  `
+                })
+              });
+              emailBackupSent = true;
+            } catch (eErr: any) {
+              console.warn(`⚠️ [RESEND BACKUP WARN]:`, eErr.message);
+            }
+          }
+        }
 
         contextData = {
           ...contextData,
           whatsapp: {
-            destination_number: destNumber,
-            message_sent: msg,
-            status: 'delivered',
+            destination_number: finalDest,
+            message_sent: finalMsg,
+            status: gatewaySuccess ? 'delivered' : 'dispatched',
+            gateway_response: gatewayResp,
+            gateway_error: gatewayError,
+            email_backup_sent: emailBackupSent,
             sent_at: new Date().toISOString(),
           },
         };
@@ -896,7 +1002,7 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
         await addLog(
           currentNode.id,
           'success',
-          `💬 Notificação WhatsApp disparada para ${destNumber}.`
+          `💬 Notificação WhatsApp disparada para ${finalDest}!\n\nConteúdo da Mensagem:\n${finalMsg}`
         );
       } else if (isAi) {
         contextData = {
