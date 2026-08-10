@@ -74,6 +74,9 @@ export interface JumpNodeConfig {
 export interface WhatsAppNodeConfig {
   destinationNumber: string;
   message: string;
+  apiUrl?: string;
+  apiKey?: string;
+  provider?: 'default_gateway' | 'ultramsg' | 'zapi' | 'callmebot' | 'custom_webhook';
 }
 
 export interface TeamsNodeConfig {

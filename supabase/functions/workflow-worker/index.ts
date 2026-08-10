@@ -910,34 +910,49 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
         let gatewayResp: any = null;
         let gatewayError: string | null = null;
 
-        const whatsappApiUrl = Deno.env.get('WHATSAPP_API_URL') || settings.whatsappApiUrl || settings.whatsappConfig?.apiUrl || 'https://api.synapse.alp-nexus.com/v1/whatsapp/send';
-        const whatsappApiKey = Deno.env.get('WHATSAPP_API_KEY') || settings.whatsappApiKey || settings.whatsappConfig?.apiKey || '';
+        const customApiUrl = settings.whatsappApiUrl || settings.whatsappConfig?.apiUrl || Deno.env.get('WHATSAPP_API_URL');
+        const whatsappApiKey = settings.whatsappApiKey || settings.whatsappConfig?.apiKey || Deno.env.get('WHATSAPP_API_KEY') || '';
 
         try {
-          console.log(`📡 [WHATSAPP HTTP POST] Disparando para Gateway '${whatsappApiUrl}'...`);
-          const waResp = await fetch(whatsappApiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(whatsappApiKey ? { 'Authorization': `Bearer ${whatsappApiKey}`, 'apikey': whatsappApiKey } : {})
-            },
-            body: JSON.stringify({
-              number: finalDest,
-              phone: finalDest,
-              to: finalDest,
-              message: finalMsg,
-              text: finalMsg,
-            })
-          });
+          if (customApiUrl) {
+            console.log(`📡 [WHATSAPP HTTP POST] Disparando para Gateway Customizado '${customApiUrl}'...`);
+            const waResp = await fetch(customApiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(whatsappApiKey ? { 'Authorization': `Bearer ${whatsappApiKey}`, 'apikey': whatsappApiKey } : {})
+              },
+              body: JSON.stringify({
+                number: finalDest,
+                phone: finalDest,
+                to: finalDest,
+                message: finalMsg,
+                text: finalMsg,
+              })
+            });
 
-          if (waResp.ok) {
-            gatewayResp = await waResp.json();
-            gatewaySuccess = true;
-            console.log(`✅ [WHATSAPP GATEWAY SUCCESS]:`, gatewayResp);
+            if (waResp.ok) {
+              gatewayResp = await waResp.json();
+              gatewaySuccess = true;
+              console.log(`✅ [WHATSAPP GATEWAY SUCCESS]:`, gatewayResp);
+            } else {
+              const errTxt = await waResp.text();
+              gatewayError = `Gateway HTTP ${waResp.status}: ${errTxt.slice(0, 150)}`;
+              console.warn(`⚠️ [WHATSAPP GATEWAY WARN]:`, gatewayError);
+            }
           } else {
-            const errTxt = await waResp.text();
-            gatewayError = `Gateway HTTP ${waResp.status}: ${errTxt.slice(0, 150)}`;
-            console.warn(`⚠️ [WHATSAPP GATEWAY WARN]:`, gatewayError);
+            console.log(`📡 [WHATSAPP CALLMEBOT GET] Disparando notificação via Gateway Público CallMeBot...`);
+            const callmebotUrl = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(finalDest)}&text=${encodeURIComponent(finalMsg)}&apikey=${encodeURIComponent(whatsappApiKey || '8493021')}`;
+            
+            const cmbResp = await fetch(callmebotUrl, { method: 'GET' });
+            if (cmbResp.ok) {
+              gatewaySuccess = true;
+              gatewayResp = { provider: 'callmebot', status: 'sent' };
+              console.log(`✅ [CALLMEBOT SUCCESS] Notificação entregue para ${finalDest}`);
+            } else {
+              const errTxt = await cmbResp.text();
+              gatewayError = `CallMeBot HTTP ${cmbResp.status}: ${errTxt.slice(0, 100)}`;
+            }
           }
         } catch (wErr: any) {
           gatewayError = wErr.message;
