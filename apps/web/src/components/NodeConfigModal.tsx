@@ -112,6 +112,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [testResult, setTestResult] = useState<any | null>(null);
 
   const isHttpNode = node.type === 'http' || node.data.type === 'http' || (node.data.label && node.data.label.toLowerCase().includes('http'));
+  const isTriggerNode = node.type === 'trigger' || node.data.type === 'trigger' || (node.data.label && node.data.label.toLowerCase().includes('gatilho / evento')) || (node.data.label && node.data.label.toLowerCase().includes('gatilho de entrada'));
   const isScheduleNode = node.type === 'schedule' || node.data.type === 'schedule' || (node.data.label && node.data.label.toLowerCase().includes('agendamento'));
   const isEmailTriggerNode = node.type === 'email_trigger' || node.data.type === 'email_trigger' || (node.data.label && node.data.label.toLowerCase().includes('gatilho de e-mail'));
   const isEmailApprovalNode = node.type === 'email_approval' || node.data.type === 'email_approval' || (node.data.label && node.data.label.toLowerCase().includes('aprovação por e-mail'));
@@ -1322,7 +1323,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
         }}>
           <h3 style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent-cyan)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Globe size={16} />
-            Parâmetros da Requisição HTTP / Webhook Externa
+            {isTriggerNode ? 'Configuração do Gatilho / Evento (Polling 60s)' : 'Parâmetros da Requisição HTTP Externa'}
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '10px', marginBottom: '14px' }}>
@@ -1331,7 +1332,8 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
                 Método
               </label>
               <select
-                value={httpMethod}
+                value={isTriggerNode ? 'GET' : httpMethod}
+                disabled={Boolean(isTriggerNode)}
                 onChange={(e) => setHttpMethod(e.target.value as any)}
                 style={{
                   width: '100%',
@@ -1343,25 +1345,31 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
                   fontWeight: 800,
                   fontSize: '12px',
                   outline: 'none',
+                  opacity: isTriggerNode ? 0.8 : 1,
+                  cursor: isTriggerNode ? 'not-allowed' : 'pointer',
                 }}
               >
                 <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="DELETE">DELETE</option>
-                <option value="PATCH">PATCH</option>
+                {!isTriggerNode && (
+                  <>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
+                  </>
+                )}
               </select>
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>
-                URL de Destino
+                {isTriggerNode ? 'URL de Origem' : 'URL de Destino'}
               </label>
               <input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://api.exemplo.com/v1/webhook"
+                placeholder={isTriggerNode ? 'https://api.exemplo.com/v1/eventos' : 'https://api.exemplo.com/v1/webhook'}
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -1376,6 +1384,11 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               />
             </div>
           </div>
+          {isTriggerNode && (
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '14px', fontStyle: 'italic' }}>
+              ℹ️ O motor em nuvem consultará esta URL de Origem a cada 60 segundos via HTTP GET. Quando a API responder com dados válidos (HTTP 200 OK com payload), o fluxo passará para a próxima etapa.
+            </span>
+          )}
 
           {/* Seleção da Credencial do Cofre */}
           <div style={{ marginBottom: '14px' }}>

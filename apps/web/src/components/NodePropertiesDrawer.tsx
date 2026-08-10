@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock } from 'lucide-react';
+import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock, Globe } from 'lucide-react';
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
 import { CodeEditorInput } from './CodeEditorInput';
 import { getApiUrl } from '../lib/api';
@@ -825,6 +825,75 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
               />
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                 Formato de 5 campos (min hora dia mês semana). Ex: <code>45 20 * * *</code> (Diariamente às 20:45).
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário de Gatilho / Evento (Trigger Node) */}
+        {nodeType === 'trigger' && (
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid rgba(0, 242, 254, 0.4)',
+            borderRadius: '12px',
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent-cyan)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Globe size={16} />
+              Configuração do Gatilho / Evento (Polling 60s)
+            </h3>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Método HTTP (Exclusivamente GET)
+              </label>
+              <input
+                type="text"
+                value="GET"
+                disabled
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--accent-cyan)',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  outline: 'none',
+                  opacity: 0.8,
+                  cursor: 'not-allowed',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                URL de Origem (API Externa)
+              </label>
+              <input
+                type="url"
+                placeholder="https://api.exemplo.com/v1/eventos"
+                value={config.url || node.data?.httpConfig?.url || ''}
+                onChange={(e) => handleConfigChange('url', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                URL consultada a cada 60s pelo motor em nuvem. Quando retornar dados (HTTP 200 OK), o fluxo avança para a próxima etapa.
               </span>
             </div>
           </div>

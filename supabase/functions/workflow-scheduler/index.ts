@@ -1,5 +1,5 @@
 // Supabase Edge Function: workflow-scheduler
-// Motor de Agendamento Contínuo para Disparo de Fluxos Baseados em Tempo (Cron Ticker 24/7)
+// Motor de Agendamento Contínuo e Polling 60s para Disparo de Fluxos (Cron Ticker 24/7 & Event Polling)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
@@ -12,7 +12,7 @@ serve(async (req) => {
 
   const now = new Date();
   console.log(`\n==================================================`);
-  console.log(`⏰ [WORKFLOW SCHEDULER 24/7] Ticker executado às: ${now.toISOString()}`);
+  console.log(`⏰ [WORKFLOW SCHEDULER & POLLING 24/7] Ticker executado às: ${now.toISOString()}`);
   console.log(`==================================================`);
 
   try {
@@ -45,11 +45,9 @@ serve(async (req) => {
     const spDate = new Date(spDateStr);
 
     const pad = (n: number) => String(n).padStart(2, '0');
-    const currentLocalTime = `${pad(spDate.getHours())}:${pad(spDate.getMinutes())}`; // Ex: "20:45"
+    const currentLocalTime = `${pad(spDate.getHours())}:${pad(spDate.getMinutes())}`;
     const currentDayOfWeek = spDate.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
     const currentDayOfMonth = spDate.getDate(); // 1..31
-
-    console.log(`🕒 [SCHEDULER SP TIME] Hora Brasília: ${currentLocalTime} | Dia da Semana: ${currentDayOfWeek} | Dia do Mês: ${currentDayOfMonth}`);
 
     let evaluatedCount = 0;
     let scheduledNodesCount = 0;
@@ -59,17 +57,14 @@ serve(async (req) => {
     // 2. Avaliar cada fluxo no banco
     for (const workflow of allWorkflows) {
       evaluatedCount++;
-
       const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : [];
+
+      // A) AVALIAÇÃO DE NÓS DE AGENDAMENTO (type: 'schedule')
       const scheduleNodes = nodes.filter((n: any) => 
         n.type === 'schedule' || 
         n.data?.type === 'schedule' ||
         (n.data?.label && String(n.data.label).toLowerCase().includes('agendamento'))
       );
-
-      if (scheduleNodes.length === 0) {
-        continue;
-      }
 
       scheduledNodesCount += scheduleNodes.length;
 
@@ -104,11 +99,8 @@ serve(async (req) => {
           scheduleNode.data?.config?.dayOfMonth || 
           1;
 
-        console.log(`🔍 [CHECK NODE "${scheduleNode.data?.label || scheduleNode.id}"] Fluxo: "${workflow.name}" | Time: '${targetTime}' | Cron: '${cronExpr}' | Recurr: '${recurrenceType}'`);
-
         let isDue = false;
 
-        // Método 1: Correspondência de Horário Estruturado ("HH:MM")
         if (targetTime && targetTime === currentLocalTime) {
           if (recurrenceType === 'daily') {
             isDue = daysOfWeek.length === 0 || daysOfWeek.includes(currentDayOfWeek);
@@ -119,7 +111,6 @@ serve(async (req) => {
           }
         }
 
-        // Método 2: Correspondência via Expressão Cron (5 campos)
         if (!isDue && cronExpr && cronExpr.split(' ').length >= 5) {
           try {
             const intervalSp = cronParser.parseExpression(cronExpr, { tz: 'America/Sao_Paulo', currentDate: now });
@@ -134,12 +125,11 @@ serve(async (req) => {
               isDue = true;
             }
           } catch (cErr: any) {
-            console.warn(`⚠️ [CRON PARSE WARN] '${cronExpr}':`, cErr.message);
+            // Ignore cron parse errors
           }
         }
 
         if (isDue) {
-          // Trava de deduplicação por janela de 55 segundos
           const minuteCutoff = new Date(now.getTime() - 55000).toISOString();
           const { data: existingExec } = await supabase
             .from('flow_executions')
@@ -149,11 +139,10 @@ serve(async (req) => {
             .maybeSingle();
 
           if (existingExec) {
-            console.log(`⏸️ [SCHEDULER DEDUP] Fluxo "${workflow.name}" já disparado no minuto atual (Exec ID: ${existingExec.id}). Ignorando.`);
             continue;
           }
 
-          console.log(`🚀 [SCHEDULER MATCH!] Gatilho agendado devido! Hora SP: ${currentLocalTime} | Iniciando execução para "${workflow.name}"...`);
+          console.log(`🚀 [SCHEDULE MATCH!] Cron/Horário devido! Hora SP: ${currentLocalTime} | Iniciando "${workflow.name}"...`);
 
           const schedExecId = crypto.randomUUID();
           const executionPayload = {
@@ -178,9 +167,7 @@ serve(async (req) => {
             .select()
             .single();
 
-          if (execErr) {
-            console.error(`❌ [SCHEDULER INSERT ERROR] Falha ao registrar execução para "${workflow.name}":`, execErr);
-          } else {
+          if (!execErr) {
             const execId = newExec?.id || schedExecId;
             triggeredCount++;
             triggeredExecutions.push({
@@ -200,10 +187,8 @@ serve(async (req) => {
               },
             ]);
 
-            // Invocação assíncrona da Edge Function workflow-worker
             try {
-              console.log(`⚡ [TRIGGER WORKER] Invocando workflow-worker para Exec ID: ${execId}...`);
-              const workerResp = await fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
+              await fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -215,14 +200,169 @@ serve(async (req) => {
                   workflow_id: workflow.id
                 })
               });
-              const workerResult = await workerResp.json();
-              console.log(`✅ [WORKER RESPONSE] Execução ${execId} iniciada. Status: ${workerResult.status || 'running'}`);
             } catch (wErr: any) {
-              console.error(`⚠️ [WORKER ERROR] Falha ao invocar workflow-worker:`, wErr.message);
+              console.error(`⚠️ [WORKER ERROR]:`, wErr.message);
             }
           }
-        } else {
-          console.log(`⏳ [SCHEDULER NO MATCH] Nó agendado não é devido no minuto atual (${currentLocalTime}).`);
+        }
+      }
+
+      // B) AVALIAÇÃO DE NÓS DE GATILHO / EVENTO (type: 'trigger' - Polling 60s em API Externa via GET)
+      const triggerNodes = nodes.filter((n: any) => 
+        n.type === 'trigger' || 
+        n.data?.type === 'trigger' ||
+        (n.data?.label && String(n.data.label).toLowerCase().includes('gatilho / evento'))
+      );
+
+      for (const triggerNode of triggerNodes) {
+        const originUrl = (
+          triggerNode.data?.httpConfig?.url ||
+          triggerNode.data?.config?.url ||
+          triggerNode.data?.url ||
+          ''
+        ).trim();
+
+        const credentialId = (
+          triggerNode.data?.httpConfig?.credential_id ||
+          triggerNode.data?.config?.credential_id ||
+          ''
+        ).trim();
+
+        if (!originUrl) {
+          continue;
+        }
+
+        console.log(`🔍 [TRIGGER POLLING 60s] Verificando API de Origem via HTTP GET: '${originUrl}' no fluxo "${workflow.name}"...`);
+
+        try {
+          const reqHeaders: Record<string, string> = {
+            'User-Agent': 'Synapse-Workflow-Engine/1.0',
+            'Accept': 'application/json',
+          };
+
+          if (credentialId) {
+            try {
+              const { data: credRow } = await supabase
+                .from('credentials_vault')
+                .select('encrypted_token')
+                .eq('id', credentialId)
+                .maybeSingle();
+
+              if (credRow?.encrypted_token) {
+                reqHeaders['Authorization'] = `Bearer ${credRow.encrypted_token}`;
+              }
+            } catch (vErr: any) {
+              console.warn(`⚠️ [VAULT DECRYPT WARN]:`, vErr.message);
+            }
+          }
+
+          const apiResponse = await fetch(originUrl, {
+            method: 'GET',
+            headers: reqHeaders,
+          });
+
+          if (apiResponse.ok) {
+            let responseData: any = null;
+            const textRaw = await apiResponse.text();
+
+            try {
+              responseData = JSON.parse(textRaw);
+            } catch {
+              responseData = textRaw ? { raw_response: textRaw } : null;
+            }
+
+            const hasValidData = responseData !== null && responseData !== undefined && (
+              (typeof responseData === 'object' && Object.keys(responseData).length > 0) ||
+              (Array.isArray(responseData) && responseData.length > 0) ||
+              (typeof responseData === 'string' && responseData.trim().length > 0)
+            );
+
+            if (hasValidData) {
+              const minuteCutoff = new Date(now.getTime() - 55000).toISOString();
+              const { data: existingExec } = await supabase
+                .from('flow_executions')
+                .select('id')
+                .eq('workflow_id', workflow.id)
+                .gte('started_at', minuteCutoff)
+                .maybeSingle();
+
+              if (existingExec) {
+                console.log(`⏸️ [TRIGGER DEDUP] Evento da API "${originUrl}" já processado no minuto atual (Exec ID: ${existingExec.id}). Ignorando.`);
+                continue;
+              }
+
+              console.log(`🚀 [TRIGGER MATCH!] Dados recebidos da API de Origem '${originUrl}'! Avançando fluxo "${workflow.name}"...`);
+
+              const trigExecId = crypto.randomUUID();
+              const executionPayload = {
+                id: trigExecId,
+                workflow_id: workflow.id,
+                status: 'running',
+                current_node_id: triggerNode.id,
+                context_data: {
+                  trigger: 'event_api',
+                  origin_url: originUrl,
+                  trigger_node_id: triggerNode.id,
+                  trigger_payload: responseData,
+                  http_data: responseData,
+                  fired_at: now.toISOString(),
+                  fired_local_time: currentLocalTime,
+                },
+                started_at: now.toISOString(),
+              };
+
+              const { data: newExec, error: execErr } = await supabase
+                .from('flow_executions')
+                .insert([executionPayload])
+                .select()
+                .single();
+
+              if (!execErr) {
+                const execId = newExec?.id || trigExecId;
+                triggeredCount++;
+                triggeredExecutions.push({
+                  execution_id: execId,
+                  workflow_id: workflow.id,
+                  workflow_name: workflow.name,
+                  origin_url: originUrl,
+                  fired_local_time: currentLocalTime,
+                });
+
+                await supabase.from('execution_logs').insert([
+                  {
+                    execution_id: execId,
+                    node_id: triggerNode.id,
+                    status: 'info',
+                    log_message: `▶️ Gatilho / Evento ativado via polling HTTP GET na URL de Origem: ${originUrl}`,
+                    created_at: now.toISOString(),
+                  },
+                ]);
+
+                try {
+                  await fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${supabaseServiceKey}`,
+                      'apikey': supabaseServiceKey,
+                    },
+                    body: JSON.stringify({
+                      execution_id: execId,
+                      workflow_id: workflow.id,
+                    }),
+                  });
+                } catch (wErr: any) {
+                  console.error(`⚠️ [WORKER ERROR]:`, wErr.message);
+                }
+              }
+            } else {
+              console.log(`⏳ [TRIGGER NO DATA] API '${originUrl}' respondeu vazia/sem dados. Retornando à inatividade.`);
+            }
+          } else {
+            console.log(`⏳ [TRIGGER HTTP ${apiResponse.status}] API '${originUrl}' não retornou 200 OK. Permanecendo inativo.`);
+          }
+        } catch (apiErr: any) {
+          console.warn(`⚠️ [TRIGGER FETCH WARN] Falha ao consultar API de Origem '${originUrl}':`, apiErr.message);
         }
       }
     }
@@ -230,7 +370,6 @@ serve(async (req) => {
     console.log(`\n==================================================`);
     console.log(`📊 [SCHEDULER SUMMARY] Ticker Concluído:`);
     console.log(`   - Fluxos Avaliados: ${evaluatedCount}`);
-    console.log(`   - Nós Agendados Verificados: ${scheduledNodesCount}`);
     console.log(`   - Execuções Disparadas: ${triggeredCount}`);
     console.log(`==================================================\n`);
 
@@ -238,7 +377,6 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         evaluated_workflows: evaluatedCount,
-        scheduled_nodes: scheduledNodesCount,
         triggered_executions: triggeredCount,
         executions: triggeredExecutions,
         timestamp: now.toISOString(),
