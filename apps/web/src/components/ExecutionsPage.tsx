@@ -124,17 +124,28 @@ export const ExecutionsPage: React.FC<ExecutionsPageProps> = ({ currentProfile }
     setErrorMessage(null);
 
     try {
-      // 1. Tentar busca direta no Supabase (se configurado)
-      const { data: supaData, error: supaErr } = await supabase
+      // 1. Busca direta na tabela 'flow_executions' sem sintaxe de FK inválida
+      const { data: supaExecs, error: execErr } = await supabase
         .from('flow_executions')
-        .select('*, flowcharts(name)')
+        .select('*')
         .order('started_at', { ascending: false });
 
-      if (!supaErr && supaData !== null && supaData !== undefined) {
-        const formatted = supaData.map((item: any) => ({
+      if (!execErr && supaExecs !== null && supaExecs !== undefined) {
+        // Correlacionar nomes de fluxos das tabelas 'flowcharts' e 'workflows'
+        const [{ data: fcData }, { data: wfData }] = await Promise.all([
+          supabase.from('flowcharts').select('id, name'),
+          supabase.from('workflows').select('id, name'),
+        ]);
+
+        const nameMap = new Map<string, string>();
+        (fcData || []).forEach((f: any) => nameMap.set(f.id, f.name));
+        (wfData || []).forEach((w: any) => nameMap.set(w.id, w.name));
+
+        const formatted = supaExecs.map((item: any) => ({
           ...item,
-          workflow_name: item.flowcharts?.name || item.workflow_name || 'Fluxo IPaaS',
+          workflow_name: nameMap.get(item.workflow_id) || item.context_data?.workflow_name || 'Fluxo Synapse',
         }));
+
         setExecutions(formatted);
         setIsLoading(false);
         return;
@@ -154,15 +165,15 @@ export const ExecutionsPage: React.FC<ExecutionsPageProps> = ({ currentProfile }
       }
 
       // 3. Tratamento em caso de erro de conexão ou indisponibilidade de serviço
-      if (supaErr || (res && !res.ok)) {
+      if (execErr) {
+        console.warn('⚠️ [EXECUTIONS SUPABASE WARN]:', execErr.message);
         setErrorMessage('Não foi possível carregar o histórico de execuções. Verifique sua conexão.');
         setExecutions([]);
       } else {
-        // Fallback para os dados de demonstração caso esteja sem servidor backend rodando
         setExecutions(fallbackExecutions);
       }
     } catch (err: any) {
-      console.warn('⚠️ [EXECUTIONS WARN] Erro ao buscar execuções:', err);
+      console.warn('⚠️ [EXECUTIONS FATAL WARN]:', err);
       setErrorMessage('Não foi possível carregar o histórico de execuções. Verifique sua conexão.');
       setExecutions([]);
     } finally {
