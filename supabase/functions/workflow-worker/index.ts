@@ -95,15 +95,56 @@ serve(async (req) => {
 
         if (wf) {
           const edges: any[] = wf.edges || [];
-          let targetEdge = edges.find((e: any) => e.source === tokData.approval_node_id && (
-            e.sourceHandle === 'approved' || e.sourceHandle === 'true' || e.sourceHandle?.includes('app') || e.label?.toLowerCase().includes('aprov')
-          ));
-          if (!targetEdge) {
-            targetEdge = edges.find((e: any) => e.source === tokData.approval_node_id);
+          const outgoingEdges = edges.filter((e: any) => e.source === tokData.approval_node_id);
+          let targetEdge: any = null;
+
+          console.log(`🔍 [RESUME BRANCH SEARCH] Buscando próxima caixa para a decisão '${decision}'. Edges de saída do nó '${tokData.approval_node_id}':`, outgoingEdges);
+
+          if (decision === 'REJECTED') {
+            // 1. Procurar edge conectada especificamente no handle ou label de rejeição/recusa
+            targetEdge = outgoingEdges.find((e: any) => 
+              e.sourceHandle === 'rejected' ||
+              e.sourceHandle === 'false' ||
+              e.sourceHandle === 'no' ||
+              (e.label && (e.label.toLowerCase().includes('rejeit') || e.label.toLowerCase().includes('recus') || e.label.toLowerCase().includes('não') || e.label.toLowerCase().includes('no')))
+            );
+
+            // 2. Fallback: Se houver 2 edges e uma não for a approved, pegar a outra
+            if (!targetEdge && outgoingEdges.length > 1) {
+              targetEdge = outgoingEdges.find((e: any) => 
+                e.sourceHandle !== 'approved' && e.sourceHandle !== 'true' && !e.label?.toLowerCase().includes('aprov')
+              );
+            }
+
+            // 3. Se ainda não achou e houver apenas 1 edge de saída conectada, seguir por ela
+            if (!targetEdge && outgoingEdges.length === 1) {
+              targetEdge = outgoingEdges[0];
+            }
+          } else {
+            // Decisão: APPROVED
+            // 1. Procurar edge conectada especificamente no handle ou label de aprovação
+            targetEdge = outgoingEdges.find((e: any) => 
+              e.sourceHandle === 'approved' ||
+              e.sourceHandle === 'true' ||
+              e.sourceHandle === 'yes' ||
+              (e.label && (e.label.toLowerCase().includes('aprov') || e.label.toLowerCase().includes('sim') || e.label.toLowerCase().includes('yes')))
+            );
+
+            // 2. Fallback: Se houver 2 edges e uma não for a rejected, pegar a outra
+            if (!targetEdge && outgoingEdges.length > 1) {
+              targetEdge = outgoingEdges.find((e: any) => 
+                e.sourceHandle !== 'rejected' && e.sourceHandle !== 'false' && !e.label?.toLowerCase().includes('rejeit')
+              );
+            }
+
+            // 3. Se ainda não achou e houver apenas 1 edge de saída conectada, seguir por ela
+            if (!targetEdge && outgoingEdges.length === 1) {
+              targetEdge = outgoingEdges[0];
+            }
           }
 
           if (targetEdge) {
-            console.log(`▶️ [RESUME SUCCESS] Retomando para a próxima caixa ID: ${targetEdge.target}`);
+            console.log(`▶️ [RESUME SUCCESS] Retomando fluxo após decisão '${decision}' para a próxima caixa ID: ${targetEdge.target}`);
             await supabase
               .from('flow_executions')
               .update({
@@ -111,6 +152,8 @@ serve(async (req) => {
                 current_node_id: targetEdge.target
               })
               .eq('id', executionId);
+          } else {
+            console.warn(`⚠️ [RESUME WARN] Nenhuma edge de saída encontrada para a decisão '${decision}' no nó '${tokData.approval_node_id}'.`);
           }
         }
       }
