@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock, Globe, Copy, Link2, Loader2, Mail } from 'lucide-react';
+import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock, Globe, Copy, Link2, Loader2, Mail, MessageCircle } from 'lucide-react';
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
 import { CodeEditorInput } from './CodeEditorInput';
 import { getApiUrl } from '../lib/api';
@@ -1174,6 +1174,116 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
                 <option value="save_attachments">📎 Apenas Salvar Anexos</option>
                 <option value="raw_pass">📄 Repassar Corpo do E-mail na Íntegra</option>
               </select>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário de Ação para WhatsApp (WhatsAppNode) */}
+        {nodeType === 'whatsapp' && (
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid rgba(37, 211, 102, 0.4)',
+            borderRadius: '12px',
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#25D366', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MessageCircle size={16} />
+              Configuração da Ação do WhatsApp
+            </h3>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Número de Destino (WhatsApp)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: +5532988654825 ou {{customer.phone}}"
+                value={config.destinationNumber || node.data?.whatsappConfig?.destinationNumber || node.data?.settings?.destinationNumber || '+5532988654825'}
+                onChange={(e) => handleConfigChange('destinationNumber', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                🔑 Chave / Token da API (CallMeBot 7 dígitos, UltraMsg, Z-API)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: 8493021 (CallMeBot 7 dígitos)"
+                value={config.apiKey || node.data?.whatsappConfig?.apiKey || node.data?.settings?.apiKey || ''}
+                onChange={(e) => handleConfigChange('apiKey', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--accent-cyan)',
+                  color: 'var(--accent-cyan)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                Insira aqui sua <strong>Chave de 7 dígitos</strong> do CallMeBot ou Token do UltraMsg/Z-API.
+              </span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                🌐 URL da API / Gateway do WhatsApp (Opcional)
+              </label>
+              <input
+                type="text"
+                placeholder="Deixe em branco para CallMeBot ou insira https://api.ultramsg.com/..."
+                value={config.apiUrl || node.data?.whatsappConfig?.apiUrl || node.data?.settings?.apiUrl || ''}
+                onChange={(e) => handleConfigChange('apiUrl', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Mensagem a Enviar no WhatsApp
+              </label>
+              <textarea
+                rows={4}
+                placeholder="Digite a mensagem a ser enviada no WhatsApp..."
+                value={config.message || node.data?.whatsappConfig?.message || node.data?.settings?.message || ''}
+                onChange={(e) => handleConfigChange('message', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  resize: 'vertical',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                Suporta interpolação de variáveis dinâmicas como <code>{'{{email_summary}}'}</code>, <code>{'{{email_from}}'}</code>.
+              </span>
             </div>
           </div>
         )}

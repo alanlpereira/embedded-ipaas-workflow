@@ -95,11 +95,15 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
 
   // WhatsApp Action Configuration State
   const initialWhatsApp: WhatsAppNodeConfig = node.data.whatsappConfig || node.data.settings?.whatsappConfig || {
-    destinationNumber: '+5511999998888',
-    message: 'Olá {{email.from}}, seu pedido foi processado com sucesso!',
+    destinationNumber: '+5532988654825',
+    message: 'Olá {{email.from}}, sua solicitação foi processada com sucesso!',
+    apiKey: '',
+    apiUrl: '',
   };
-  const [whatsappDestination, setWhatsappDestination] = useState(node.data.settings?.destinationNumber || initialWhatsApp.destinationNumber || '+5511999998888');
+  const [whatsappDestination, setWhatsappDestination] = useState(node.data.settings?.destinationNumber || initialWhatsApp.destinationNumber || '+5532988654825');
   const [whatsappMessage, setWhatsappMessage] = useState(node.data.settings?.message || initialWhatsApp.message || '');
+  const [whatsappApiKey, setWhatsappApiKey] = useState(node.data.settings?.apiKey || node.data.settings?.whatsappApiKey || initialWhatsApp.apiKey || '');
+  const [whatsappApiUrl, setWhatsappApiUrl] = useState(node.data.settings?.apiUrl || node.data.settings?.whatsappApiUrl || initialWhatsApp.apiUrl || '');
 
   // MS Teams Action Configuration State
   const initialTeams: TeamsNodeConfig = node.data.teamsConfig || node.data.settings?.teamsConfig || {
@@ -277,6 +281,8 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
     const updatedWhatsAppConfig: WhatsAppNodeConfig = {
       destinationNumber: whatsappDestination,
       message: whatsappMessage,
+      apiKey: whatsappApiKey,
+      apiUrl: whatsappApiUrl,
     };
 
     let finalDescription = description;
@@ -284,20 +290,12 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       finalDescription = formatScheduleSummary(updatedScheduleConfig, language);
     } else if (isEmailTriggerNode) {
       if (filterSubject) {
-        finalDescription = `Filtro: Assunto contém '${filterSubject}'`;
+        finalDescription = `Assunto: "${filterSubject}"`;
       } else if (filterFrom) {
-        finalDescription = `Filtro: Remetente '${filterFrom}'`;
-      } else if (emailMode === 'custom_imap') {
-        finalDescription = `IMAP: ${imapHost}`;
+        finalDescription = `Remetente: "${filterFrom}"`;
       } else {
-        finalDescription = `Inbound: ${inboundEmail}`;
+        finalDescription = emailMode === 'custom_imap' ? `IMAP: ${imapHost}` : `Inbound: ${inboundEmail.slice(0, 18)}...`;
       }
-    } else if (isEmailApprovalNode) {
-      finalDescription = `Para: ${approvalRecipients.trim() || 'corporativo@alp-nexus.com'}`;
-    } else if (isJumpNode) {
-      finalDescription = `Salto / Recomeço #${jumpId}`;
-    } else if (isEndNode) {
-      finalDescription = 'Encerramento definitivo do fluxo';
     } else if (isWhatsAppNode) {
       finalDescription = `Para: ${whatsappDestination || '+55...'}`;
     } else if (isTeamsNode) {
@@ -306,7 +304,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
 
     const updatedSettings = {
       ...(node.data.settings || {}),
-      ...(isWhatsAppNode ? { destinationNumber: whatsappDestination, message: whatsappMessage } : {}),
+      ...(isWhatsAppNode ? { destinationNumber: whatsappDestination, message: whatsappMessage, apiKey: whatsappApiKey, apiUrl: whatsappApiUrl } : {}),
       ...(isTeamsNode ? teamsConfigClean : {}),
     };
 
@@ -1333,6 +1331,54 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                 Suporta números estáticos no formato internacional E.164 ou interpolação de variáveis ex: <code>{'{{customer.phone}}'}</code>.
               </span>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                🔑 Chave / Token da API (CallMeBot 7 dígitos, UltraMsg, Z-API)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: 8493021 (CallMeBot 7 dígitos) ou token UltraMsg/Z-API"
+                value={whatsappApiKey}
+                onChange={(e) => setWhatsappApiKey(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--accent-cyan)',
+                  color: 'var(--accent-cyan)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Informe aqui a sua <strong>Chave de 7 dígitos gerada pelo CallMeBot</strong> (ou token da sua instância UltraMsg/Z-API).
+              </span>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                🌐 URL da API / Gateway do WhatsApp (Opcional)
+              </label>
+              <input
+                type="text"
+                placeholder="Deixe em branco para CallMeBot ou insira https://api.ultramsg.com/..."
+                value={whatsappApiUrl}
+                onChange={(e) => setWhatsappApiUrl(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              />
             </div>
 
             <div>
