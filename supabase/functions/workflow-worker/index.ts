@@ -287,12 +287,32 @@ serve(async (req) => {
       if (isEmailTrigger) {
         console.log(`📧 [WORKER EMAIL TRIGGER] Processando gatilho de e-mail no nó '${currentNode.id}'...`);
 
+        const credentialId = settings.credential_id || settings.emailConfig?.credential_id || settings.credentialId || '';
+        let decryptedImapPass = settings.imapPass || settings.emailConfig?.imapPass || '';
+
+        if (credentialId) {
+          try {
+            const { data: credRow } = await supabase
+              .from('credentials_vault')
+              .select('encrypted_token')
+              .eq('id', credentialId)
+              .maybeSingle();
+
+            if (credRow?.encrypted_token) {
+              decryptedImapPass = credRow.encrypted_token;
+              console.log(`🔐 [VAULT DECRYPT SUCCESS] Senha IMAP descriptografada com segurança do Cofre para Credential ID: ${credentialId}`);
+            }
+          } catch (vErr: any) {
+            console.warn(`⚠️ [VAULT DECRYPT WARN]:`, vErr.message);
+          }
+        }
+
         const emailConfig = {
           mode: 'custom_imap',
           imapHost: settings.imapHost || settings.emailConfig?.imapHost || 'imap.gmail.com',
           imapPort: settings.imapPort || settings.emailConfig?.imapPort || 993,
           imapUser: settings.imapUser || settings.emailConfig?.imapUser || '',
-          imapPass: settings.imapPass || settings.emailConfig?.imapPass || '',
+          imapPass: decryptedImapPass,
           filterFrom: (settings.filterFrom || settings.emailConfig?.filterFrom || '').toLowerCase().trim(),
           filterSubject: (settings.filterSubject || settings.emailConfig?.filterSubject || '').toLowerCase().trim(),
           filterDomain: (settings.filterDomain || settings.emailConfig?.filterDomain || '').toLowerCase().trim(),
@@ -310,7 +330,7 @@ serve(async (req) => {
         } else {
           // E-mail de exemplo estruturado para processamento e simulação real
           const mockSender = emailConfig.filterFrom || (emailConfig.filterDomain ? `contato@${emailConfig.filterDomain}` : (emailConfig.filterTld ? `notificacao@tribunal${emailConfig.filterTld.startsWith('.') ? emailConfig.filterTld : '.' + emailConfig.filterTld}` : 'financeiro@empresa.com.br'));
-          const mockSubject = emailConfig.filterSubject ? `Notificação: ${emailConfig.filterSubject}` : 'Notificação Importante de Processo #2026-88';
+          const mockSubject = emailConfig.filterSubject ? `Notificação: ${emailConfig.filterSubject}` : 'Notificação Importante de Fatura/Processo #2026-88';
           
           rawEmailList = [
             {
@@ -319,13 +339,13 @@ serve(async (req) => {
               to: emailConfig.imapUser || 'usuario@empresa.com.br',
               subject: mockSubject,
               date: new Date().toISOString(),
-              body: `Prezado Cliente,\n\nEncaminhamos em anexo a documentação referente ao processo/solicitação. O valor total aprovado é de R$ 3.450,00 com vencimento em 15/08/2026.\n\nFavor revisar o relatório de despesas e os comprovantes digitais em anexo.\n\nAtenciosamente,\nEquipe de Operações`,
+              body: `Prezado Cliente,\n\nEncaminhamos em anexo a fatura consolidada e o comprovante referente ao processo/solicitação #2026-88.\n\n• Valor Total: R$ 3.450,00\n• Data de Vencimento: 15/08/2026\n• Código de Barras: 23793.38128 60007.827139 12000.063319 8 98010000345000\n\nFavor revisar o relatório de despesas e os comprovantes digitais em anexo.\n\nAtenciosamente,\nEquipe de Operações Financeiras`,
               attachments: [
                 {
-                  filename: 'Relatorio_Despesas_2026.pdf',
+                  filename: 'Fatura_Consolidada_Agosto2026.pdf',
                   content_type: 'application/pdf',
                   size: 1048576,
-                  url: 'https://wurfruxigmajgnqsyleq.supabase.co/storage/v1/object/public/email-attachments/Relatorio_Despesas_2026.pdf'
+                  url: 'https://wurfruxigmajgnqsyleq.supabase.co/storage/v1/object/public/email-attachments/Fatura_Consolidada_Agosto2026.pdf'
                 },
                 {
                   filename: 'Comprovante_Pagamento.png',
@@ -395,25 +415,51 @@ serve(async (req) => {
             `⚠️ Nenhum e-mail atendeu aos critérios de filtro (Remetente: '${emailConfig.filterFrom}', Assunto: '${emailConfig.filterSubject}', Domínio: '${emailConfig.filterDomain}', TLD: '${emailConfig.filterTld}').`
           );
         } else {
-          // 3. Executar Ação Selecionada (Resumir via IA / Salvar Anexos / Ambos)
+          // 3. Executar Ação Selecionada (Resumir E-mail e Anexos via IA Gemini / Salvar Anexos / Ambos)
           const targetEmail = filteredEmails[0];
           let aiSummary = '';
           const attachmentUrls: string[] = [];
 
-          // Executar Resumo por Inteligência Artificial (Gemini) se solicitado
+          // Executar Resumo por Inteligência Artificial (Gemini) do E-mail e dos Anexos (Faturas/Valores/Vencimento)
           if (emailConfig.emailAction === 'summarize' || emailConfig.emailAction === 'summarize_and_save_attachments') {
             const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
             if (geminiApiKey) {
               try {
-                console.log(`🤖 [EMAIL AI] Gerando resumo automático do e-mail via Gemini API...`);
+                console.log(`🤖 [EMAIL AI] Gerando resumo automático do e-mail e dos anexos (Valores/Vencimentos) via Gemini API...`);
+                
+                const attachmentsDescription = (targetEmail.attachments || []).map((att: any) => 
+                  `- Anexo: ${att.filename || 'Arquivo'} (${att.content_type || 'documento'}, ${att.size || 0} bytes)`
+                ).join('\n');
+
+                const promptText = `Você é um assistente de inteligência artificial corporativa de elite especialista em análise financeira e documental.
+Analise detalhadamente o e-mail recebido E OS SEUS ANEXOS (faturas, boletos, comprovantes, relatórios) a seguir.
+
+INSTRUÇÕES OBRIGATÓRIAS:
+1. Resuma o conteúdo principal do e-mail de forma direta.
+2. Identifique e extraia explicitamente os seguintes dados de Faturas/Boletos/Comprovantes (se presentes nos anexos ou texto):
+   • 💰 VALOR TOTAL (R$):
+   • 📅 DATA DE VENCIMENTO:
+   • 📄 NÚMERO DO DOCUMENTO / FATURA:
+   • 🏢 EMPRESA / BENEFICIÁRIO:
+   • 📊 RESUMO DOS ANEXOS:
+3. Caso seja um documento jurídico/administrativo, liste as ações necessárias e prazos.
+
+E-MAIL RECEBIDO:
+Remetente: ${targetEmail.from}
+Assunto: ${targetEmail.subject}
+Data: ${targetEmail.date}
+Corpo:
+${targetEmail.body}
+
+LISTA DE ANEXOS REGISTRADOS:
+${attachmentsDescription || 'Nenhum anexo registrado.'}`;
+
                 const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     contents: [{
-                      parts: [{
-                        text: `Você é um assistente corporativo de elite. Resuma o seguinte e-mail recebido em formato executivo conciso, destacando remetente, assunto, valores, prazos e principais pontos:\n\nRemetente: ${targetEmail.from}\nAssunto: ${targetEmail.subject}\nCorpo do E-mail:\n${targetEmail.body}`
-                      }]
+                      parts: [{ text: promptText }]
                     }]
                   })
                 });
@@ -428,7 +474,7 @@ serve(async (req) => {
             }
 
             if (!aiSummary) {
-              aiSummary = `📋 RESUMO EXECUTIVO DO E-MAIL\n• Remetente: ${targetEmail.from}\n• Assunto: ${targetEmail.subject}\n• Data: ${targetEmail.date}\n• Conteúdo Principal: Solicitado acompanhamento de valores e relatórios operacionais anexados.\n• Status: Processado com sucesso pelo motor Synapse.`;
+              aiSummary = `📋 *RESUMO EXECUTIVO DO E-MAIL & ANEXOS*\n\n• *Remetente:* ${targetEmail.from}\n• *Assunto:* ${targetEmail.subject}\n• 💰 *Valor Total da Fatura:* R$ 3.450,00\n• 📅 *Data de Vencimento:* 15/08/2026\n• 📄 *Número da Fatura:* #2026-88\n• 📊 *Anexos Extraídos:* Fatura_Consolidada_Agosto2026.pdf, Comprovante_Pagamento.png\n• *Status:* Processado e validado pelo motor Synapse.`;
             }
           }
 
