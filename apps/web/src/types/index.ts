@@ -53,7 +53,12 @@ export interface EmailTriggerConfig {
   imapPass?: string;
   filterSubject?: string;
   filterFrom?: string;
+  filterDomain?: string;
+  filterTld?: string;
+  emailAction?: 'summarize' | 'save_attachments' | 'summarize_and_save_attachments' | 'raw_pass';
+  maxEmails?: number;
   onlyWithAttachments?: boolean;
+  useTls?: boolean;
 }
 
 export interface EmailApprovalConfig {

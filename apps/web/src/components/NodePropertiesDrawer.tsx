@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock, Globe, Copy, Link2, Loader2 } from 'lucide-react';
+import { X, Trash2, Save, Play, ShieldCheck, Lock, ExternalLink, Sparkles, CheckCircle2, Video, Clock, Globe, Copy, Link2, Loader2, Mail } from 'lucide-react';
 import { WorkflowNode, NodeType } from '@ipaas/shared-types';
 import { CodeEditorInput } from './CodeEditorInput';
 import { getApiUrl } from '../lib/api';
@@ -1025,6 +1025,155 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                 URL consultada a cada 60s pelo motor em nuvem. Quando retornar dados (HTTP 200 OK), o fluxo avança para a próxima etapa.
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário de Gatilho de E-mail (Email Trigger Node) */}
+        {nodeType === 'email_trigger' && (
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid rgba(2, 132, 199, 0.4)',
+            borderRadius: '12px',
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Mail size={16} />
+              Configuração do Gatilho de E-mail
+            </h3>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Servidor Host IMAP
+              </label>
+              <input
+                type="text"
+                placeholder="imap.gmail.com"
+                value={config.imapHost || node.data?.emailConfig?.imapHost || 'imap.gmail.com'}
+                onChange={(e) => handleConfigChange('imapHost', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Filtro por Remetente
+              </label>
+              <input
+                type="text"
+                placeholder="ex: suporte@empresa.com"
+                value={config.filterFrom || node.data?.emailConfig?.filterFrom || ''}
+                onChange={(e) => handleConfigChange('filterFrom', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Filtro por Assunto
+              </label>
+              <input
+                type="text"
+                placeholder="ex: Fatura, Processo"
+                value={config.filterSubject || node.data?.emailConfig?.filterSubject || ''}
+                onChange={(e) => handleConfigChange('filterSubject', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Filtro por Domínio (ex: empresa.com.br)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: banco.com.br, empresa.com"
+                value={config.filterDomain || node.data?.emailConfig?.filterDomain || ''}
+                onChange={(e) => handleConfigChange('filterDomain', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Filtro por TLD (.jus, .org, .edu)
+              </label>
+              <input
+                type="text"
+                placeholder="ex: .jus.br, .org, .edu"
+                value={config.filterTld || node.data?.emailConfig?.filterTld || ''}
+                onChange={(e) => handleConfigChange('filterTld', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                Ação nos E-mails Encontrados
+              </label>
+              <select
+                value={config.emailAction || node.data?.emailConfig?.emailAction || 'summarize_and_save_attachments'}
+                onChange={(e) => handleConfigChange('emailAction', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: '#38bdf8',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  outline: 'none',
+                }}
+              >
+                <option value="summarize_and_save_attachments">✨ Resumir via IA + Salvar Anexos</option>
+                <option value="summarize">📝 Apenas Resumir E-mail via IA</option>
+                <option value="save_attachments">📎 Apenas Salvar Anexos</option>
+                <option value="raw_pass">📄 Repassar Corpo do E-mail na Íntegra</option>
+              </select>
             </div>
           </div>
         )}

@@ -72,6 +72,9 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [imapPass, setImapPass] = useState(initialEmail.imapPass || '');
   const [filterSubject, setFilterSubject] = useState(initialEmail.filterSubject || '');
   const [filterFrom, setFilterFrom] = useState(initialEmail.filterFrom || '');
+  const [filterDomain, setFilterDomain] = useState(initialEmail.filterDomain || '');
+  const [filterTld, setFilterTld] = useState(initialEmail.filterTld || '');
+  const [emailAction, setEmailAction] = useState<'summarize' | 'save_attachments' | 'summarize_and_save_attachments' | 'raw_pass'>(initialEmail.emailAction || 'summarize_and_save_attachments');
   const [onlyWithAttachments, setOnlyWithAttachments] = useState(Boolean(initialEmail.onlyWithAttachments));
   const [copiedInbound, setCopiedInbound] = useState(false);
 
@@ -220,6 +223,9 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       imapPass,
       filterSubject,
       filterFrom,
+      filterDomain,
+      filterTld,
+      emailAction,
       onlyWithAttachments,
     };
 
@@ -918,6 +924,76 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
                     }}
                   />
                 </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Filtro por Domínio / Empresa
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: empresa.com.br, banco.com"
+                    value={filterDomain}
+                    onChange={(e) => setFilterDomain(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                    Filtro por TLD / Tipo (.jus, .org, .edu)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: .jus.br, .org, .edu"
+                    value={filterTld}
+                    onChange={(e) => setFilterTld(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Ação a Executar nos E-mails Encontrados */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                  ⚡ Ação Automatizada sobre os E-mails Encontrados
+                </label>
+                <select
+                  value={emailAction}
+                  onChange={(e) => setEmailAction(e.target.value as any)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 10px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--accent-cyan)',
+                    color: 'var(--accent-cyan)',
+                    fontWeight: 800,
+                    fontSize: '12px',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="summarize_and_save_attachments">✨ Resumir via IA (Gemini) + Salvar Anexos (Recomendado)</option>
+                  <option value="summarize">📝 Apenas Resumir E-mail via IA (Gemini)</option>
+                  <option value="save_attachments">📎 Apenas Salvar Anexos no Supabase Storage</option>
+                  <option value="raw_pass">📄 Repassar E-mail na Íntegra (Raw Body)</option>
+                </select>
               </div>
 
               {/* Checkbox Apenas E-mails com Anexo */}

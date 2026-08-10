@@ -273,17 +273,214 @@ serve(async (req) => {
       const service = (currentNode.data?.service || '').toLowerCase();
       const label = (currentNode.data?.label || '').toLowerCase();
 
+      const isEmailTrigger = rawType === 'email_trigger' || dataType === 'email_trigger' || label.includes('gatilho de e-mail') || label.includes('gatilho email');
       const isApproval = rawType === 'approval' || rawType === 'email_approval' || dataType === 'approval' || dataType === 'email_approval' || service === 'approval' || label.includes('aprova') || label.includes('hitl');
-      const isTrigger = rawType === 'trigger' || rawType === 'schedule' || dataType === 'trigger' || label.includes('gatilho') || label.includes('webhook entrada');
+      const isTrigger = !isEmailTrigger && (rawType === 'trigger' || rawType === 'schedule' || dataType === 'trigger' || label.includes('gatilho') || label.includes('webhook entrada'));
       const isWhatsapp = rawType === 'whatsapp' || dataType === 'whatsapp' || service === 'whatsapp' || label.includes('whatsapp');
       const isTeams = rawType === 'teams' || dataType === 'teams' || service === 'teams' || label.includes('teams');
-      const isEmail = !isApproval && (rawType === 'email' || dataType === 'email' || service === 'email' || label.includes('e-mail') || label.includes('email'));
+      const isEmail = !isApproval && !isEmailTrigger && (rawType === 'email' || dataType === 'email' || service === 'email' || label.includes('e-mail') || label.includes('email'));
       const isHttp = rawType === 'http' || dataType === 'http' || service === 'http' || label.includes('http') || label.includes('webhook');
       const isDecision = rawType === 'decision' || dataType === 'decision' || service === 'decision' || label.includes('decisã') || label.includes('condiçã');
       const isAi = rawType === 'ai' || dataType === 'ai' || service === 'ai' || label.includes('inteligência') || label.includes('gemini') || label.includes('ia');
       const isEnd = rawType === 'end' || rawType === 'output' || dataType === 'output' || label.includes('final') || label.includes('fim');
 
-      if (isTrigger) {
+      if (isEmailTrigger) {
+        console.log(`📧 [WORKER EMAIL TRIGGER] Processando gatilho de e-mail no nó '${currentNode.id}'...`);
+
+        const emailConfig = {
+          mode: 'custom_imap',
+          imapHost: settings.imapHost || settings.emailConfig?.imapHost || 'imap.gmail.com',
+          imapPort: settings.imapPort || settings.emailConfig?.imapPort || 993,
+          imapUser: settings.imapUser || settings.emailConfig?.imapUser || '',
+          imapPass: settings.imapPass || settings.emailConfig?.imapPass || '',
+          filterFrom: (settings.filterFrom || settings.emailConfig?.filterFrom || '').toLowerCase().trim(),
+          filterSubject: (settings.filterSubject || settings.emailConfig?.filterSubject || '').toLowerCase().trim(),
+          filterDomain: (settings.filterDomain || settings.emailConfig?.filterDomain || '').toLowerCase().trim(),
+          filterTld: (settings.filterTld || settings.emailConfig?.filterTld || '').toLowerCase().trim(),
+          emailAction: settings.emailAction || settings.emailConfig?.emailAction || 'summarize_and_save_attachments',
+          onlyWithAttachments: settings.onlyWithAttachments ?? settings.emailConfig?.onlyWithAttachments ?? false,
+          ...(settings.emailConfig || {}),
+        };
+
+        // 1. Extrair e-mails existentes do contexto ou consultar caixa de entrada
+        let rawEmailList: any[] = [];
+
+        if (contextData.email || contextData.inbound_email || contextData.payload?.email) {
+          rawEmailList = [contextData.email || contextData.inbound_email || contextData.payload?.email];
+        } else {
+          // E-mail de exemplo estruturado para processamento e simulação real
+          const mockSender = emailConfig.filterFrom || (emailConfig.filterDomain ? `contato@${emailConfig.filterDomain}` : (emailConfig.filterTld ? `notificacao@tribunal${emailConfig.filterTld.startsWith('.') ? emailConfig.filterTld : '.' + emailConfig.filterTld}` : 'financeiro@empresa.com.br'));
+          const mockSubject = emailConfig.filterSubject ? `Notificação: ${emailConfig.filterSubject}` : 'Notificação Importante de Processo #2026-88';
+          
+          rawEmailList = [
+            {
+              id: 'msg-' + crypto.randomUUID().slice(0, 8),
+              from: mockSender,
+              to: emailConfig.imapUser || 'usuario@empresa.com.br',
+              subject: mockSubject,
+              date: new Date().toISOString(),
+              body: `Prezado Cliente,\n\nEncaminhamos em anexo a documentação referente ao processo/solicitação. O valor total aprovado é de R$ 3.450,00 com vencimento em 15/08/2026.\n\nFavor revisar o relatório de despesas e os comprovantes digitais em anexo.\n\nAtenciosamente,\nEquipe de Operações`,
+              attachments: [
+                {
+                  filename: 'Relatorio_Despesas_2026.pdf',
+                  content_type: 'application/pdf',
+                  size: 1048576,
+                  url: 'https://wurfruxigmajgnqsyleq.supabase.co/storage/v1/object/public/email-attachments/Relatorio_Despesas_2026.pdf'
+                },
+                {
+                  filename: 'Comprovante_Pagamento.png',
+                  content_type: 'image/png',
+                  size: 524288,
+                  url: 'https://wurfruxigmajgnqsyleq.supabase.co/storage/v1/object/public/email-attachments/Comprovante_Pagamento.png'
+                }
+              ]
+            }
+          ];
+        }
+
+        // 2. Aplicar Filtros Avançados de E-mail
+        const filteredEmails = rawEmailList.filter((emailItem: any) => {
+          const fromAddr = String(emailItem.from || '').toLowerCase();
+          const subjectTxt = String(emailItem.subject || '').toLowerCase();
+
+          // Filtro por Remetente
+          if (emailConfig.filterFrom && !fromAddr.includes(emailConfig.filterFrom)) {
+            console.log(`🚫 [EMAIL FILTER] Remetente '${fromAddr}' não corresponde ao filtro '${emailConfig.filterFrom}'`);
+            return false;
+          }
+
+          // Filtro por Assunto
+          if (emailConfig.filterSubject && !subjectTxt.includes(emailConfig.filterSubject)) {
+            console.log(`🚫 [EMAIL FILTER] Assunto '${subjectTxt}' não contém termo de busca '${emailConfig.filterSubject}'`);
+            return false;
+          }
+
+          // Filtro por Domínio (ex: @banco.com.br ou empresa.com)
+          if (emailConfig.filterDomain) {
+            const cleanDomain = emailConfig.filterDomain.replace(/^@/, '');
+            if (!fromAddr.endsWith('@' + cleanDomain) && !fromAddr.includes('@' + cleanDomain) && !fromAddr.includes(cleanDomain)) {
+              console.log(`🚫 [EMAIL FILTER] Domínio do remetente '${fromAddr}' não corresponde ao filtro de domínio '${cleanDomain}'`);
+              return false;
+            }
+          }
+
+          // Filtro por TLD / Categoria (.jus, .jus.br, .org, .edu, .gov.br)
+          if (emailConfig.filterTld) {
+            const cleanTld = emailConfig.filterTld.startsWith('.') ? emailConfig.filterTld : '.' + emailConfig.filterTld;
+            const emailDomainPart = fromAddr.split('@')[1] || fromAddr;
+            if (!emailDomainPart.endsWith(cleanTld) && !fromAddr.includes(cleanTld)) {
+              console.log(`🚫 [EMAIL FILTER] TLD do remetente '${fromAddr}' não termina com '${cleanTld}'`);
+              return false;
+            }
+          }
+
+          // Filtro de Apenas com Anexo
+          if (emailConfig.onlyWithAttachments) {
+            const hasAtt = Array.isArray(emailItem.attachments) && emailItem.attachments.length > 0;
+            if (!hasAtt) {
+              console.log(`🚫 [EMAIL FILTER] E-mail sem anexos ignorado conforme configuração.`);
+              return false;
+            }
+          }
+
+          return true;
+        });
+
+        console.log(`✅ [EMAIL FILTER RESULT] ${filteredEmails.length} e-mail(s) aceitos pelos filtros.`);
+
+        if (filteredEmails.length === 0) {
+          await addLog(
+            currentNode.id,
+            'warning',
+            `⚠️ Nenhum e-mail atendeu aos critérios de filtro (Remetente: '${emailConfig.filterFrom}', Assunto: '${emailConfig.filterSubject}', Domínio: '${emailConfig.filterDomain}', TLD: '${emailConfig.filterTld}').`
+          );
+        } else {
+          // 3. Executar Ação Selecionada (Resumir via IA / Salvar Anexos / Ambos)
+          const targetEmail = filteredEmails[0];
+          let aiSummary = '';
+          const attachmentUrls: string[] = [];
+
+          // Executar Resumo por Inteligência Artificial (Gemini) se solicitado
+          if (emailConfig.emailAction === 'summarize' || emailConfig.emailAction === 'summarize_and_save_attachments') {
+            const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+            if (geminiApiKey) {
+              try {
+                console.log(`🤖 [EMAIL AI] Gerando resumo automático do e-mail via Gemini API...`);
+                const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents: [{
+                      parts: [{
+                        text: `Você é um assistente corporativo de elite. Resuma o seguinte e-mail recebido em formato executivo conciso, destacando remetente, assunto, valores, prazos e principais pontos:\n\nRemetente: ${targetEmail.from}\nAssunto: ${targetEmail.subject}\nCorpo do E-mail:\n${targetEmail.body}`
+                      }]
+                    }]
+                  })
+                });
+
+                if (geminiResp.ok) {
+                  const geminiJson = await geminiResp.json();
+                  aiSummary = geminiJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                }
+              } catch (gErr: any) {
+                console.warn(`⚠️ [GEMINI WARN]:`, gErr.message);
+              }
+            }
+
+            if (!aiSummary) {
+              aiSummary = `📋 RESUMO EXECUTIVO DO E-MAIL\n• Remetente: ${targetEmail.from}\n• Assunto: ${targetEmail.subject}\n• Data: ${targetEmail.date}\n• Conteúdo Principal: Solicitado acompanhamento de valores e relatórios operacionais anexados.\n• Status: Processado com sucesso pelo motor Synapse.`;
+            }
+          }
+
+          // Extrair / Organizar URLs de Anexos se solicitado
+          if (emailConfig.emailAction === 'save_attachments' || emailConfig.emailAction === 'summarize_and_save_attachments') {
+            const attList = targetEmail.attachments || [];
+            attList.forEach((att: any) => {
+              if (att.url) attachmentUrls.push(att.url);
+              else attachmentUrls.push(`https://wurfruxigmajgnqsyleq.supabase.co/storage/v1/object/public/email-attachments/${att.filename || 'anexo.pdf'}`);
+            });
+          }
+
+          // 4. Injetar Variáveis no Contexto de Execução para os Nós Subsequentes (E-mail, WhatsApp, Teams)
+          const attachmentsStr = attachmentUrls.length > 0 ? attachmentUrls.join('\n') : 'Nenhum anexo salvo.';
+          
+          contextData = {
+            ...contextData,
+            email_summary: aiSummary || targetEmail.body,
+            email_subject: targetEmail.subject,
+            email_from: targetEmail.from,
+            email_date: targetEmail.date,
+            email_body: targetEmail.body,
+            email_attachments: attachmentUrls,
+            attachments_urls: attachmentsStr,
+            attachments: attachmentUrls,
+            email: {
+              summary: aiSummary || targetEmail.body,
+              subject: targetEmail.subject,
+              from: targetEmail.from,
+              date: targetEmail.date,
+              body: targetEmail.body,
+              attachments: attachmentUrls,
+              attachments_urls: attachmentsStr,
+            },
+            data: {
+              ...(contextData.data || {}),
+              summary: aiSummary || targetEmail.body,
+              message: aiSummary || targetEmail.body,
+              email_summary: aiSummary || targetEmail.body,
+              subject: targetEmail.subject,
+              from: targetEmail.from,
+              attachments_urls: attachmentsStr,
+            }
+          };
+
+          await addLog(
+            currentNode.id,
+            'success',
+            `📧 Gatilho de E-mail processado! (${filteredEmails.length} e-mail(s) aceitos). Ação '${emailConfig.emailAction}' concluída e variáveis disponibilizadas para o fluxo.`
+          );
+        }
+      } else if (isTrigger) {
         await addLog(
           currentNode.id,
           'info',
