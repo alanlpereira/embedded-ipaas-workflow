@@ -5,6 +5,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 
+declare const EdgeRuntime: {
+  waitUntil: (promise: Promise<any>) => void;
+};
+
 serve(async (req) => {
   // Tratar requisição OPTIONS (CORS preflight)
   const corsResponse = handleCors(req);
@@ -169,23 +173,24 @@ serve(async (req) => {
       },
     ]);
 
-    // Invocar workflow-worker em segundo plano para executar os próximos nós
-    try {
-      console.log(`⚡ [TRIGGER WORKER] Invocando workflow-worker para Exec ID: ${execId}...`);
-      await fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'apikey': supabaseServiceKey,
-        },
-        body: JSON.stringify({
-          execution_id: execId,
-          workflow_id: targetWorkflow.id,
-        }),
-      });
-    } catch (wErr: any) {
+    // Disparo assíncrono não-bloqueante do workflow-worker (Background execution)
+    const workerPromise = fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'apikey': supabaseServiceKey,
+      },
+      body: JSON.stringify({
+        execution_id: execId,
+        workflow_id: targetWorkflow.id,
+      }),
+    }).catch((wErr: any) => {
       console.error(`⚠️ [WORKER INVOCATION WARN]:`, wErr.message);
+    });
+
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      EdgeRuntime.waitUntil(workerPromise);
     }
 
     return new Response(

@@ -187,21 +187,21 @@ serve(async (req) => {
               },
             ]);
 
-            try {
-              await fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${supabaseServiceKey}`,
-                  'apikey': supabaseServiceKey,
-                },
-                body: JSON.stringify({
-                  execution_id: execId,
-                  workflow_id: workflow.id
-                })
-              });
-            } catch (wErr: any) {
-              console.error(`⚠️ [WORKER ERROR]:`, wErr.message);
+            const workerPromise = fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'apikey': supabaseServiceKey,
+              },
+              body: JSON.stringify({
+                execution_id: execId,
+                workflow_id: workflow.id
+              })
+            }).catch((wErr: any) => console.error(`⚠️ [WORKER ERROR]:`, wErr.message));
+
+            if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+              EdgeRuntime.waitUntil(workerPromise);
             }
           }
         }
@@ -338,21 +338,21 @@ serve(async (req) => {
                   },
                 ]);
 
-                try {
-                  await fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${supabaseServiceKey}`,
-                      'apikey': supabaseServiceKey,
-                    },
-                    body: JSON.stringify({
-                      execution_id: execId,
-                      workflow_id: workflow.id,
-                    }),
-                  });
-                } catch (wErr: any) {
-                  console.error(`⚠️ [WORKER ERROR]:`, wErr.message);
+                const trigWorkerPromise = fetch(`${supabaseUrl}/functions/v1/workflow-worker`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseServiceKey}`,
+                    'apikey': supabaseServiceKey,
+                  },
+                  body: JSON.stringify({
+                    execution_id: execId,
+                    workflow_id: workflow.id,
+                  }),
+                }).catch((wErr: any) => console.error(`⚠️ [WORKER ERROR]:`, wErr.message));
+
+                if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+                  EdgeRuntime.waitUntil(trigWorkerPromise);
                 }
               }
             } else {

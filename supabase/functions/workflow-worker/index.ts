@@ -205,18 +205,42 @@ serve(async (req) => {
 
     function getNestedValue(obj: any, path: string): any {
       if (!obj || !path) return null;
-      const cleanPath = path.replace(/^body\./, '').replace(/^context\./, '').replace(/^payload\./, '');
-      const keys = cleanPath.split('.');
-      let current = obj;
-      for (const k of keys) {
-        if (current && typeof current === 'object' && k in current) {
-          current = current[k];
-        } else {
-          return null;
+      const cleanPath = path.replace(/^body\./, '').replace(/^context\./, '');
+      
+      const searchInObject = (target: any, targetPath: string): any => {
+        const keys = targetPath.split('.');
+        let current = target;
+        for (const k of keys) {
+          if (current && typeof current === 'object' && k in current) {
+            current = current[k];
+          } else {
+            return null;
+          }
+        }
+        return current;
+      };
+
+      const direct = searchInObject(obj, cleanPath);
+      if (direct !== null && direct !== undefined) return direct;
+
+      // Fallback para containers de webhook e payload
+      for (const key of ['payload', 'data', 'trigger_payload', 'http_data', 'context_data']) {
+        if (obj[key] && typeof obj[key] === 'object') {
+          const nested = searchInObject(obj[key], cleanPath);
+          if (nested !== null && nested !== undefined) return nested;
         }
       }
-      return current;
+
+      return null;
     }
+
+    const interpolateVars = (str: string) => {
+      if (!str) return '';
+      return str.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (_, path) => {
+        const val = getNestedValue(contextData, path);
+        return val !== undefined && val !== null ? String(val) : '';
+      });
+    };
 
     // 3. Loop de Processamento (Traversal do Grafo)
     while (currentNodeId) {

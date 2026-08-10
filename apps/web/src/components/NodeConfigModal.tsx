@@ -121,6 +121,33 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
     setTimeout(() => setCopiedWebhook(false), 2000);
   };
 
+  const [isTestingTrigger, setIsTestingTrigger] = useState(false);
+  const [triggerTestResult, setTriggerTestResult] = useState<any>(null);
+
+  const handleTestTriggerWebhook = async () => {
+    setIsTestingTrigger(true);
+    setTriggerTestResult(null);
+    try {
+      const res = await fetch(exclusiveWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test: true,
+          event: 'WEBHOOK_TEST_SIMULATION',
+          customer_email: 'alanlacerdapereira@gmail.com',
+          message: 'Disparo de teste simulado via painel IPaaS',
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      const data = await res.json();
+      setTriggerTestResult(data);
+    } catch (err: any) {
+      setTriggerTestResult({ error: err.message || 'Falha ao conectar com o endpoint' });
+    } finally {
+      setIsTestingTrigger(false);
+    }
+  };
+
   const isHttpNode = node.type === 'http' || node.data.type === 'http' || (node.data.label && node.data.label.toLowerCase().includes('http'));
   const isTriggerNode = node.type === 'trigger' || node.data.type === 'trigger' || (node.data.label && node.data.label.toLowerCase().includes('gatilho / evento')) || (node.data.label && node.data.label.toLowerCase().includes('gatilho de entrada'));
   const isScheduleNode = node.type === 'schedule' || node.data.type === 'schedule' || (node.data.label && node.data.label.toLowerCase().includes('agendamento'));
@@ -1391,6 +1418,51 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
                 Qualquer sistema externo que enviar uma requisição HTTP para este endpoint exclusivo ativará o fluxo e executará este nó.
               </span>
+
+              {/* Botão de Teste / Simulação do Webhook */}
+              <div style={{ marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={handleTestTriggerWebhook}
+                  disabled={isTestingTrigger}
+                  style={{
+                    width: '100%',
+                    padding: '9px 14px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(79, 172, 254, 0.2))',
+                    border: '1px solid var(--accent-cyan)',
+                    color: 'var(--accent-cyan)',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: isTestingTrigger ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  {isTestingTrigger ? <Loader2 size={14} className="spin" /> : <Play size={14} />}
+                  {isTestingTrigger ? 'Enviando Teste...' : '⚡ Simular Recebimento de Webhook (Disparar Teste)'}
+                </button>
+
+                {triggerTestResult && (
+                  <div style={{
+                    marginTop: '10px',
+                    background: triggerTestResult.error ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                    border: `1px solid ${triggerTestResult.error ? '#f87171' : '#34d399'}`,
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    fontSize: '11px',
+                  }}>
+                    <div style={{ fontWeight: 800, color: triggerTestResult.error ? '#f87171' : '#34d399', marginBottom: '4px' }}>
+                      {triggerTestResult.error ? '❌ Falha no Teste' : '✅ Webhook Recebido e Fluxo Iniciado!'}
+                    </div>
+                    <pre style={{ margin: 0, fontSize: '10px', fontFamily: 'monospace', overflowX: 'auto', color: 'var(--text-primary)' }}>
+                      {JSON.stringify(triggerTestResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
