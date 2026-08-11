@@ -74,7 +74,13 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [filterFrom, setFilterFrom] = useState(initialEmail.filterFrom || '');
   const [filterDomain, setFilterDomain] = useState(initialEmail.filterDomain || '');
   const [filterTld, setFilterTld] = useState(initialEmail.filterTld || '');
+  const [filterSinceDate, setFilterSinceDate] = useState(initialEmail.filterSinceDate || '');
+  const [filterUntilDate, setFilterUntilDate] = useState(initialEmail.filterUntilDate || '');
   const [emailAction, setEmailAction] = useState<'summarize' | 'save_attachments' | 'summarize_and_save_attachments' | 'raw_pass'>(initialEmail.emailAction || 'summarize_and_save_attachments');
+  const [outputDestinationType, setOutputDestinationType] = useState<'none' | 'whatsapp' | 'email' | 'both'>(initialEmail.outputDestinationType || 'whatsapp');
+  const [outputWhatsappNumber, setOutputWhatsappNumber] = useState(initialEmail.outputWhatsappNumber || '+5532988654825');
+  const [outputEmailAddress, setOutputEmailAddress] = useState(initialEmail.outputEmailAddress || '');
+  const [attachmentPassword, setAttachmentPassword] = useState(initialEmail.attachmentPassword || '');
   const [onlyWithAttachments, setOnlyWithAttachments] = useState(Boolean(initialEmail.onlyWithAttachments));
   const [copiedInbound, setCopiedInbound] = useState(false);
 
@@ -222,14 +228,20 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
       mode: emailMode,
       inboundEmail,
       imapHost,
-      imapPort,
+      imapPort: Number(imapPort),
       imapUser,
       imapPass,
       filterSubject,
       filterFrom,
       filterDomain,
       filterTld,
+      filterSinceDate,
+      filterUntilDate,
       emailAction,
+      outputDestinationType,
+      outputWhatsappNumber,
+      outputEmailAddress,
+      attachmentPassword,
       onlyWithAttachments,
     };
 
@@ -992,6 +1004,133 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
                   <option value="save_attachments">📎 Apenas Salvar Anexos no Supabase Storage</option>
                   <option value="raw_pass">📄 Repassar E-mail na Íntegra (Raw Body)</option>
                 </select>
+              </div>
+
+              {/* Filtro por Período / Data Inicial */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                  📅 Filtro de Data Inicial de Busca (ex: Desde Janeiro/2026)
+                </label>
+                <input
+                  type="date"
+                  value={filterSinceDate}
+                  onChange={(e) => setFilterSinceDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 10px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Senha do Anexo (PDF Protegido por Senha/CPF/CNPJ) */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                  🔒 Senha para Desbloquear PDFs Protegidos (ex: CPF / CNPJ do titular da fatura)
+                </label>
+                <input
+                  type="password"
+                  placeholder="ex: 12345678900 (CPF sem pontuação ou senha personalizada)"
+                  value={attachmentPassword}
+                  onChange={(e) => setAttachmentPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 10px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Roteamento Direto do Destino da Saída */}
+              <div style={{
+                background: 'rgba(37, 211, 102, 0.08)',
+                border: '1px solid rgba(37, 211, 102, 0.4)',
+                borderRadius: '12px',
+                padding: '14px',
+                marginBottom: '14px',
+              }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#25D366', marginBottom: '8px', fontWeight: 800 }}>
+                  📤 Destino do Resultado da Ação (Enviar Resumo Para):
+                </label>
+
+                <select
+                  value={outputDestinationType}
+                  onChange={(e) => setOutputDestinationType(e.target.value as any)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 10px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid #25D366',
+                    color: '#25D366',
+                    fontWeight: 800,
+                    fontSize: '12px',
+                    marginBottom: '12px',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="whatsapp">📱 Enviar Resumo Direto para o WhatsApp</option>
+                  <option value="email">✉️ Enviar Resumo Direto para o E-mail</option>
+                  <option value="both">🚀 Enviar para Ambos (WhatsApp + E-mail)</option>
+                  <option value="none">📄 Apenas Repassar Dados para o Próximo Nó do Fluxo</option>
+                </select>
+
+                {(outputDestinationType === 'whatsapp' || outputDestinationType === 'both') && (
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                      📱 Número de WhatsApp Destinatário (com DDD)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ex: +5532988654825"
+                      value={outputWhatsappNumber}
+                      onChange={(e) => setOutputWhatsappNumber(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                      }}
+                    />
+                  </div>
+                )}
+
+                {(outputDestinationType === 'email' || outputDestinationType === 'both') && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 700 }}>
+                      ✉️ E-mail Destinatário do Resumo
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="ex: alanlpereira@hotmail.com"
+                      value={outputEmailAddress}
+                      onChange={(e) => setOutputEmailAddress(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Checkbox Apenas E-mails com Anexo */}

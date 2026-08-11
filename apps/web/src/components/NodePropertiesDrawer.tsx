@@ -1175,6 +1175,125 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
                 <option value="raw_pass">📄 Repassar Corpo do E-mail na Íntegra</option>
               </select>
             </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                📅 Data Inicial de Busca (ex: Desde Janeiro/2026)
+              </label>
+              <input
+                type="date"
+                value={config.filterSinceDate || node.data?.emailConfig?.filterSinceDate || ''}
+                onChange={(e) => handleConfigChange('filterSinceDate', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                🔒 Senha dos PDFs Protegidos (ex: CPF/CNPJ)
+              </label>
+              <input
+                type="password"
+                placeholder="Senha / CPF do titular da fatura"
+                value={config.attachmentPassword || node.data?.emailConfig?.attachmentPassword || ''}
+                onChange={(e) => handleConfigChange('attachmentPassword', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                }}
+              />
+            </div>
+
+            <div style={{
+              background: 'rgba(37, 211, 102, 0.05)',
+              border: '1px solid rgba(37, 211, 102, 0.3)',
+              borderRadius: '8px',
+              padding: '10px',
+            }}>
+              <label style={{ fontSize: '10px', color: '#25D366', fontWeight: 800, display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>
+                📤 Destino do Resultado da Ação
+              </label>
+              <select
+                value={config.outputDestinationType || node.data?.emailConfig?.outputDestinationType || 'whatsapp'}
+                onChange={(e) => handleConfigChange('outputDestinationType', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid #25D366',
+                  color: '#25D366',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  marginBottom: '8px',
+                }}
+              >
+                <option value="whatsapp">📱 Enviar para o WhatsApp</option>
+                <option value="email">✉️ Enviar para o E-mail</option>
+                <option value="both">🚀 Ambos (WhatsApp + E-mail)</option>
+                <option value="none">📄 Apenas Repassar no Fluxo</option>
+              </select>
+
+              {(config.outputDestinationType === 'whatsapp' || config.outputDestinationType === 'both' || (!config.outputDestinationType && true)) && (
+                <div style={{ marginBottom: '6px' }}>
+                  <label style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                    Número do WhatsApp (ex: +5532988654825)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ex: +5532988654825"
+                    value={config.outputWhatsappNumber || node.data?.emailConfig?.outputWhatsappNumber || '+5532988654825'}
+                    onChange={(e) => handleConfigChange('outputWhatsappNumber', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      borderRadius: '4px',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                    }}
+                  />
+                </div>
+              )}
+
+              {(config.outputDestinationType === 'email' || config.outputDestinationType === 'both') && (
+                <div>
+                  <label style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                    E-mail Destinatário
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="ex: alanlpereira@hotmail.com"
+                    value={config.outputEmailAddress || node.data?.emailConfig?.outputEmailAddress || ''}
+                    onChange={(e) => handleConfigChange('outputEmailAddress', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      borderRadius: '4px',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '11px',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
 

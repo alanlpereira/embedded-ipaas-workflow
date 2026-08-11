@@ -55,7 +55,13 @@ export interface EmailTriggerConfig {
   filterFrom?: string;
   filterDomain?: string;
   filterTld?: string;
+  filterSinceDate?: string; // YYYY-MM-DD ex: "2026-01-01"
+  filterUntilDate?: string; // YYYY-MM-DD
   emailAction?: 'summarize' | 'save_attachments' | 'summarize_and_save_attachments' | 'raw_pass';
+  outputDestinationType?: 'none' | 'whatsapp' | 'email' | 'both';
+  outputWhatsappNumber?: string; // ex: "+5532988654825"
+  outputEmailAddress?: string; // ex: "alanlpereira@hotmail.com"
+  attachmentPassword?: string; // Senha para abrir PDFs protegidos (ex: CPF/CNPJ)
   maxEmails?: number;
   onlyWithAttachments?: boolean;
   useTls?: boolean;

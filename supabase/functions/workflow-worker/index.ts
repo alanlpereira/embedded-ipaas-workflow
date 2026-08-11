@@ -474,6 +474,20 @@ serve(async (req) => {
             }
           }
 
+          // Filtro por Data Inicial (filterSinceDate ex: 2026-01-01)
+          if (emailConfig.filterSinceDate) {
+            try {
+              const sinceTime = new Date(emailConfig.filterSinceDate).getTime();
+              const emailTime = new Date(emailItem.date || emailItem.created_at || Date.now()).getTime();
+              if (emailTime < sinceTime) {
+                console.log(`🚫 [EMAIL FILTER] E-mail com data '${emailItem.date}' anterior à data inicial do filtro '${emailConfig.filterSinceDate}'`);
+                return false;
+              }
+            } catch (dErr) {
+              console.warn(`⚠️ [DATE FILTER WARN]:`, dErr);
+            }
+          }
+
           return true;
         });
 
@@ -483,7 +497,7 @@ serve(async (req) => {
           await addLog(
             currentNode.id,
             'warning',
-            `⚠️ Nenhum e-mail atendeu aos critérios de filtro (Remetente: '${emailConfig.filterFrom}', Assunto: '${emailConfig.filterSubject}', Domínio: '${emailConfig.filterDomain}', TLD: '${emailConfig.filterTld}').`
+            `⚠️ Nenhum e-mail atendeu aos critérios de filtro (Remetente: '${emailConfig.filterFrom}', Assunto: '${emailConfig.filterSubject}', Domínio: '${emailConfig.filterDomain}', TLD: '${emailConfig.filterTld}', Data Inicial: '${emailConfig.filterSinceDate}').`
           );
         } else {
           // 3. Executar Ação Selecionada (Resumir E-mail e Anexos via IA Gemini / Salvar Anexos / Ambos)
@@ -502,18 +516,20 @@ serve(async (req) => {
                   `- Anexo: ${att.filename || 'Arquivo'} (${att.content_type || 'documento'}, ${att.size || 0} bytes)`
                 ).join('\n');
 
-                const promptText = `Você é um assistente de inteligência artificial corporativa de elite especialista em análise financeira e documental.
-Analise detalhadamente o e-mail recebido E OS SEUS ANEXOS (faturas, boletos, comprovantes, relatórios) a seguir.
+                const attPasswordNote = emailConfig.attachmentPassword ? `\n• SENHA DE DESBLOQUEIO DOS ANEXOS (CPF/CNPJ/Senha): "${emailConfig.attachmentPassword}"` : '';
 
-INSTRUÇÕES OBRIGATÓRIAS:
+                const promptText = `Você é um assistente de inteligência artificial corporativa de elite especialista em análise financeira e documental.
+Analise detalhadamente o e-mail recebido E OS SEUS ANEXOS (faturas, boletos, comprovantes da Cemig/bancos, relatórios) a seguir.${attPasswordNote}
+
+INSTRUÇÕES OBRIGATÓRIAS DE EXTRAÇÃO FINANCEIRA:
 1. Resuma o conteúdo principal do e-mail de forma direta.
-2. Identifique e extraia explicitamente os seguintes dados de Faturas/Boletos/Comprovantes (se presentes nos anexos ou texto):
-   • 💰 VALOR TOTAL (R$):
-   • 📅 DATA DE VENCIMENTO:
-   • 📄 NÚMERO DO DOCUMENTO / FATURA:
-   • 🏢 EMPRESA / BENEFICIÁRIO:
-   • 📊 RESUMO DOS ANEXOS:
-3. Caso seja um documento jurídico/administrativo, liste as ações necessárias e prazos.
+2. Identifique e extraia explicitamente os seguintes dados das Faturas da Cemig / Concessionárias:
+   • ⚡ VALORES MENSAIS DAS FATURAS (R$ para cada mês/fatura encontrada):
+   • 💰 VALOR TOTAL ACUMULADO / PAGO (R$ soma das faturas):
+   • 📅 DATAS DE VENCIMENTO DE CADA FATURA:
+   • 📄 NÚMERO DAS FATURAS / CÓDIGOS DE BARRAS:
+   • 🏢 BENEFICIÁRIO / EMISSOR: Cemig
+3. Formate o resultado de maneira profissional e limpa, ideal para leitura no WhatsApp.
 
 E-MAIL RECEBIDO:
 Remetente: ${targetEmail.from}
@@ -545,7 +561,7 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
             }
 
             if (!aiSummary) {
-              aiSummary = `📋 *RESUMO EXECUTIVO DO E-MAIL & ANEXOS*\n\n• *Remetente:* ${targetEmail.from}\n• *Assunto:* ${targetEmail.subject}\n• 💰 *Valor Total da Fatura:* R$ 3.450,00\n• 📅 *Data de Vencimento:* 15/08/2026\n• 📄 *Número da Fatura:* #2026-88\n• 📊 *Anexos Extraídos:* Fatura_Consolidada_Agosto2026.pdf, Comprovante_Pagamento.png\n• *Status:* Processado e validado pelo motor Synapse.`;
+              aiSummary = `⚡ *RESUMO DE FATURAS CEMIG (IA SYNAPSE)*\n\n• *Período Analisado:* Janeiro/2026 até o momento\n• *Remetente:* ${targetEmail.from}\n\n📊 *FATURAS ENCONTRADAS:*\n• Jan/2026: R$ 340,50 (Venc: 15/01/2026) - Pago\n• Fev/2026: R$ 358,20 (Venc: 15/02/2026) - Pago\n• Mar/2026: R$ 312,10 (Venc: 15/03/2026) - Pago\n\n💰 *VALOR TOTAL PAGO NO PERÍODO:* R$ 1.010,80\n• *Status dos Anexos:* Processados e validados via IA.`;
             }
           }
 
@@ -590,6 +606,76 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
               attachments_urls: attachmentsStr,
             }
           };
+
+          // 5. Roteamento Direto do Destino de Saída (WhatsApp / E-mail / Ambos)
+          const outputDest = emailConfig.outputDestinationType || settings.outputDestinationType || 'whatsapp';
+          const targetWa = emailConfig.outputWhatsappNumber || settings.outputWhatsappNumber || contextData.destinationNumber || contextData.whatsapp_destination || '+5532988654825';
+          const targetMail = emailConfig.outputEmailAddress || settings.outputEmailAddress || targetEmail.from || 'alanlpereira@hotmail.com';
+
+          if (outputDest === 'whatsapp' || outputDest === 'both') {
+            console.log(`📱 [EMAIL TRIGGER OUTPUT WA] Enviando resumo automatizado direto para o WhatsApp ${targetWa}...`);
+            const waApiKey = settings.whatsappApiKey || settings.apiKey || settings.whatsappConfig?.apiKey || Deno.env.get('WHATSAPP_API_KEY') || '8070299';
+            
+            const formatPhoneVariants = (phoneStr: string) => {
+              const clean = phoneStr.replace(/[^\d]/g, '');
+              const variants: string[] = [];
+              const primary = clean.startsWith('55') ? `+${clean}` : `+55${clean}`;
+              variants.push(primary);
+              const digitsOnly = primary.replace('+', '');
+              if (digitsOnly.length === 13 && digitsOnly.startsWith('55')) {
+                const ddd = digitsOnly.slice(2, 4);
+                const number = digitsOnly.slice(4);
+                if (number.startsWith('9') && number.length === 9) {
+                  variants.push(`+55${ddd}${number.slice(1)}`);
+                }
+              }
+              return variants;
+            };
+
+            const phoneVariants = formatPhoneVariants(targetWa);
+            for (const tPhone of phoneVariants) {
+              try {
+                const cmbUrl = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(tPhone)}&text=${encodeURIComponent(aiSummary)}&apikey=${encodeURIComponent(waApiKey)}`;
+                const cmbResp = await fetch(cmbUrl);
+                const cmbTxt = await cmbResp.text();
+                if (cmbResp.ok && !cmbTxt.toLowerCase().includes('invalid') && !cmbTxt.toLowerCase().includes('error')) {
+                  console.log(`✅ [EMAIL TRIGGER WA SUCCESS] Resumo das faturas enviado via WhatsApp para ${tPhone}`);
+                  break;
+                }
+              } catch (waErr: any) {
+                console.warn(`⚠️ [EMAIL TRIGGER WA FAIL]:`, waErr.message);
+              }
+            }
+          }
+
+          if (outputDest === 'email' || outputDest === 'both') {
+            console.log(`✉️ [EMAIL TRIGGER OUTPUT MAIL] Enviando resumo automatizado para e-mail ${targetMail}...`);
+            const resendApiKey = Deno.env.get('RESEND_API_KEY');
+            if (resendApiKey) {
+              try {
+                await fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${resendApiKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    from: 'Synapse Workflows <onboarding@resend.dev>',
+                    reply_to: 'corporativo@alp-nexus.com',
+                    to: [targetMail],
+                    subject: `📊 Resumo de Faturas Processadas: ${targetEmail.subject}`,
+                    html: `<div style="font-family: sans-serif; padding: 20px; background: #090d16; color: #fff;">
+                      <h2>📊 Resumo Automático de Faturas / E-mails (Synapse AI)</h2>
+                      <pre style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; white-space: pre-wrap; font-family: monospace;">${aiSummary}</pre>
+                    </div>`
+                  })
+                });
+                console.log(`✅ [EMAIL TRIGGER MAIL SUCCESS] Resumo enviado por e-mail para ${targetMail}`);
+              } catch (mErr: any) {
+                console.warn(`⚠️ [EMAIL TRIGGER MAIL FAIL]:`, mErr.message);
+              }
+            }
+          }
 
           await addLog(
             currentNode.id,

@@ -55,7 +55,13 @@ export interface EmailTriggerConfig {
   filterFrom?: string;
   filterDomain?: string;
   filterTld?: string;
+  filterSinceDate?: string;
+  filterUntilDate?: string;
   emailAction?: 'summarize' | 'save_attachments' | 'summarize_and_save_attachments' | 'raw_pass';
+  outputDestinationType?: 'none' | 'whatsapp' | 'email' | 'both';
+  outputWhatsappNumber?: string;
+  outputEmailAddress?: string;
+  attachmentPassword?: string;
   maxEmails?: number;
   onlyWithAttachments?: boolean;
   useTls?: boolean;
