@@ -938,8 +938,8 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
         let gatewayResp: any = null;
         let gatewayError: string | null = null;
 
-        const customApiUrl = settings.whatsappApiUrl || settings.whatsappConfig?.apiUrl || Deno.env.get('WHATSAPP_API_URL');
-        const whatsappApiKey = settings.whatsappApiKey || settings.whatsappConfig?.apiKey || Deno.env.get('WHATSAPP_API_KEY') || '';
+        const customApiUrl = settings.whatsappApiUrl || settings.apiUrl || settings.whatsappConfig?.apiUrl || Deno.env.get('WHATSAPP_API_URL');
+        const whatsappApiKey = settings.whatsappApiKey || settings.apiKey || settings.whatsappConfig?.apiKey || Deno.env.get('WHATSAPP_API_KEY') || '';
 
         try {
           if (customApiUrl) {
@@ -970,16 +970,49 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
             }
           } else {
             console.log(`📡 [WHATSAPP CALLMEBOT GET] Disparando notificação via Gateway Público CallMeBot...`);
-            const callmebotUrl = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(finalDest)}&text=${encodeURIComponent(finalMsg)}&apikey=${encodeURIComponent(whatsappApiKey || '8493021')}`;
             
-            const cmbResp = await fetch(callmebotUrl, { method: 'GET' });
-            if (cmbResp.ok) {
-              gatewaySuccess = true;
-              gatewayResp = { provider: 'callmebot', status: 'sent' };
-              console.log(`✅ [CALLMEBOT SUCCESS] Notificação entregue para ${finalDest}`);
-            } else {
-              const errTxt = await cmbResp.text();
-              gatewayError = `CallMeBot HTTP ${cmbResp.status}: ${errTxt.slice(0, 100)}`;
+            // Roteador Inteligente de Formatos de Telefone do Brasil (Suporte a 8 e 9 dígitos DDD 55)
+            const formatPhoneVariants = (phoneStr: string) => {
+              const clean = phoneStr.replace(/[^\d]/g, '');
+              const variants: string[] = [];
+              const primary = clean.startsWith('55') ? `+${clean}` : `+55${clean}`;
+              variants.push(primary);
+
+              const digitsOnly = primary.replace('+', '');
+              if (digitsOnly.length === 13 && digitsOnly.startsWith('55')) {
+                const ddd = digitsOnly.slice(2, 4);
+                const number = digitsOnly.slice(4);
+                if (number.startsWith('9') && number.length === 9) {
+                  variants.push(`+55${ddd}${number.slice(1)}`);
+                }
+              }
+              return variants;
+            };
+
+            const phoneVariants = formatPhoneVariants(finalDest);
+
+            for (const targetPhone of phoneVariants) {
+              const callmebotUrl = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(targetPhone)}&text=${encodeURIComponent(finalMsg)}&apikey=${encodeURIComponent(whatsappApiKey || '8070299')}`;
+              console.log(`📡 [CALLMEBOT ATTEMPT] Disparando requisição para ${targetPhone}...`);
+
+              const cmbResp = await fetch(callmebotUrl, { method: 'GET' });
+              const bodyText = await cmbResp.text();
+
+              const isValidResponse = cmbResp.ok && 
+                !bodyText.toLowerCase().includes('invalid') && 
+                !bodyText.toLowerCase().includes('error') && 
+                (bodyText.toLowerCase().includes('queued') || bodyText.toLowerCase().includes('sent') || bodyText.toLowerCase().includes('message to'));
+
+              if (isValidResponse) {
+                gatewaySuccess = true;
+                gatewayResp = { provider: 'callmebot', status: 'queued', delivered_phone: targetPhone };
+                gatewayError = null;
+                console.log(`✅ [CALLMEBOT SUCCESS] Notificação entregue via CallMeBot para ${targetPhone}`);
+                break;
+              } else {
+                gatewayError = `CallMeBot (${targetPhone}): ${bodyText.replace(/<[^>]*>?/gm, '').slice(0, 150)}`;
+                console.warn(`⚠️ [CALLMEBOT FAIL] (${targetPhone}):`, gatewayError);
+              }
             }
           }
         } catch (wErr: any) {
