@@ -71,15 +71,43 @@ serve(async (req) => {
       .single();
 
     if (tokData) {
-      // Buscar a execução pendente correspondente
-      const { data: pendingExec } = await supabase
-        .from('flow_executions')
-        .select('*')
-        .eq('workflow_id', tokData.flowchart_id)
-        .eq('status', 'waiting_approval')
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .single();
+      // 1. Tentar buscar a execução exata ligada a este token pelo ID de Execução
+      let pendingExec: any = null;
+      const targetExecutionId = tokData.payload?.execution_id || tokData.execution_id;
+
+      if (targetExecutionId) {
+        const { data: exById } = await supabase
+          .from('flow_executions')
+          .select('*')
+          .eq('id', targetExecutionId)
+          .maybeSingle();
+        if (exById) pendingExec = exById;
+      }
+
+      // 2. Fallback: Buscar a última execução pendente do fluxo
+      if (!pendingExec) {
+        const { data: exByWf } = await supabase
+          .from('flow_executions')
+          .select('*')
+          .eq('workflow_id', tokData.flowchart_id)
+          .eq('status', 'waiting_approval')
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (exByWf) pendingExec = exByWf;
+      }
+
+      // 3. Fallback adicional: Buscar a última execução recente do fluxo
+      if (!pendingExec) {
+        const { data: exAny } = await supabase
+          .from('flow_executions')
+          .select('*')
+          .eq('workflow_id', tokData.flowchart_id)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (exAny) pendingExec = exAny;
+      }
 
       if (pendingExec) {
         executionId = pendingExec.id;
@@ -1069,7 +1097,10 @@ ${attachmentsDescription || 'Nenhum anexo registrado.'}`;
               approval_node_id: currentNode.id,
               assignee_email: recipientStr,
               status: 'PENDING',
-              payload: contextData
+              payload: {
+                ...contextData,
+                execution_id: executionId,
+              }
             }]);
         } catch (tokErr) {
           console.warn(`⚠️ [APPROVAL WARN] Erro ao registrar approval_tokens:`, tokErr);
