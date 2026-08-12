@@ -25,12 +25,27 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
   const [avatarUrl, setAvatarUrl] = useState(currentProfile?.avatar_url || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150');
 
   // Estados de Segurança
+  const [isBiometricsEnabled, setIsBiometricsEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('synapse_biometric_enabled') === 'true';
+  });
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [securityMessage, setSecurityMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Estado de Sucesso no Perfil
   const [profileSaved, setProfileSaved] = useState(false);
+
+  // Alternar Biometria
+  const handleToggleBiometrics = () => {
+    const nextVal = !isBiometricsEnabled;
+    setIsBiometricsEnabled(nextVal);
+    localStorage.setItem('synapse_biometric_enabled', nextVal ? 'true' : 'false');
+    setSecurityMessage({
+      type: 'success',
+      text: nextVal ? 'Biometria (Touch ID / Face ID) ativada com sucesso!' : 'Biometria desabilitada com sucesso neste dispositivo.'
+    });
+  };
 
   // Upload de Foto de Perfil
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +92,7 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
     setSecurityMessage(null);
 
     if (!newPassword || newPassword.length < 6) {
-      setSecurityMessage({ type: 'error', text: 'A senha deve conter no mínimo 6 caracteres.' });
+      setSecurityMessage({ type: 'error', text: 'A nova senha deve conter no mínimo 6 caracteres.' });
       return;
     }
 
@@ -86,7 +101,10 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
       return;
     }
 
-    setSecurityMessage({ type: 'success', text: 'Senha atualizada com sucesso!' });
+    // Salvar nova senha localmente e atualizar credencial
+    localStorage.setItem('synapse_user_rodrigo_moura_password', newPassword);
+    setSecurityMessage({ type: 'success', text: 'Sua senha foi alterada com sucesso!' });
+    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
   };
@@ -462,115 +480,152 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
 
       {/* Conteúdo Aba: Segurança */}
       {activeTab === 'security' && (
-        <form onSubmit={handleUpdatePassword} style={{ maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ maxWidth: '540px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Seção de Gerenciamento da Biometria */}
           <div style={{
-            background: 'rgba(59, 130, 246, 0.1)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-            borderRadius: '12px',
-            padding: '18px',
+            background: isBiometricsEnabled ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1px solid ${isBiometricsEnabled ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+            borderRadius: '14px',
+            padding: '20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '16px',
+            flexWrap: 'wrap',
           }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                 ☝️ Autenticação por Biometria (Touch ID / Face ID)
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', margin: 0 }}>
-                Permite o acesso instantâneo ao portal pelo seu smartphone sem digitar senha após o 1º acesso.
+                Permite o acesso instantâneo ao portal pelo smartphone sem digitar senha após o 1º acesso.
               </p>
             </div>
 
-            <span style={{ fontSize: '11px', background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', padding: '4px 10px', borderRadius: '12px', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              Ativado no Dispositivo
-            </span>
-          </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                fontSize: '11px',
+                background: isBiometricsEnabled ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                color: isBiometricsEnabled ? '#22c55e' : '#ef4444',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                fontWeight: 700,
+                whiteSpace: 'nowrap'
+              }}>
+                {isBiometricsEnabled ? '🟢 Ativado' : '🔴 Desativado'}
+              </span>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Nova Senha
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo de 6 caracteres"
+              <button
+                type="button"
+                onClick={handleToggleBiometrics}
                 style={{
-                  width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  background: 'var(--bg-glass)',
-                  border: '1px solid var(--border-color)',
+                  padding: '8px 14px',
                   borderRadius: '8px',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
+                  background: isBiometricsEnabled ? '#ef4444' : '#22c55e',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                 }}
-                required
-              />
+              >
+                {isBiometricsEnabled ? 'Desabilitar Biometria' : 'Ativar Biometria'}
+              </button>
             </div>
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Confirmar Nova Senha
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repita a nova senha"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  background: 'var(--bg-glass)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                }}
-                required
-              />
-            </div>
-          </div>
+          {/* Seção de Alteração de Senha */}
+          <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              Alterar Senha de Acesso
+            </h3>
 
-          {securityMessage && (
-            <div style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              background: securityMessage.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-              border: `1px solid ${securityMessage.type === 'success' ? '#22c55e' : '#ef4444'}`,
-              color: securityMessage.type === 'success' ? '#22c55e' : '#ef4444',
-            }}>
-              {securityMessage.text}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                Nova Senha
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo de 6 caracteres"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 38px',
+                    background: 'var(--bg-glass)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                  }}
+                  required
+                />
+              </div>
             </div>
-          )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-            <button
-              type="submit"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 20px',
-                background: 'var(--accent-blue)',
-                color: '#fff',
-                border: 'none',
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                Confirmar Nova Senha
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita a nova senha"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 38px',
+                    background: 'var(--bg-glass)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                  }}
+                  required
+                />
+              </div>
+            </div>
+
+            {securityMessage && (
+              <div style={{
+                padding: '12px 16px',
                 borderRadius: '8px',
                 fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <Save size={16} /> Alterar Senha
-            </button>
-          </div>
-        </form>
+                background: securityMessage.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: `1px solid ${securityMessage.type === 'success' ? '#22c55e' : '#ef4444'}`,
+                color: securityMessage.type === 'success' ? '#22c55e' : '#ef4444',
+              }}>
+                {securityMessage.text}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button
+                type="submit"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 20px',
+                  background: 'var(--accent-blue)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <Save size={16} /> Alterar Senha
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );
