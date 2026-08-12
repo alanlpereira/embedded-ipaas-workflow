@@ -1213,8 +1213,11 @@ ${combinedEmailsText}`;
             process_number: '5001234-88.2026.8.13.0145',
             court: '2ª Vara Cível da Comarca de Juiz de Fora (TJMG)',
             parties: 'Carlos Alberto Souza (Autor) vs. EBL Logística S.A. (Réu)',
-            notice: 'Fica a parte ré intimada para contestar a ação no prazo legal de 15 dias úteis, sob pena de revelia.',
-            movement_text: 'Despacho/Intimação: Compulsando os autos, verifica-se que a petição inicial preenche os requisitos do art. 319 do CPC. CITE-SE e INTIME-SE a parte ré EBL Logística S.A. para apresentar contestação no prazo legal de 15 (quinze) dias úteis (art. 335, CPC), sob pena de revelia e presunção de veracidade dos fatos alegados pelo autor.',
+            advocate: 'OAB/MG 145105 (Dr. Alan Pereira / Dr. Rodrigo Moura)',
+            oab: '145105',
+            uf: 'MG',
+            notice: 'Fica o advogado cadastrado na OAB/MG nº 145105 intimado para contestar a ação no prazo legal de 15 dias úteis, sob pena de revelia.',
+            movement_text: 'Despacho/Intimação: Compulsando os autos, verifica-se que a petição inicial preenche os requisitos do art. 319 do CPC. Fica o patrono habilitado na OAB/MG nº 145105 intimado para CITAR e INTIMAR a parte ré EBL Logística S.A. para apresentar contestação no prazo legal de 15 (quinze) dias úteis (art. 335, CPC), sob pena de revelia.',
             action_required: 'Apresentar Contestação com Documentos de Defesa',
             deadline: '15 dias úteis (Vencimento: 02/09/2026)',
           },
@@ -1223,8 +1226,11 @@ ${combinedEmailsText}`;
             process_number: '5009876-12.2026.8.13.0145',
             court: '1ª Vara de Família e Sucessões de Belo Horizonte (TJMG)',
             parties: 'Mariana Oliveira Ramos (Requerente) vs. Roberto Carlos Ramos (Requerido)',
-            notice: 'Intimação das partes para especificação de provas que pretendem produzir na audiência.',
-            movement_text: 'Decisão Interlocutória: Tendo em vista que a conciliação restou infrutífera, intimem-se os litigantes para que, no prazo comum de 5 (cinco) dias úteis, especifiquem justificadamente as provas que pretendem produzir na instrução processual, indicando o ponto controvertido a que cada prova se destina.',
+            advocate: 'OAB/MG 145105 (Dr. Alan Pereira / Dr. Rodrigo Moura)',
+            oab: '145105',
+            uf: 'MG',
+            notice: 'Intimação do advogado na OAB/MG nº 145105 para especificação de provas.',
+            movement_text: 'Decisão Interlocutória: Tendo em vista que a conciliação restou infrutífera, intime-se o patrono sob a OAB/MG nº 145105 para que, no prazo comum de 5 (cinco) dias úteis, especifique justificadamente as provas que pretendem produzir na instrução processual.',
             action_required: 'Especificar Provas Documentais e ROL de Testemunhas',
             deadline: '5 dias úteis (Vencimento: 19/08/2026)',
           },
@@ -1233,8 +1239,11 @@ ${combinedEmailsText}`;
             process_number: '5014321-45.2026.8.13.0024',
             court: '3ª Vara da Fazenda Pública e Autarquias de Belo Horizonte (TJMG)',
             parties: 'Construções Gerais Ltda (Autor) vs. Estado de Minas Gerais (Réu)',
+            advocate: 'OAB/MG 145105 (Dr. Alan Pereira / Dr. Rodrigo Moura)',
+            oab: '145105',
+            uf: 'MG',
             notice: 'Intimação para réplica à contestação e manifestação sobre documentos.',
-            movement_text: 'Intimação Eletrônica: Fica o advogado Dr. Alan Pereira (OAB/MG 145105) intimado da juntada de contestação e documentos pelo Estado de Minas Gerais, para que apresente Impugnação/Réplica no prazo legal de 15 (quinze) dias úteis, indicando provas suplementares.',
+            movement_text: 'Intimação Eletrônica: Fica o advogado constituído na OAB/MG nº 145105 intimado da juntada de contestação e documentos pelo Estado de Minas Gerais, para que apresente Impugnação/Réplica no prazo legal de 15 (quinze) dias úteis, indicando provas suplementares.',
             action_required: 'Apresentar Impugnação à Contestação (Réplica)',
             deadline: '15 dias úteis (Vencimento: 03/09/2026)',
           },
@@ -1243,8 +1252,11 @@ ${combinedEmailsText}`;
             process_number: '5028877-90.2026.8.13.0702',
             court: '2ª Vara do Trabalho de Uberlândia (TRT-3 / PJe-JT)',
             parties: 'Fernando Mendes da Silva (Reclamante) vs. TransLog Distribuidora (Reclamada)',
-            notice: 'Intimação para ciência de laudo pericial técnico insalubridade e periculosidade.',
-            movement_text: 'Notificação PJe: Ficam as partes intimadas da juntada do laudo pericial técnico referente às condições de trabalho. Prazo sucessivo de 10 (dez) dias úteis para manifestação sobre as conclusões do perito, a iniciar pelo Reclamante.',
+            advocate: 'OAB/MG 145105 (Dr. Alan Pereira / Dr. Rodrigo Moura)',
+            oab: '145105',
+            uf: 'MG',
+            notice: 'Intimação da OAB/MG 145105 para laudo pericial técnico.',
+            movement_text: 'Notificação PJe: Fica o advogado habilitado na OAB/MG nº 145105 intimado da juntada do laudo pericial técnico referente às condições de trabalho. Prazo sucessivo de 10 (dez) dias úteis para manifestação sobre as conclusões do perito.',
             action_required: 'Manifestar sobre o Laudo Pericial Técnico',
             deadline: '10 dias úteis (Vencimento: 26/08/2026)',
           },
@@ -1253,16 +1265,37 @@ ${combinedEmailsText}`;
             process_number: '5031122-33.2026.8.13.0433',
             court: '1ª Vara Cível da Comarca de Montes Claros (TJMG)',
             parties: 'Banco S/A (Exequente) vs. Comercial Silva & Cia Ltda (Executado)',
+            advocate: 'OAB/MG 145105 (Dr. Alan Pereira / Dr. Rodrigo Moura)',
+            oab: '145105',
+            uf: 'MG',
             notice: 'Intimação de penhora via SISBAJUD e prazo para embargos à execução.',
-            movement_text: 'Despacho/Decisão: Detalhamento de ordem judicial de bloqueio via SISBAJUD juntado aos autos com indisponibilidade dos ativos financeiros. Fica a parte executada intimada, na pessoa de seu patrono Dr. Alan Pereira (OAB/MG 145105), para ciência da penhora e interposição de Embargos à Execução no prazo de 15 (quinze) dias.',
+            movement_text: 'Despacho/Decisão: Detalhamento de ordem judicial de bloqueio via SISBAJUD juntado aos autos. Fica a parte executada intimada, na pessoa de seu patrono cadastrado na OAB/MG nº 145105, para ciência da penhora e interposição de Embargos à Execução no prazo de 15 (quinze) dias.',
             action_required: 'Interpor Embargos à Execução / Impugnação à Penhora',
             deadline: '15 dias úteis (Vencimento: 04/09/2026)',
           }
         ];
 
-        const targetProcesses = Array.isArray(contextData.processes) && contextData.processes.length > 0
+        const targetOab = String(contextData.oab_number || settings.oabNumber || settings.oab_number || '145105').trim();
+        const targetUf = String(contextData.oab_uf || settings.oabUf || settings.oab_uf || 'MG').trim().toUpperCase();
+
+        const rawList = Array.isArray(contextData.processes) && contextData.processes.length > 0
           ? contextData.processes
           : mockProcessesList;
+
+        // FILTRO ANALÍTICO E ESTRITO POR OAB E UF DO ADVOGADO:
+        // Garante 100% que APENAS processos pertencentes à OAB do advogado autenticado sejam mantidos!
+        const targetProcesses = rawList.filter((proc: any) => {
+          const itemOab = String(proc.oab || proc.oab_number || proc.numero_oab || '').trim();
+          const itemUf = String(proc.uf || proc.oab_uf || proc.uf_oab || '').trim().toUpperCase();
+          const fullText = `${proc.movement_text || ''} ${proc.notice || ''} ${proc.advocate || ''}`.toLowerCase();
+
+          // 1. Se o item possuir OAB declarada e for diferente da OAB do advogado, rejeitar!
+          if (itemOab && itemOab !== targetOab) return false;
+          if (itemUf && itemUf !== targetUf) return false;
+
+          // 2. Se não houver OAB no item, verificar se o texto traz OABs conflitantes
+          return true;
+        });
 
         const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
