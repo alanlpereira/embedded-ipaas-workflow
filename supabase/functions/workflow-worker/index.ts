@@ -943,10 +943,34 @@ ${combinedEmailsText}`;
 
         if (httpUrl && httpUrl.startsWith('http')) {
           try {
-            const resp = await fetch(httpUrl, {
+            // Construir Query String dinâmica para requisições GET/HEAD interpolando variáveis de contexto
+            let finalUrl = httpUrl;
+            const queryParamsObj = settings.queryParams || settings.params || settings.query;
+
+            if (queryParamsObj && typeof queryParamsObj === 'object') {
+              const searchParams = new URLSearchParams();
+              for (const [k, v] of Object.entries(queryParamsObj)) {
+                let valStr = String(v ?? '').trim();
+                if (valStr.includes('{{')) {
+                  const keyName = valStr.replace(/[{}]/g, '').replace('context.', '').trim();
+                  valStr = String(contextData[keyName] || settings[keyName] || '');
+                }
+                if (valStr) {
+                  searchParams.append(k, valStr);
+                }
+              }
+              const queryString = searchParams.toString();
+              if (queryString) {
+                finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryString;
+              }
+            }
+
+            console.log(`🌐 [WORKER HTTP] Disparando ${method} para URL final concatenada: ${finalUrl}`);
+
+            const resp = await fetch(finalUrl, {
               method,
               headers,
-              body: method !== 'GET' ? JSON.stringify(settings.body || contextData) : undefined
+              body: method !== 'GET' && method !== 'HEAD' ? JSON.stringify(settings.body || contextData) : undefined
             });
             const responseData = await resp.text();
             contextData = { ...contextData, http_response: responseData, http_status: resp.status };
@@ -954,7 +978,7 @@ ${combinedEmailsText}`;
             await addLog(
               currentNode.id,
               resp.ok ? 'success' : 'warning',
-              `🌐 Requisição HTTP ${method} para ${httpUrl} finalizada (Status: ${resp.status}). Auth Cofre: ${ephemeralAuthToken ? 'ATIVADO' : 'NÃO'}.`
+              `🌐 Requisição HTTP ${method} para ${finalUrl} finalizada (Status: ${resp.status}). Auth Cofre: ${ephemeralAuthToken ? 'ATIVADO' : 'NÃO'}.`
             );
           } catch (err: any) {
             await addLog(currentNode.id, 'error', `❌ Erro na requisição HTTP: ${err.message}`);
