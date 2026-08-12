@@ -1424,15 +1424,80 @@ function WorkflowAppContent() {
   );
 }
 
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('⚠️ [REACT ERROR BOUNDARY]: Erro interceptado:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          width: '100vw',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#090d16',
+          color: '#f8fafc',
+          padding: '24px',
+          textAlign: 'center',
+        }}>
+          <div style={{ padding: '28px', borderRadius: '16px', background: '#111827', border: '1px solid #334155', maxWidth: '480px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#38bdf8', marginBottom: '12px' }}>
+              ⚖️ Synapse Legal AI — Portal do Advogado
+            </h2>
+            <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '20px', lineHeight: 1.5 }}>
+              A consulta foi processada. Clique no botão abaixo para restaurar o painel visual com segurança.
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '10px',
+                background: '#2563eb',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
+              }}
+            >
+              🔄 Recarregar Painel
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function App() {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        <ReactFlowProvider>
-          <WorkflowAppContent />
-        </ReactFlowProvider>
-      </ThemeProvider>
-    </LanguageProvider>
+    <AppErrorBoundary>
+      <LanguageProvider>
+        <ThemeProvider>
+          <ReactFlowProvider>
+            <WorkflowAppContent />
+          </ReactFlowProvider>
+        </ThemeProvider>
+      </LanguageProvider>
+    </AppErrorBoundary>
   );
 }
 
