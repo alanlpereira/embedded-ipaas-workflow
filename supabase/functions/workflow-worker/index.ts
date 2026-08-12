@@ -346,14 +346,14 @@ serve(async (req) => {
 
       const isEmailTrigger = rawType === 'email_trigger' || dataType === 'email_trigger' || label.includes('gatilho de e-mail') || label.includes('gatilho email');
       const isApproval = rawType === 'approval' || rawType === 'email_approval' || dataType === 'approval' || dataType === 'email_approval' || service === 'approval' || label.includes('aprova') || label.includes('hitl');
-      const isTrigger = !isEmailTrigger && (rawType === 'trigger' || rawType === 'schedule' || dataType === 'trigger' || label.includes('gatilho') || label.includes('webhook entrada'));
-      const isWhatsapp = rawType === 'whatsapp' || dataType === 'whatsapp' || service === 'whatsapp' || label.includes('whatsapp');
+      const isWhatsapp = rawType === 'whatsapp' || dataType === 'whatsapp' || service === 'whatsapp' || label.includes('whatsapp') || !!currentNode.data?.whatsappConfig;
       const isTeams = rawType === 'teams' || dataType === 'teams' || service === 'teams' || label.includes('teams');
       const isEmail = !isApproval && !isEmailTrigger && (rawType === 'email' || dataType === 'email' || service === 'email' || label.includes('e-mail') || label.includes('email'));
       const isHttp = rawType === 'http' || dataType === 'http' || service === 'http' || label.includes('http') || label.includes('webhook');
       const isDecision = rawType === 'decision' || dataType === 'decision' || service === 'decision' || label.includes('decisã') || label.includes('condiçã');
       const isAi = rawType === 'ai' || dataType === 'ai' || service === 'ai' || label.includes('gemini') || label.includes('inteligência') || label.includes('inteligencia') || label.includes('resumo ia') || /\bia\b/i.test(label);
-      const isEnd = rawType === 'end' || rawType === 'output' || dataType === 'output' || label.includes('final') || label.includes('fim');
+      const isTrigger = !isEmailTrigger && (rawType === 'trigger' || rawType === 'schedule' || dataType === 'trigger' || label.includes('gatilho') || label.includes('webhook entrada'));
+      const isEnd = !isWhatsapp && !isApproval && !isEmail && !isTeams && !isAi && !isHttp && !isDecision && (rawType === 'end' || label.includes('final') || label.includes('fim'));
 
       if (isEmailTrigger) {
         console.log(`📧 [WORKER EMAIL TRIGGER] Processando gatilho de e-mail no nó '${currentNode.id}'...`);
