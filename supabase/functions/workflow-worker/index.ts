@@ -173,11 +173,20 @@ serve(async (req) => {
 
           if (targetEdge) {
             console.log(`▶️ [RESUME SUCCESS] Retomando fluxo após decisão '${decision}' para a próxima caixa ID: ${targetEdge.target}`);
+            
+            const mergedContext = {
+              ...(pendingExec.context_data || {}),
+              ...(tokData.payload || {}),
+              process_summary: tokData.payload?.process_summary || tokData.payload?.target_process?.summary,
+              target_process: tokData.payload?.target_process || { summary: tokData.payload?.process_summary }
+            };
+
             await supabase
               .from('flow_executions')
               .update({
                 status: 'running',
-                current_node_id: targetEdge.target
+                current_node_id: targetEdge.target,
+                context_data: mergedContext
               })
               .eq('id', executionId);
           } else {
@@ -212,6 +221,20 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: `Execução '${executionId}' não encontrada.` }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Trava de Idempotência contra requisições concorrentes ou duplicadas
+    if (execution.status === 'waiting_approval' && !body.approval_token && !body.token && !body.decision) {
+      console.log(`🛑 [WORKER IDEMPOTENCY] Execução ${executionId} já se encontra em 'waiting_approval'. Ignorando invocação redundante.`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Execução já está aguardando aprovação por e-mail.',
+          execution_id: executionId,
+          status: 'waiting_approval'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -1011,8 +1034,26 @@ ${combinedEmailsText}`;
           ? interpolatedDest
           : (interpolatedDest.startsWith('55') ? `+${interpolatedDest}` : `+55${interpolatedDest}`);
 
-        const rawMsg = contextData.process_summary || contextData.target_process?.summary || settings.message || settings.whatsappConfig?.message || '🔔 Alerta Synapse: Notificação do fluxo executada com sucesso.';
-        const finalMsg = interpolateText(rawMsg);
+        let activeProcessSummary = contextData.process_summary || contextData.target_process?.summary || '';
+        if (!activeProcessSummary && Array.isArray(contextData.processes) && contextData.processes.length > 0) {
+          activeProcessSummary = contextData.processes.map((p: any) => p.summary || p.notice).filter(Boolean).join('\n\n---\n\n');
+        }
+
+        const templateMsg = settings.message || settings.whatsappConfig?.message || '';
+        const interpolatedBase = interpolateText(templateMsg);
+
+        let finalMsg = '';
+        if (activeProcessSummary) {
+          if (interpolatedBase && !interpolatedBase.includes('PROCESSO CNJ') && !interpolatedBase.includes(activeProcessSummary.slice(0, 30))) {
+            finalMsg = `${interpolatedBase}\n\n${activeProcessSummary}`;
+          } else {
+            finalMsg = activeProcessSummary;
+          }
+        } else if (interpolatedBase && interpolatedBase.trim().length > 0) {
+          finalMsg = interpolatedBase;
+        } else {
+          finalMsg = '🔔 Alerta Synapse: Notificação de intimação do fluxo executada com sucesso.';
+        }
 
         console.log(`📱 [WHATSAPP TARGET] Telefone: "${finalDest}" | Mensagem Formatada:\n${finalMsg}`);
 

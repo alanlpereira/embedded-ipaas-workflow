@@ -43,11 +43,9 @@ const SAMPLE_NODE_DECISION_ID = 'a4444444-4444-4444-a444-444444444444';
 const SAMPLE_NODE_APPROVAL_ID = 'a5555555-5555-4555-a555-555555555555';
 const SAMPLE_NODE_OUTPUT_ID = 'a6666666-6666-4666-a666-666666666666';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function ensureUUID(val?: any, fallback?: string): string {
-  if (typeof val === 'string' && UUID_REGEX.test(val)) {
-    return val;
+  if (typeof val === 'string' && val.trim().length > 0) {
+    return val.trim();
   }
   return fallback || crypto.randomUUID();
 }
