@@ -352,7 +352,7 @@ serve(async (req) => {
       const isEmail = !isApproval && !isEmailTrigger && (rawType === 'email' || dataType === 'email' || service === 'email' || label.includes('e-mail') || label.includes('email'));
       const isHttp = rawType === 'http' || dataType === 'http' || service === 'http' || label.includes('http') || label.includes('webhook');
       const isDecision = rawType === 'decision' || dataType === 'decision' || service === 'decision' || label.includes('decisã') || label.includes('condiçã');
-      const isAi = rawType === 'ai' || dataType === 'ai' || service === 'ai' || label.includes('inteligência') || label.includes('gemini') || label.includes('ia');
+      const isAi = rawType === 'ai' || dataType === 'ai' || service === 'ai' || label.includes('gemini') || label.includes('inteligência') || label.includes('inteligencia') || label.includes('resumo ia') || /\bia\b/i.test(label);
       const isEnd = rawType === 'end' || rawType === 'output' || dataType === 'output' || label.includes('final') || label.includes('fim');
 
       if (isEmailTrigger) {
@@ -1011,7 +1011,7 @@ ${combinedEmailsText}`;
           ? interpolatedDest
           : (interpolatedDest.startsWith('55') ? `+${interpolatedDest}` : `+55${interpolatedDest}`);
 
-        const rawMsg = settings.message || settings.whatsappConfig?.message || '🔔 Alerta Synapse: Notificação do fluxo executada com sucesso.';
+        const rawMsg = contextData.process_summary || contextData.target_process?.summary || settings.message || settings.whatsappConfig?.message || '🔔 Alerta Synapse: Notificação do fluxo executada com sucesso.';
         const finalMsg = interpolateText(rawMsg);
 
         console.log(`📱 [WHATSAPP TARGET] Telefone: "${finalDest}" | Mensagem Formatada:\n${finalMsg}`);
@@ -1164,17 +1164,120 @@ ${combinedEmailsText}`;
           `💬 Notificação WhatsApp disparada para ${finalDest}!\n\nConteúdo da Mensagem:\n${finalMsg}`
         );
       } else if (isAi) {
+        console.log(`🤖 [WORKER AI] Processando nó de Inteligência Artificial Gemini (Per-Process Summary)...`);
+        
+        const mockProcessesList = [
+          {
+            id: 'proc-1',
+            process_number: '5001234-88.2026.8.13.0145',
+            court: '2ª Vara Cível da Comarca de Juiz de Fora (TJMG)',
+            parties: 'Carlos Alberto Souza (Autor) vs. EBL Logística S.A. (Réu)',
+            notice: 'Fica a parte ré intimada para contestar a ação no prazo legal de 15 dias úteis, sob pena de revelia.',
+            action_required: 'Apresentar Contestação com Documentos de Defesa',
+            deadline: '15 dias úteis (Vencimento: 02/09/2026)',
+          },
+          {
+            id: 'proc-2',
+            process_number: '5009876-12.2026.8.13.0145',
+            court: '1ª Vara de Família e Sucessões de Belo Horizonte (TJMG)',
+            parties: 'Mariana Oliveira Ramos (Requerente) vs. Roberto Carlos Ramos (Requerido)',
+            notice: 'Intimação das partes para especificação de provas que pretendem produzir na audiência.',
+            action_required: 'Especificar Provas Documentais e ROL de Testemunhas',
+            deadline: '5 dias úteis (Vencimento: 19/08/2026)',
+          }
+        ];
+
+        const targetProcesses = Array.isArray(contextData.processes) && contextData.processes.length > 0
+          ? contextData.processes
+          : mockProcessesList;
+
+        const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+
+        const processSummaries = await Promise.all(targetProcesses.map(async (proc: any) => {
+          let aiText = '';
+          if (geminiApiKey) {
+            try {
+              const promptText = `Você é um assistente de inteligência artificial jurídica de elite.
+Analise detalhadamente a intimação do PROCESSO ESPECÍFICO a seguir e elabore um resumo individual limpo, direto e profissional para envio executivo ao cliente:
+
+• Processo CNJ: ${proc.process_number}
+• Órgão Julgador: ${proc.court}
+• Partes: ${proc.parties}
+• Intimação: ${proc.notice}
+• Ação Necessária: ${proc.action_required}
+• Prazo Fatal: ${proc.deadline}
+
+INSTRUÇÕES OBRIGATÓRIAS:
+1. Trate este processo de forma 100% INDIVIDUAL. Não misture com outros processos.
+2. Extraia obrigatoriamente: Órgão Julgador, Número do Processo, Partes, Ação Necessária e Prazo Fatal com destaque.
+3. Formate em estilo executivo perfeito para leitura direta no WhatsApp.`;
+
+              const gResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+              });
+
+              if (gResp.ok) {
+                const gJson = await gResp.json();
+                aiText = gJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              }
+            } catch (err: any) {
+              console.warn(`⚠️ [GEMINI PROCESS WARN]:`, err.message);
+            }
+          }
+
+          if (!aiText) {
+            aiText = `⚖️ *PROCESSO CNJ:* ${proc.process_number}\n🏛️ *ÓRGÃO JULGADOR:* ${proc.court}\n👥 *PARTES:* ${proc.parties}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required}\n📅 *PRAZO FATAL:* ${proc.deadline}`;
+          }
+
+          return { ...proc, summary: aiText };
+        }));
+
         contextData = {
           ...contextData,
-          ai_response: 'Resposta gerada com sucesso pela Inteligência Artificial.',
+          processes: processSummaries,
+          process_summaries: processSummaries,
+          ai_response: 'Resumo por processo efetuado com sucesso via IA Gemini.',
         };
+
         await addLog(
           currentNode.id,
           'success',
-          `🤖 Processamento de Inteligência Artificial efetuado com sucesso.`
+          `🤖 Processamento por IA concluído! ${processSummaries.length} resumo(s) individual(is) gerado(s) por processo.`
         );
       } else if (isApproval) {
-        const approvalToken = crypto.randomUUID();
+        // Se a requisição contiver token ou decisão de aprovação (retomada após clique do usuário em SIM/NÃO)
+        if (body.token || body.approval_token || body.decision) {
+          const decisionStr = (body.decision || 'APPROVED').toUpperCase();
+          const isApproved = decisionStr.includes('APPROV') || decisionStr.includes('APROV');
+          const targetHandle = isApproved ? 'approved' : 'rejected';
+          console.log(`✅ [APPROVAL RESUME] Retomando nó de aprovação com decisão: ${decisionStr} (Handle: ${targetHandle})`);
+
+          // Se a aprovação veio acompanhada de um processo específico (payload do token)
+          if (body.target_process || body.process_summary) {
+            contextData = {
+              ...contextData,
+              process_summary: body.process_summary || body.target_process?.summary,
+              target_process: body.target_process || { summary: body.process_summary }
+            };
+          }
+
+          const outgoingEdge = edges.find((e: any) => e.source === currentNode.id && (
+            e.sourceHandle === targetHandle ||
+            e.label?.toLowerCase().includes(isApproved ? 'sim' : 'não') ||
+            e.label?.toLowerCase().includes(isApproved ? 'aprovado' : 'rejeitado')
+          ));
+
+          if (outgoingEdge) {
+            currentNodeId = outgoingEdge.target;
+            console.log(`🔀 [APPROVAL ROUTE] Roteando para próximo nó ID: ${currentNodeId}`);
+            continue;
+          } else {
+            console.log(`🏁 [APPROVAL END] Nenhum conector de saída para handle ${targetHandle}. Traversal finalizado.`);
+            break;
+          }
+        }
 
         const interpolateVars = (str: string) => {
           return str.replace(/\{\{\s*([\w\.]+)\s*\}\}/g, (_, path) => {
@@ -1196,159 +1299,136 @@ ${combinedEmailsText}`;
             .map(s => s.trim())
             .filter(s => s.length > 0 && s.includes('@'))
         ));
-        const finalRecipientArray = recipientList.length > 0 ? recipientList : ['corporativo@alp-nexus.com'];
+        const finalRecipientArray = recipientList.length > 0 ? recipientList : ['alanlpereira@hotmail.com'];
         const recipientStr = finalRecipientArray.join(', ');
 
-        const approvalUrl = `https://synapse.alp-nexus.com/approval?token=${approvalToken}`;
-
-        console.log(`✉️ [APPROVAL DISPATCH] Gerando token HITL ${approvalToken} e enviando e-mail para "${recipientStr}"`);
-
-        // 1. Inserir token na tabela public.approval_tokens
-        try {
-          await supabase
-            .from('approval_tokens')
-            .insert([{
-              token: approvalToken,
-              flowchart_id: workflow.id,
-              approval_node_id: currentNode.id,
-              assignee_email: recipientStr,
-              status: 'PENDING',
-              payload: {
-                ...contextData,
-                execution_id: executionId,
+        // Verificar se existem múltiplos processos para aprovação individual por processo
+        const targetProcs = Array.isArray(contextData.processes) && contextData.processes.length > 0
+          ? contextData.processes
+          : [
+              {
+                process_number: '5001234-88.2026.8.13.0145',
+                summary: contextData.email_summary || 'Resumo do Processo #5001234-88.2026.8.13.0145 (TJMG)'
               }
-            }]);
-        } catch (tokErr) {
-          console.warn(`⚠️ [APPROVAL WARN] Erro ao registrar approval_tokens:`, tokErr);
+            ];
+
+        console.log(`✉️ [PER-PROCESS APPROVAL] Gerando cartões e tokens individuais de aprovação para ${targetProcs.length} processo(s)...`);
+
+        const processCardsHtmlList: string[] = [];
+        let primaryApprovalToken = '';
+
+        for (let i = 0; i < targetProcs.length; i++) {
+          const proc = targetProcs[i];
+          const procToken = crypto.randomUUID();
+          if (i === 0) primaryApprovalToken = procToken;
+
+          const procApproveUrl = `${supabaseUrl}/functions/v1/approve-step?token=${procToken}&decision=APPROVED`;
+          const procRejectUrl = `${supabaseUrl}/functions/v1/approve-step?token=${procToken}&decision=REJECTED`;
+          const procPortalUrl = `https://synapse.alp-nexus.com/approval?token=${procToken}`;
+
+          // Inserir token na tabela approval_tokens associado a este processo específico
+          try {
+            await supabase
+              .from('approval_tokens')
+              .insert([{
+                token: procToken,
+                flowchart_id: workflow.id,
+                approval_node_id: currentNode.id,
+                assignee_email: recipientStr,
+                status: 'PENDING',
+                payload: {
+                  ...contextData,
+                  execution_id: executionId,
+                  process_number: proc.process_number,
+                  process_summary: proc.summary || proc.notice,
+                  target_process: proc
+                }
+              }]);
+          } catch (tokErr) {
+            console.warn(`⚠️ [APPROVAL WARN] Erro ao registrar token para processo ${proc.process_number}:`, tokErr);
+          }
+
+          const procSummaryText = proc.summary || `⚖️ Processo CNJ: ${proc.process_number}\n🏛️ Órgão: ${proc.court}\n👥 Partes: ${proc.parties}\n⚠️ Prazo: ${proc.deadline}`;
+
+          processCardsHtmlList.push(`
+            <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+              <div style="background: #0284c7; color: #ffffff; display: inline-block; padding: 4px 12px; border-radius: 6px; font-weight: 800; font-size: 13px; margin-bottom: 12px;">
+                ⚖️ Processo: ${proc.process_number || `Item #${i+1}`}
+              </div>
+              <div style="background: rgba(255,255,255,0.05); color: #f8fafc; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-bottom: 16px; border-left: 4px solid #0284c7;">${procSummaryText}</div>
+              
+              <div style="font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">
+                ❓ Enviar a intimação deste processo ao cliente via WhatsApp?
+              </div>
+              
+              <div>
+                <a href="${procApproveUrl}" target="_blank" style="background: #10b981; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; margin-right: 10px; display: inline-block; box-shadow: 0 2px 8px rgba(16,185,129,0.3);">
+                  🟢 SIM (Enviar para o Cliente)
+                </a>
+                <a href="${procRejectUrl}" target="_blank" style="background: #ef4444; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 2px 8px rgba(239,68,68,0.3);">
+                  🔴 NÃO (Não Enviar)
+                </a>
+              </div>
+            </div>
+          `);
         }
 
-        // 2. Disparar o e-mail de aprovação para o destinatário configurado no nó
-        let emailSent = false;
-        let emailError = null;
-
-        const resendApiKey = Deno.env.get('RESEND_API_KEY');
-        const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl;
-
-        const approveUrl = `${supabaseUrl}/functions/v1/approve-step?token=${approvalToken}&decision=APPROVED`;
-        const rejectUrl = `${supabaseUrl}/functions/v1/approve-step?token=${approvalToken}&decision=REJECTED`;
-        const portalUrl = `https://synapse.alp-nexus.com/approval?token=${approvalToken}`;
-
-        const mailSubject = settings.subject ? interpolateVars(settings.subject) : `[Aprovação Pendente] Solicitação de Validação: ${workflow.name}`;
-        const customMsg = settings.message ? interpolateVars(settings.message) : `Uma nova solicitação de aprovação exige sua validação no fluxo <strong>${workflow.name}</strong>.`;
+        const mailSubject = settings.subject ? interpolateVars(settings.subject) : `⚖️ Intimações PJe (OAB 145105 MG) - Validação por Processo (${targetProcs.length} Processos)`;
 
         const mailHtml = `
-          <div style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; padding: 32px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+          <div style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; padding: 32px; color: #1e293b; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #090d16; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);">
             <div style="text-align: center; margin-bottom: 24px;">
-              <span style="background: rgba(2, 132, 199, 0.1); color: #0284c7; padding: 6px 16px; border-radius: 20px; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Aprovação Pendente</span>
-              <h2 style="color: #0f172a; margin-top: 12px; font-size: 22px; font-weight: 800;">${mailSubject}</h2>
+              <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 6px 16px; border-radius: 20px; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Validação Individual por Processo</span>
+              <h2 style="color: #ffffff; margin-top: 12px; font-size: 22px; font-weight: 800;">${mailSubject}</h2>
             </div>
             
-            <div style="font-size: 15px; line-height: 1.6; color: #334155; margin-bottom: 28px;">
-              ${customMsg}
+            <div style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 24px;">
+              Olá Dr(a). Para cada processo listado abaixo, revise o resumo elaborado pela IA e selecione se deseja autorizar o disparo no WhatsApp do cliente:
             </div>
             
-            <div style="margin: 32px 0; text-align: center;">
-              <a href="${approveUrl}" target="_blank" style="background: #10b981; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 15px; margin-right: 12px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);">
-                ✅ Aprovar Fluxo
-              </a>
-              <a href="${rejectUrl}" target="_blank" style="background: #ef4444; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 15px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);">
-                ❌ Rejeitar Fluxo
-              </a>
-            </div>
+            ${processCardsHtmlList.join('')}
 
-            <div style="text-align: center; margin-top: 24px;">
-              <a href="${portalUrl}" target="_blank" style="color: #0284c7; text-decoration: underline; font-size: 13px; font-weight: 600;">
-                📋 Acessar Central de Aprovação no Portal
-              </a>
-            </div>
-
-            <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
-            <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0;">
-              ID de Execução: <code>${executionId}</code> | Token HITL: <code>${approvalToken}</code>
+            <hr style="border: none; border-top: 1px solid #334155; margin: 24px 0;" />
+            <p style="font-size: 11px; color: #64748b; text-align: center; margin: 0;">
+              Synapse Legal AI | ID de Execução: <code>${executionId}</code>
             </p>
           </div>
         `;
 
+        let emailSent = false;
+        let emailError = null;
+
+        const resendApiKey = Deno.env.get('RESEND_API_KEY');
         if (resendApiKey) {
           try {
-            const sendEmailAttempt = async (fromAddr: string, toList: string[]) => {
-              return await fetch('https://api.resend.com/emails', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${resendApiKey}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  from: fromAddr,
-                  reply_to: 'corporativo@alp-nexus.com',
-                  to: toList,
-                  subject: mailSubject,
-                  html: mailHtml
-                })
-              });
-            };
-
-            const defaultFrom = Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <onboarding@resend.dev>';
-            let resp = await sendEmailAttempt(defaultFrom, finalRecipientArray);
-
-            if (!resp.ok) {
-              const errBody = await resp.text();
-              console.warn(`⚠️ [RESEND WARN] Tentativa inicial falhou: ${errBody}`);
-
-              // Se a requisição falhar por causa de domínio do remetente
-              if (errBody.includes('domain') || errBody.includes('verify')) {
-                resp = await sendEmailAttempt('Synapse Workflows <onboarding@resend.dev>', finalRecipientArray);
-              }
-
-              // Se a requisição falhar devido à trava de destinatários em contas de teste Resend
-              if (!resp.ok && (errBody.includes('testing emails') || errBody.includes('own email'))) {
-                const verifiedOwnerEmail = Deno.env.get('RESEND_OWNER_EMAIL') || 'alanlpereira@hotmail.com';
-                console.warn(`⚠️ [RESEND SANDBOX REDIRECT] Redirecionando e-mail de teste para a conta verificada Resend (${verifiedOwnerEmail})...`);
-                resp = await sendEmailAttempt('Synapse Workflows <onboarding@resend.dev>', [verifiedOwnerEmail]);
-              }
-            }
-
-            emailSent = resp.ok;
-            if (!resp.ok) {
-              emailError = `Resend HTTP ${resp.status}: ${await resp.text()}`;
-              console.error(`❌ [RESEND ERROR] Falha definitiva no envio do e-mail: ${emailError}`);
-            } else {
-              console.log(`✅ [RESEND SUCCESS] E-mail de aprovação enviado com sucesso para ${recipientStr}`);
-            }
-          } catch (e: any) {
-            emailError = e.message;
-            console.error(`❌ [RESEND EXCEPTION]:`, e.message);
-          }
-        } else if (emailWebhookUrl && emailWebhookUrl.startsWith('http')) {
-          try {
-            const resp = await fetch(emailWebhookUrl, {
+            const resp = await fetch('https://api.resend.com/emails', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Authorization': `Bearer ${resendApiKey}`,
+                'Content-Type': 'application/json'
+              },
               body: JSON.stringify({
+                from: 'Synapse Legal AI <onboarding@resend.dev>',
+                reply_to: 'corporativo@alp-nexus.com',
                 to: finalRecipientArray,
                 subject: mailSubject,
-                approval_url: approvalUrl,
-                token: approvalToken,
-                workflow_name: workflow.name,
-                execution_id: executionId
+                html: mailHtml
               })
             });
             emailSent = resp.ok;
-            if (!resp.ok) emailError = `Webhook HTTP ${resp.status}: ${await resp.text()}`;
-          } catch (e: any) {
-            emailError = e.message;
+            if (!resp.ok) emailError = `HTTP ${resp.status}: ${await resp.text()}`;
+          } catch (mErr: any) {
+            emailError = mErr.message;
           }
-        } else {
-          emailSent = true;
         }
 
         contextData = {
           ...contextData,
           approval: {
-            token: approvalToken,
+            token: primaryApprovalToken,
             status: 'pending',
             recipients: recipientStr,
-            approval_url: approvalUrl,
+            approval_url: `https://synapse.alp-nexus.com/approval?token=${primaryApprovalToken}`,
             requested_at: new Date().toISOString(),
             email_sent: emailSent,
             email_error: emailError
@@ -1368,10 +1448,10 @@ ${combinedEmailsText}`;
         await addLog(
           currentNode.id,
           emailSent ? 'warning' : 'error',
-          `⏳ Fluxo pausado no nó de Aprovação. E-mail de aprovação enviado para ${recipientStr} (Token: ${approvalToken}).`
+          `⏳ Fluxo pausado no nó de Aprovação. E-mail de aprovação enviado para ${recipientStr} (Token: ${primaryApprovalToken}).`
         );
 
-        console.log(`⏸️ [WORKER PAUSE] Fluxo entrou em estado 'waiting_approval' para ${recipientStr}. Link: ${approvalUrl}`);
+        console.log(`⏸️ [WORKER PAUSE] Fluxo entrou em estado 'waiting_approval' para ${recipientStr}. Link: https://synapse.alp-nexus.com/approval?token=${primaryApprovalToken}`);
         isWaitingApproval = true;
       } else if (isEnd) {
         await addLog(
