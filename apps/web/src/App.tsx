@@ -161,15 +161,16 @@ function WorkflowAppContent() {
   const { switchOrganization } = useTheme();
   const { isMobilePortrait } = useResponsiveLayout();
 
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(() => ({
-    id: 'user-master-id',
-    organization_id: 'org-alp-nexus',
-    email: 'alan.pereira@alp-nexus.com',
-    full_name: 'Alan Pereira (Master)',
-    role: 'Master',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }));
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(() => {
+    try {
+      const savedSession = localStorage.getItem('synapse_active_session');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed && parsed.email) return parsed;
+      }
+    } catch (e) {}
+    return null; // Exigir login e senha para qualquer novo visitante/acesso!
+  });
 
   const [flowcharts, setFlowcharts] = useState<Flowchart[]>(() => {
     try {
@@ -1179,6 +1180,20 @@ function WorkflowAppContent() {
     }
   };
 
+  // Se o usuário não estiver autenticado e a rota não for pública isolada, exibir a Tela de Login e Senha Sóbria do Advogado
+  if (!currentProfile && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
+    return (
+      <LoginPage
+        onLoginSuccess={(profile) => {
+          setCurrentProfile(profile);
+          try {
+            localStorage.setItem('synapse_active_session', JSON.stringify(profile));
+          } catch (e) {}
+        }}
+      />
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <Navbar
@@ -1192,7 +1207,10 @@ function WorkflowAppContent() {
         isSaving={isSaving}
         onRunNow={handleRunNow}
         isRunningNow={isRunningNow}
-        onLogout={() => setCurrentProfile(null)}
+        onLogout={() => {
+          localStorage.removeItem('synapse_active_session');
+          setCurrentProfile(null);
+        }}
         onOpenEmbedModal={() => setIsEmbedModalOpen(true)}
         onOpenVersionModal={() => setIsVersionModalOpen(true)}
         onExportJson={handleExportJson}
