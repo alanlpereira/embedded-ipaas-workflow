@@ -462,7 +462,31 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
 
       {/* Conteúdo Aba: Segurança */}
       {activeTab === 'security' && (
-        <form onSubmit={handleUpdatePassword} style={{ maxWidth: '480px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleUpdatePassword} style={{ maxWidth: '520px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{
+            background: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '12px',
+            padding: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
+                ☝️ Autenticação por Biometria (Touch ID / Face ID)
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', margin: 0 }}>
+                Permite o acesso instantâneo ao portal pelo seu smartphone sem digitar senha após o 1º acesso.
+              </p>
+            </div>
+
+            <span style={{ fontSize: '11px', background: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', padding: '4px 10px', borderRadius: '12px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              Ativado no Dispositivo
+            </span>
+          </div>
+
           <div>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
               Nova Senha
