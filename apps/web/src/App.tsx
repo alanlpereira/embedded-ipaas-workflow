@@ -24,6 +24,8 @@ import { ZeroFrictionDecidePage } from './components/ZeroFrictionDecidePage';
 import { MagicDemoPage } from './components/MagicDemoPage';
 import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
 import { UserSettingsPage } from './components/UserSettingsPage';
+import { LegalDashboardPage } from './components/LegalDashboardPage';
+import { ClientsPage } from './components/ClientsPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
@@ -1211,16 +1213,14 @@ function WorkflowAppContent() {
 
       {/* Renderização condicional de abas */}
       {currentTab === 'dashboard' && (
-        <DashboardPage
-          currentProfile={currentProfile}
-          flowcharts={flowcharts}
-          onOpenFlowchart={handleOpenFlowchart}
-          onCreateFlowchart={handleCreateFlowchart}
-          onDeleteFlowchart={handleDeleteFlowchart}
-          onMoveFlowchart={handleMoveFlowchart}
-          onUpdateFlowchart={handleUpdateFlowchartById}
-          onToggleFlowchartActive={handleToggleFlowchartActive}
+        <LegalDashboardPage
+          onRunNow={handleRunNow}
+          isRunningNow={isRunningNow}
         />
+      )}
+
+      {currentTab === 'clients' && (
+        <ClientsPage />
       )}
 
       {currentTab === 'templates' && (

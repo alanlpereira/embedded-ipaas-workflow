@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { CollaboratorInfo } from '../collaboration/useYjsCollaboration';
 import { EditionBadge } from './EditionBadge';
 
-export type ViewTab = 'dashboard' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions';
+export type ViewTab = 'dashboard' | 'clients' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions';
 
 interface NavbarProps {
   currentProfile: Profile | null;
@@ -98,24 +98,21 @@ export const Navbar: React.FC<NavbarProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '16px',
-        padding: '0 20px',
+        padding: '0 16px',
         background: 'var(--bg-secondary)',
         borderBottom: '1px solid var(--border-color)',
-        position: 'relative',
         zIndex: 100,
-        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-        transition: 'background-color 0.25s ease, border-color 0.25s ease',
+        position: 'relative',
       }}
     >
-      {/* BRANDING DA ESQUERDA */}
+      {/* BRAND / LOGO */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         <div
-          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexShrink: 0 }}
           onClick={() => onNavigate('dashboard')}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
         >
           <img
-            src="/assets/synapse-logo.png"
+            src="https://raw.githubusercontent.com/alanlpereira/embedded-ipaas-workflow/main/logo.png"
             alt="Synapse Logo"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -127,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <h1 style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '-0.3px', color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap' }}>
               {t.appTitle}
             </h1>
-            <EditionBadge edition={currentOrg?.plan_tier || 'Synapse'} size="small" />
+            <EditionBadge edition={currentOrg?.plan_tier || 'Legal AI'} size="small" />
           </div>
         </div>
       </div>
@@ -144,6 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           whiteSpace: 'nowrap',
           flex: 1,
           minWidth: 0,
+          margin: '0 16px',
         }}
       >
         <button
@@ -165,7 +163,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           }}
         >
           <LayoutDashboard size={15} />
-          {t.nav.dashboard}
+          Consultas PJe
+        </button>
+
+        <button
+          onClick={() => onNavigate('clients')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            background: currentTab === 'clients' ? 'var(--bg-tertiary)' : 'transparent',
+            color: currentTab === 'clients' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+            border: currentTab === 'clients' ? '1px solid var(--border-color)' : '1px solid transparent',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Users size={15} />
+          Clientes
         </button>
 
         <button

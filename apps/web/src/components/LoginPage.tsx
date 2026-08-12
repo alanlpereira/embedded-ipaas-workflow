@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Workflow, Lock, Mail, ArrowRight, ShieldCheck, Eye } from 'lucide-react';
+import { Scale, Lock, Mail, ArrowRight, ShieldCheck, Eye, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Profile } from '@ipaas/shared-types';
@@ -10,8 +10,8 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { t } = useLanguage();
-  const [email, setEmail] = useState('alan.pereira@alp-nexus.com');
-  const [password, setPassword] = useState('ChangeMeOnFirstLogin2026!');
+  const [email, setEmail] = useState('alanlpereira@hotmail.com');
+  const [password, setPassword] = useState('Advocacia2026!');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -27,14 +27,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       });
 
       if (error) {
-        // Se Supabase real não estiver conectado localmente, realiza login simulado com o perfil
         console.warn('Supabase Auth error (fallback local):', error.message);
         fallbackLocalLogin(email);
         return;
       }
 
       if (data.user) {
-        // Buscar perfil vinculado
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -45,7 +43,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           id: data.user.id,
           organization_id: 'org-alp-nexus',
           email: data.user.email || email,
-          full_name: data.user.user_metadata?.full_name || 'Alan Pereira',
+          full_name: data.user.user_metadata?.full_name || 'Dr. Alan Pereira',
           role: (data.user.user_metadata?.role as any) || 'Master',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -66,7 +64,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       id: isViewer ? 'user-viewer-id' : 'user-master-id',
       organization_id: 'org-alp-nexus',
       email: targetEmail,
-      full_name: isViewer ? 'Usuário Leitor (Viewer Demo)' : 'Alan Pereira (Master)',
+      full_name: isViewer ? 'Dr. Leitor (Viewer Demo)' : 'Dr. Alan Pereira (OAB/MG 145105)',
       role: isViewer ? 'Viewer' : 'Master',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -81,39 +79,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'radial-gradient(circle at 50% 30%, rgba(18, 26, 40, 0.9), var(--bg-primary))',
+      background: 'radial-gradient(circle at 50% 35%, #0f172a 0%, #090d16 100%)',
       padding: '20px',
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '440px',
-        background: 'var(--bg-glass)',
+        maxWidth: '420px',
+        background: 'rgba(15, 23, 42, 0.85)',
         backdropFilter: 'blur(20px)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '16px',
-        padding: '36px 32px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '20px',
+        padding: '40px 32px',
+        boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7)',
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
+            width: '56px',
+            height: '56px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #1e293b, #334155)',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 25px rgba(0, 242, 254, 0.4)',
-            marginBottom: '14px',
+            boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)',
+            marginBottom: '16px',
           }}>
-            <Workflow size={28} color="#0a0c10" />
+            <Scale size={30} color="#3b82f6" />
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
-            {t.login.title}
+
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1.5px', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '4px' }}>
+            Portal do Advogado
+          </span>
+
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px' }}>
+            Synapse Legal AI
           </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 }}>
-            {t.login.subtitle}
+
+          <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px', lineHeight: 1.4 }}>
+            Acesso Restrito & Monitoramento de Processos PJe CNJ
           </p>
         </div>
 
@@ -131,25 +136,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              {t.login.emailLabel}
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+              E-mail do Advogado
             </label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+              <Mail size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '13px' }} />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="advogado@escritorio.com"
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  borderRadius: '8px',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
+                  padding: '11px 12px 11px 40px',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid #334155',
+                  color: '#f8fafc',
                   fontSize: '13px',
                   outline: 'none',
                 }}
@@ -158,23 +164,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              {t.login.passwordLabel}
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
+              Senha
             </label>
             <div style={{ position: 'relative' }}>
-              <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+              <Lock size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '13px' }} />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  borderRadius: '8px',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
+                  padding: '11px 12px 11px 40px',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid #334155',
+                  color: '#f8fafc',
                   fontSize: '13px',
                   outline: 'none',
                 }}
@@ -186,76 +193,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             type="submit"
             disabled={isLoading}
             style={{
-              marginTop: '8px',
+              marginTop: '10px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
               padding: '12px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
-              color: '#0a0c10',
+              borderRadius: '10px',
+              background: '#3b82f6',
+              color: '#ffffff',
               fontWeight: 700,
               fontSize: '14px',
               border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(0, 242, 254, 0.3)',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.7 : 1,
+              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+              transition: 'all 0.2s ease',
             }}
           >
-            {isLoading ? t.login.authenticating : t.login.submitBtn}
-            <ArrowRight size={16} />
+            {isLoading ? 'Acessando Portal...' : 'Entrar no Portal do Advogado'}
+            {!isLoading && <ArrowRight size={16} />}
           </button>
         </form>
 
-        {/* Quick Demo Access Buttons */}
-        <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button
-            onClick={() => {
-              setEmail('alan.pereira@alp-nexus.com');
-              fallbackLocalLogin('alan.pereira@alp-nexus.com');
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px',
-              borderRadius: '8px',
-              background: 'rgba(0, 242, 254, 0.08)',
-              border: '1px solid rgba(0, 242, 254, 0.25)',
-              color: 'var(--accent-cyan)',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              justifyContent: 'center',
-            }}
-          >
-            <ShieldCheck size={16} />
-            {t.login.quickMasterLogin}
-          </button>
-
-          <button
-            onClick={() => {
-              setEmail('viewer.demo@alp-nexus.com');
-              fallbackLocalLogin('viewer.demo@alp-nexus.com');
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px',
-              borderRadius: '8px',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              justifyContent: 'center',
-            }}
-          >
-            <Eye size={16} />
-            {t.login.demoViewerLogin}
-          </button>
+        {/* Footer info */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '28px', color: '#64748b', fontSize: '11px' }}>
+          <ShieldCheck size={14} color="#3b82f6" />
+          <span>Ambiente Seguro • Synapse Legal AI 2026</span>
         </div>
       </div>
     </div>
