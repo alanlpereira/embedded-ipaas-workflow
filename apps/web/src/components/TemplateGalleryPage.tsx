@@ -57,6 +57,26 @@ const iconMap: Record<string, React.ElementType> = {
 // Fallback estático com os 21 templates oficiais corporativos (incluindo o fluxo jurídico de intimações)
 export const fallback21Templates: WorkflowTemplate[] = [
   {
+    id: 'tpl-jur-pje-comunica',
+    name: 'Consulta Diária PJe Comunica (OAB & Intimações)',
+    category: 'Jurídico',
+    description: 'Automação jurídica diária executada às 08:00 AM que acessa o PJe Comunica (comunica.pje.jus.br) pesquisando intimações por Nº e UF da OAB (ex: 145105 MG) do dia anterior ao dia de hoje. A IA Gemini elabora um resumo com o órgão julgador, número do processo, partes e prazos fatais, envia aprovação por e-mail com botões SIM/NÃO e dispara via WhatsApp para o cliente se aprovado.',
+    icon: 'FileText',
+    nodes: [
+      { id: 'n1', type: 'trigger', position: { x: 250, y: 50 }, data: { label: '⏰ Agendamento Diário (08:00 AM)', type: 'trigger', description: 'Execução diária às 08:00 (Data Inicial: Ontem | Data Final: Hoje)' } },
+      { id: 'n2', type: 'action', position: { x: 250, y: 180 }, data: { label: '🌐 Consulta PJe Comunica (comunica.pje.jus.br)', type: 'action', description: 'Pesquisa no PJe Comunica com OAB 145105 e UF MG (Dia anterior ➔ Hoje)' } },
+      { id: 'n3', type: 'action', position: { x: 250, y: 310 }, data: { label: '✨ Resumo de Intimações & Prazos via IA Gemini', type: 'action', description: 'IA extrai órgão julgador, nº do processo, partes, ações necessárias e prazos' } },
+      { id: 'n4', type: 'approval', position: { x: 250, y: 440 }, data: { label: '✉️ Pergunta por E-mail: Enviar para o cliente? (Sim / Não)', type: 'approval', description: 'Envia e-mail para alanlpereira@hotmail.com com botões de aprovação SIM / NÃO' } },
+      { id: 'n5', type: 'output', position: { x: 250, y: 570 }, data: { label: '📱 Disparo WhatsApp (+55 37 9958-3402)', type: 'output', description: 'Dispara o resumo no WhatsApp +553799583402 se aprovado no e-mail' } }
+    ],
+    edges: [
+      { id: 'e1-2', source: 'n1', target: 'n2', animated: true },
+      { id: 'e2-3', source: 'n2', target: 'n3', animated: true },
+      { id: 'e3-4', source: 'n3', target: 'n4', animated: true },
+      { id: 'e4-5', source: 'n4', sourceHandle: 'approved', target: 'n5', animated: true, label: 'Se Aprovado (SIM)' }
+    ]
+  },
+  {
     id: 'tpl-jur-1',
     name: 'Triagem de Intimações e Gestão de Prazos',
     category: 'Jurídico',

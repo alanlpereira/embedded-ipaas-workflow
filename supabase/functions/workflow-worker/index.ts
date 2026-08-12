@@ -1188,7 +1188,7 @@ ${combinedEmailsText}`;
           });
         };
 
-        const rawRecipient = settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'corporativo@alp-nexus.com';
+        const rawRecipient = settings.recipientEmail || settings.approvalConfig?.recipientEmail || settings.approvalConfig?.to || settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'alanlpereira@hotmail.com';
         const interpolatedRecipient = interpolateVars(rawRecipient);
         const recipientList = Array.from(new Set(
           interpolatedRecipient
