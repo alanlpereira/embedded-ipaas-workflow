@@ -189,7 +189,29 @@ function WorkflowAppContent() {
     return list[0];
   });
 
-  const [currentTab, setCurrentTab] = useState<ViewTab>('editor');
+  const [currentTab, setCurrentTab] = useState<ViewTab>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/oab/') || path.startsWith('/portal') || path.startsWith('/legal')) return 'dashboard';
+      if (path.startsWith('/clientes')) return 'clients';
+      if (path.startsWith('/editor')) return 'editor';
+    }
+    return 'dashboard'; // Padrão: Portal do Advogado / Consultas PJe
+  });
+
+  // Processar parâmetros de OAB da URL (ex: /oab/145105 ou /oab/145105-mg)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/oab/')) {
+        const param = path.replace('/oab/', '').trim();
+        const [num, uf] = param.split('-');
+        if (num) localStorage.setItem('synapse_advocate_oab', num);
+        if (uf) localStorage.setItem('synapse_advocate_uf', uf.toUpperCase());
+        else localStorage.setItem('synapse_advocate_uf', 'MG');
+      }
+    }
+  }, []);
 
   // Salvar automaticamente qualquer alteração de fluxogramas no LocalStorage
   useEffect(() => {
@@ -241,7 +263,7 @@ function WorkflowAppContent() {
     onRemoteStateChange: handleRemoteStateChange,
   });
 
-  // Verificação de rotas públicas isoladas (/demo, /decide/:token, /embed/:flowId e /approve/:token)
+  // Verificação de rotas públicas isoladas (/demo, /decide/:token, /embed/:flowId, /approve/:token e /oab/:oab)
   const isDemoPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo');
   const isDecidePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/decide/');
   const isEmbedPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/embed/');
