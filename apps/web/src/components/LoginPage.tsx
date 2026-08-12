@@ -121,7 +121,40 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   const fallbackLocalLogin = (targetEmail: string) => {
-    const isViewer = targetEmail.includes('viewer');
+    const isRodrigo = targetEmail.toLowerCase().includes('rodrigo');
+    const isViewer = !isRodrigo && targetEmail.includes('viewer');
+
+    if (isRodrigo) {
+      // 1. Registrar a senha utilizada na primeira entrada do Rodrigo Moura
+      if (password) {
+        localStorage.setItem('synapse_user_rodrigo_moura_password', password);
+        console.log('✅ [AUTH] Senha do usuário rodrigo.moura registrada com sucesso no 1º acesso:', password);
+      }
+
+      // 2. Ativar biometria (Touch ID / Face ID) imediatamente para acessos seguintes no celular
+      localStorage.setItem('synapse_biometric_enabled', 'true');
+      localStorage.setItem('synapse_user_rodrigo_moura_biometrics', 'active');
+
+      // 3. Configurar a mesma OAB (145105/MG) e dados corporativos atualmente em uso
+      localStorage.setItem('synapse_advocate_oab', '145105');
+      localStorage.setItem('synapse_advocate_uf', 'MG');
+      localStorage.setItem('synapse_advocate_phone', '+55 37 9958-3402');
+      localStorage.setItem('synapse_advocate_email', targetEmail.includes('@') ? targetEmail : 'rodrigo.moura@alp-nexus.com');
+
+      const rodrigoProfile: Profile = {
+        id: 'user-rodrigo-moura-id',
+        organization_id: 'org-alp-nexus',
+        email: targetEmail.includes('@') ? targetEmail : 'rodrigo.moura@alp-nexus.com',
+        full_name: 'Dr. Rodrigo Moura (OAB/MG 145105)',
+        role: 'Master',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      onLoginSuccess(rodrigoProfile);
+      return;
+    }
+
     const mockProfile: Profile = {
       id: isViewer ? 'user-viewer-id' : 'user-master-id',
       organization_id: 'org-alp-nexus',
@@ -237,16 +270,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
-              E-mail do Advogado
+              Usuário / E-mail do Advogado
             </label>
             <div style={{ position: 'relative' }}>
               <Mail size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '13px' }} />
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="advogado@escritorio.com"
+                placeholder="rodrigo.moura ou advogado@escritorio.com"
                 style={{
                   width: '100%',
                   padding: '11px 12px 11px 40px',
