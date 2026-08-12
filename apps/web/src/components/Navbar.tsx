@@ -129,19 +129,23 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* CONTAINER DESKTOP COM DISPLAY FLEX GARANTIDO */}
+      {/* CONTAINER DE NAVEGAÇÃO COM ROLAGEM HORIZONTAL NATIVA NO CELULAR */}
       <nav
+        className="no-scrollbar"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
           overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           whiteSpace: 'nowrap',
           flex: 1,
           minWidth: 0,
-          margin: '0 16px',
+          margin: '0 12px',
+          padding: '4px 0',
         }}
       >
         <button

@@ -1,43 +1,53 @@
 :root, html.dark {
-  --bg-primary: #07090e;
-  --bg-secondary: #0f141f;
-  --bg-tertiary: #171f2e;
-  --bg-glass: rgba(15, 20, 31, 0.85);
-  --border-color: rgba(0, 242, 254, 0.15);
+  --bg-primary: #090d16;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1e293b;
+  --bg-glass: rgba(17, 24, 39, 0.9);
+  --border-color: rgba(255, 255, 255, 0.12);
   --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --accent-cyan: #00f2fe;
-  --accent-blue: #0099ff;
-  --accent-purple: #8b5cf6;
-  --accent-pink: #ec4899;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent-cyan: #38bdf8;
+  --accent-blue: #3b82f6;
+  --accent-purple: #818cf8;
+  --accent-pink: #f43f5e;
 
-  /* Estilos de Edges para Modo Escuro (Neon Laser Cyan + Dark Shadow Outline) */
-  --edge-stroke-color: #00f2fe;
-  --edge-hover-color: #38bdf8;
-  --edge-filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.85)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.95));
-  --edge-hover-filter: drop-shadow(0 0 14px rgba(56, 189, 248, 1)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
+  /* Estilos de Edges para Modo Escuro (Sóbrio Royal Blue) */
+  --edge-stroke-color: #3b82f6;
+  --edge-hover-color: #60a5fa;
+  --edge-filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4));
+  --edge-hover-filter: drop-shadow(0 0 10px rgba(96, 165, 250, 0.6));
 }
 
 html:not(.dark), html.light {
   --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
   --bg-tertiary: #f1f5f9;
-  --bg-glass: rgba(255, 255, 255, 0.9);
-  --border-color: rgba(15, 23, 42, 0.12);
+  --bg-glass: rgba(255, 255, 255, 0.95);
+  --border-color: rgba(15, 23, 42, 0.14);
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-muted: #64748b;
   --accent-cyan: #0284c7;
-  --accent-blue: #2563eb;
-  --accent-purple: #7c3aed;
-  --accent-pink: #db2777;
+  --accent-blue: #1d4ed8;
+  --accent-purple: #6d28d9;
+  --accent-pink: #be123c;
 
-  /* Estilos de Edges para Modo Claro (Deep Sapphire Blue + Light Shadow Outline) */
-  --edge-stroke-color: #0052cc;
+  /* Estilos de Edges para Modo Claro (Sóbrio Deep Navy Blue) */
+  --edge-stroke-color: #1d4ed8;
   --edge-hover-color: #0284c7;
-  --edge-filter: drop-shadow(0 0 10px rgba(0, 82, 204, 0.75)) drop-shadow(0 0 3px rgba(255, 255, 255, 0.95));
-  --edge-hover-filter: drop-shadow(0 0 14px rgba(2, 132, 199, 1)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.95));
+  --edge-filter: drop-shadow(0 0 6px rgba(29, 78, 216, 0.3));
+  --edge-hover-filter: drop-shadow(0 0 10px rgba(2, 132, 199, 0.5));
+}
+
+/* Utilitários para ROLAGEM HORIZONTAL SUAVE NO CELULAR (Touch Scrolling) */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* -------------------------------------------------------------------------- */
