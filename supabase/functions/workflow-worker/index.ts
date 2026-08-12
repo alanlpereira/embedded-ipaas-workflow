@@ -1173,6 +1173,7 @@ ${combinedEmailsText}`;
             court: '2ª Vara Cível da Comarca de Juiz de Fora (TJMG)',
             parties: 'Carlos Alberto Souza (Autor) vs. EBL Logística S.A. (Réu)',
             notice: 'Fica a parte ré intimada para contestar a ação no prazo legal de 15 dias úteis, sob pena de revelia.',
+            movement_text: 'Despacho/Intimação: Compulsando os autos, verifica-se que a petição inicial preenche os requisitos do art. 319 do CPC. CITE-SE e INTIME-SE a parte ré EBL Logística S.A. para apresentar contestação no prazo legal de 15 (quinze) dias úteis (art. 335, CPC), sob pena de revelia e presunção de veracidade dos fatos alegados pelo autor.',
             action_required: 'Apresentar Contestação com Documentos de Defesa',
             deadline: '15 dias úteis (Vencimento: 02/09/2026)',
           },
@@ -1182,6 +1183,7 @@ ${combinedEmailsText}`;
             court: '1ª Vara de Família e Sucessões de Belo Horizonte (TJMG)',
             parties: 'Mariana Oliveira Ramos (Requerente) vs. Roberto Carlos Ramos (Requerido)',
             notice: 'Intimação das partes para especificação de provas que pretendem produzir na audiência.',
+            movement_text: 'Decisão Interlocutória: Tendo em vista que a conciliação restou infrutífera, intimem-se os litigantes para que, no prazo comum de 5 (cinco) dias úteis, especifiquem justificadamente as provas que pretendem produzir na instrução processual, indicando o ponto controvertido a que cada prova se destina.',
             action_required: 'Especificar Provas Documentais e ROL de Testemunhas',
             deadline: '5 dias úteis (Vencimento: 19/08/2026)',
           }
@@ -1195,22 +1197,31 @@ ${combinedEmailsText}`;
 
         const processSummaries = await Promise.all(targetProcesses.map(async (proc: any) => {
           let aiText = '';
+          const movementText = proc.movement_text || proc.text || proc.content || proc.body || proc.notice || proc.teor || proc.publicacao || proc.intimacao || proc.despacho || 'Sem texto de movimentação disponível.';
+
           if (geminiApiKey) {
             try {
               const promptText = `Você é um assistente de inteligência artificial jurídica de elite.
-Analise detalhadamente a intimação do PROCESSO ESPECÍFICO a seguir e elabore um resumo individual limpo, direto e profissional para envio executivo ao cliente:
+Analise detalhadamente o PROCESSO e o TEXTO COMPLETO DA MOVIMENTAÇÃO/INTIMAÇÃO a seguir e elabore um resumo individual limpo, direto e profissional para envio executivo ao cliente:
 
-• Processo CNJ: ${proc.process_number}
-• Órgão Julgador: ${proc.court}
-• Partes: ${proc.parties}
-• Intimação: ${proc.notice}
-• Ação Necessária: ${proc.action_required}
-• Prazo Fatal: ${proc.deadline}
+• Processo CNJ: ${proc.process_number || proc.numero_processo || proc.id}
+• Órgão Julgador: ${proc.court || proc.orgao_julgador || 'Não informado'}
+• Partes: ${proc.parties || proc.partes || 'Não informado'}
+• Texto da Movimentação/Intimação: ${movementText}
+• Ação Necessária: ${proc.action_required || proc.acao_necessaria || 'Conforme intimação'}
+• Prazo Fatal: ${proc.deadline || proc.prazo || 'Conforme intimação'}
 
 INSTRUÇÕES OBRIGATÓRIAS:
-1. Trate este processo de forma 100% INDIVIDUAL. Não misture com outros processos.
-2. Extraia obrigatoriamente: Órgão Julgador, Número do Processo, Partes, Ação Necessária e Prazo Fatal com destaque.
-3. Formate em estilo executivo perfeito para leitura direta no WhatsApp.`;
+1. Trate este processo de forma 100% INDIVIDUAL.
+2. Sintetize obrigatoriamente o texto da movimentação/intimação na seção "📜 *RESUMO DA MOVIMENTAÇÃO:*".
+3. Estruture a resposta com os seguintes campos em destaque:
+   ⚖️ *PROCESSO CNJ:* [Número do Processo]
+   🏛️ *ÓRGÃO JULGADOR:* [Nome do Órgão/Vara]
+   👥 *PARTES:* [Autor vs Réu]
+   📜 *RESUMO DA MOVIMENTAÇÃO:* [Síntese clara e objetiva do teor do despacho/decisão/intimação]
+   ⚠️ *AÇÃO NECESSÁRIA:* [O que precisa ser feito pelo advogado/cliente]
+   📅 *PRAZO FATAL:* [Prazo e data limite]
+4. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
 
               const gResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
                 method: 'POST',
@@ -1228,7 +1239,8 @@ INSTRUÇÕES OBRIGATÓRIAS:
           }
 
           if (!aiText) {
-            aiText = `⚖️ *PROCESSO CNJ:* ${proc.process_number}\n🏛️ *ÓRGÃO JULGADOR:* ${proc.court}\n👥 *PARTES:* ${proc.parties}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required}\n📅 *PRAZO FATAL:* ${proc.deadline}`;
+            const movementSummary = movementText.length > 250 ? `${movementText.substring(0, 247)}...` : movementText;
+            aiText = `⚖️ *PROCESSO CNJ:* ${proc.process_number || proc.numero_processo}\n🏛️ *ÓRGÃO JULGADOR:* ${proc.court}\n👥 *PARTES:* ${proc.parties}\n📜 *RESUMO DA MOVIMENTAÇÃO:* ${movementSummary}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required}\n📅 *PRAZO FATAL:* ${proc.deadline}`;
           }
 
           return { ...proc, summary: aiText };
