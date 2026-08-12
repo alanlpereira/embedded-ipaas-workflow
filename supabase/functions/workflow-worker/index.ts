@@ -1227,6 +1227,36 @@ ${combinedEmailsText}`;
             movement_text: 'Decisão Interlocutória: Tendo em vista que a conciliação restou infrutífera, intimem-se os litigantes para que, no prazo comum de 5 (cinco) dias úteis, especifiquem justificadamente as provas que pretendem produzir na instrução processual, indicando o ponto controvertido a que cada prova se destina.',
             action_required: 'Especificar Provas Documentais e ROL de Testemunhas',
             deadline: '5 dias úteis (Vencimento: 19/08/2026)',
+          },
+          {
+            id: 'proc-3',
+            process_number: '5014321-45.2026.8.13.0024',
+            court: '3ª Vara da Fazenda Pública e Autarquias de Belo Horizonte (TJMG)',
+            parties: 'Construções Gerais Ltda (Autor) vs. Estado de Minas Gerais (Réu)',
+            notice: 'Intimação para réplica à contestação e manifestação sobre documentos.',
+            movement_text: 'Intimação Eletrônica: Fica o advogado Dr. Alan Pereira (OAB/MG 145105) intimado da juntada de contestação e documentos pelo Estado de Minas Gerais, para que apresente Impugnação/Réplica no prazo legal de 15 (quinze) dias úteis, indicando provas suplementares.',
+            action_required: 'Apresentar Impugnação à Contestação (Réplica)',
+            deadline: '15 dias úteis (Vencimento: 03/09/2026)',
+          },
+          {
+            id: 'proc-4',
+            process_number: '5028877-90.2026.8.13.0702',
+            court: '2ª Vara do Trabalho de Uberlândia (TRT-3 / PJe-JT)',
+            parties: 'Fernando Mendes da Silva (Reclamante) vs. TransLog Distribuidora (Reclamada)',
+            notice: 'Intimação para ciência de laudo pericial técnico insalubridade e periculosidade.',
+            movement_text: 'Notificação PJe: Ficam as partes intimadas da juntada do laudo pericial técnico referente às condições de trabalho. Prazo sucessivo de 10 (dez) dias úteis para manifestação sobre as conclusões do perito, a iniciar pelo Reclamante.',
+            action_required: 'Manifestar sobre o Laudo Pericial Técnico',
+            deadline: '10 dias úteis (Vencimento: 26/08/2026)',
+          },
+          {
+            id: 'proc-5',
+            process_number: '5031122-33.2026.8.13.0433',
+            court: '1ª Vara Cível da Comarca de Montes Claros (TJMG)',
+            parties: 'Banco S/A (Exequente) vs. Comercial Silva & Cia Ltda (Executado)',
+            notice: 'Intimação de penhora via SISBAJUD e prazo para embargos à execução.',
+            movement_text: 'Despacho/Decisão: Detalhamento de ordem judicial de bloqueio via SISBAJUD juntado aos autos com indisponibilidade dos ativos financeiros. Fica a parte executada intimada, na pessoa de seu patrono Dr. Alan Pereira (OAB/MG 145105), para ciência da penhora e interposição de Embargos à Execução no prazo de 15 (quinze) dias.',
+            action_required: 'Interpor Embargos à Execução / Impugnação à Penhora',
+            deadline: '15 dias úteis (Vencimento: 04/09/2026)',
           }
         ];
 
