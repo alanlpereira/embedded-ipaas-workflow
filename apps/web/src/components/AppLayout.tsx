@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2 } from 'lucide-react';
+import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2, FileText } from 'lucide-react';
 import { ViewTab } from './Navbar';
 import { Profile } from '@ipaas/shared-types';
 
@@ -24,6 +24,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const navItems = [
     // Módulo Jurídico (Disponível para todos os perfis, inclusive Dr. Rodrigo Moura)
     { id: 'dashboard' as ViewTab, label: 'Portal de Processos', icon: <Scale size={18} />, badge: 'PJe Live', group: 'Módulo Jurídico' },
+    { id: 'process_cards' as ViewTab, label: '🎴 Cards dos Processos', icon: <FileText size={18} style={{ color: '#f59e0b' }} />, badge: 'Cards CNJ', group: 'Módulo Jurídico' },
     { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Gemini 1.5', group: 'Módulo Jurídico' },
     { id: 'clients' as ViewTab, label: 'Clientes & Casos', icon: <Users size={18} />, group: 'Módulo Jurídico' },
 
@@ -72,8 +73,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <Scale size={22} color="#ffffff" />
             </div>
             <div>
-              <h1 style={{ fontSize: '16px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.3px' }}>Advocacia IA</h1>
-              <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700 }}>NexusFlow IPaaS</span>
+              <h1 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.4px' }}>Synapse</h1>
+              <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700 }}>Legal AI & IPaaS</span>
             </div>
           </div>
         </div>
