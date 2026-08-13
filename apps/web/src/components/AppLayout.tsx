@@ -107,9 +107,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* 📌 CABEÇALHO DA LOGOMARCA (SYNAPSE - FIXO NO TOPO COM BOTÃO FECHAR NO MOBILE) */}
         <div style={{ padding: '20px 20px 16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: 'linear-gradient(135deg, #0284c7 0%, #3b82f6 100%)', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 15px rgba(56, 189, 248, 0.4)' }}>
-              <Scale size={22} color="#ffffff" />
-            </div>
+            <img
+              src="/logo-synapse.jpg"
+              alt="Logo Synapse"
+              style={{ height: '36px', width: 'auto', objectFit: 'contain', borderRadius: '8px', filter: 'drop-shadow(0 0 10px rgba(56, 189, 248, 0.4))' }}
+              className="h-9 w-auto"
+            />
             <div>
               <h1 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.4px' }}>Synapse</h1>
               <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700 }}>Legal AI & IPaaS</span>

@@ -112,12 +112,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
         >
           <img
-            src="https://raw.githubusercontent.com/alanlpereira/embedded-ipaas-workflow/main/logo.png"
+            src="/logo-synapse.jpg"
             alt="Synapse Logo"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-            style={{ height: '32px', objectFit: 'contain' }}
+            style={{ height: '32px', width: 'auto', objectFit: 'contain', borderRadius: '6px' }}
+            className="h-8 w-auto"
           />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
