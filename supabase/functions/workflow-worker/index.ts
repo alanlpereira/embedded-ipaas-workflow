@@ -1511,6 +1511,7 @@ ${combinedEmailsText}`;
 
           if (geminiApiKey) {
             try {
+              const pubDate = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
               const promptText = `Você é um assistente de inteligência artificial jurídica de elite.
 Analise detalhadamente o PROCESSO e o TEXTO COMPLETO DA MOVIMENTAÇÃO/INTIMAÇÃO a seguir e elabore um resumo individual limpo, direto e profissional para envio executivo ao cliente:
 
@@ -1523,16 +1524,17 @@ Analise detalhadamente o PROCESSO e o TEXTO COMPLETO DA MOVIMENTAÇÃO/INTIMAÇ�
 
 INSTRUÇÕES OBRIGATÓRIAS:
 1. Trate este processo de forma 100% INDIVIDUAL.
-2. Sintetize obrigatoriamente o texto da movimentação/intimação na seção "📜 *RESUMO DA MOVIMENTAÇÃO:*".
-3. Estruture a resposta com os seguintes campos em destaque:
+2. A data de publicação deste documento é ${pubDate}. Busque por menções a prazos (ex: 'prazo de 5 dias', '15 dias').
+3. Sintetize obrigatoriamente o texto da movimentação/intimação na seção "📜 *RESUMO DA MOVIMENTAÇÃO:*".
+4. Estruture a resposta com os seguintes campos em destaque:
    ⚖️ *PROCESSO CNJ:* [Número do Processo]
    🏛️ *ÓRGÃO JULGADOR:* [Nome do Órgão/Vara]
    👥 *PARTES:* [Autor vs Réu]
    📜 *RESUMO DA MOVIMENTAÇÃO:* [Síntese clara e objetiva do teor do despacho/decisão/intimação]
    ⚠️ *AÇÃO NECESSÁRIA:* [O que precisa ser feito pelo advogado/cliente]
    📅 *PRAZO FATAL:* [Prazo e data limite]
-4. Além dos campos anteriores, retorne o campo 'deadline_iso_date' contendo a data final de vencimento no formato ISO 8601 (YYYY-MM-DDTHH:mm:ssZ). Calcule a data a partir da data de disponibilização da intimação. Se não houver prazo claro, retorne null.
-5. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
+5. Além dos campos anteriores, retorne o campo 'deadline_days' (número inteiro indicando apenas a quantidade de dias do prazo, ex: 15, 5, 10; retorne 0 se não houver prazo) e o campo 'deadline_iso_date' (opcional, formato ISO 8601 YYYY-MM-DDTHH:mm:ssZ).
+6. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
 
               const gResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
                 method: 'POST',
@@ -1554,27 +1556,46 @@ INSTRUÇÕES OBRIGATÓRIAS:
             aiText = `⚖️ *PROCESSO CNJ:* ${proc.process_number || proc.numero_processo}\n🏛️ *ÓRGÃO JULGADOR:* ${proc.court}\n👥 *PARTES:* ${proc.parties}\n📜 *RESUMO DA MOVIMENTAÇÃO:* ${movementSummary}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required}\n📅 *PRAZO FATAL:* ${proc.deadline}`;
           }
 
-          // Extração ou cálculo do deadline_iso_date
+          // Estratégia Híbrida: Extração + Cálculo via Código Deno (Rede de Segurança)
+          let deadlineDays = 0;
           let deadlineIso: string | null = null;
+
+          // 1. Extrair quantidade de dias
+          const daysMatch = aiText.match(/"deadline_days"\s*:\s*(\d+)/i) || aiText.match(/(?:prazo|prazo\s+legal)\s+(?:de\s+)?(\d+)\s+dias/i);
+          if (daysMatch) {
+            deadlineDays = parseInt(daysMatch[1], 10);
+          }
+
+          // 2. Extrair ISO date se retornado pelo Gemini
           const isoMatch = aiText.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/);
           if (isoMatch) {
             deadlineIso = isoMatch[0];
-          } else {
-            const baseDateStr = proc.movement_date || proc.data_disponibilizacao || new Date().toISOString().split('T')[0];
-            let dt: Date = new Date();
-            if (baseDateStr.includes('/')) {
-              const [d, m, y] = baseDateStr.split('/');
-              dt = new Date(`${y}-${m}-${d}T17:00:00Z`);
-            } else if (/^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)) {
-              dt = new Date(`${baseDateStr}T17:00:00Z`);
-            }
-            if (!isNaN(dt.getTime())) {
-              dt.setDate(dt.getDate() + 15);
-              deadlineIso = dt.toISOString();
-            }
           }
 
-          return { ...proc, summary: aiText, deadline_iso_date: deadlineIso };
+          // 3. Cálculo de Rede de Segurança (JavaScript/Deno)
+          if ((!deadlineIso || isNaN(new Date(deadlineIso).getTime())) && deadlineDays > 0) {
+            const dataBaseStr = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
+            let dataBase: Date = new Date();
+            if (dataBaseStr.includes('/')) {
+              const [d, m, y] = dataBaseStr.split('/');
+              dataBase = new Date(`${y}-${m}-${d}T17:00:00Z`);
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(dataBaseStr)) {
+              dataBase = new Date(`${dataBaseStr}T17:00:00Z`);
+            } else {
+              dataBase = new Date(dataBaseStr);
+            }
+            if (isNaN(dataBase.getTime())) dataBase = new Date();
+
+            dataBase.setDate(dataBase.getDate() + deadlineDays);
+            deadlineIso = dataBase.toISOString();
+          }
+
+          return {
+            ...proc,
+            summary: aiText,
+            deadline_days: deadlineDays,
+            deadline_iso_date: deadlineIso
+          };
         }));
 
         const primaryIso = processSummaries.find(p => p.deadline_iso_date)?.deadline_iso_date || null;
