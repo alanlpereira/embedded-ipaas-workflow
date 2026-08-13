@@ -36,7 +36,58 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const [isLoadingMovements, setIsLoadingMovements] = useState(false);
 
   // Lista de Movimentações Ativas dos Processos
-  const [movements, setMovements] = useState<ProcessMovement[]>([]);
+  const [movements, setMovements] = useState<ProcessMovement[]>([
+    {
+      id: 'm-1',
+      process_number: '5001234-88.2026.8.13.0145',
+      court: '2ª Vara Cível da Comarca de Juiz de Fora (TJMG)',
+      parties: 'Carlos Alberto Souza (Autor) vs. EBL Logística S.A. (Réu)',
+      movement_text: 'Despacho/Intimação: Compulsando os autos, verifica-se que a petição inicial preenche os requisitos do art. 319 do CPC. Fica o patrono cadastrado na OAB/MG nº 145105 intimado para CITAR e INTIMAR a parte ré EBL Logística S.A. para apresentar contestação no prazo legal de 15 (quinze) dias úteis (art. 335, CPC), sob pena de revelia.',
+      action_required: 'Apresentar Contestação com Documentos de Defesa',
+      deadline: '15 dias úteis (Vencimento: 02/09/2026)',
+      updated_at: '2026-08-12T08:00:00Z',
+    },
+    {
+      id: 'm-2',
+      process_number: '5009876-12.2026.8.13.0145',
+      court: '1ª Vara de Família e Sucessões de Belo Horizonte (TJMG)',
+      parties: 'Mariana Oliveira Ramos (Requerente) vs. Roberto Carlos Ramos (Requerido)',
+      movement_text: 'Decisão Interlocutória: Tendo em vista que a conciliação restou infrutífera, intime-se o patrono sob a OAB/MG nº 145105 para que, no prazo comum de 5 (cinco) dias úteis, especifique justificadamente as provas que pretendem produzir na instrução processual.',
+      action_required: 'Especificar Provas Documentais e ROL de Testemunhas',
+      deadline: '5 dias úteis (Vencimento: 19/08/2026)',
+      updated_at: '2026-08-12T08:00:00Z',
+    },
+    {
+      id: 'm-3',
+      process_number: '5014321-45.2026.8.13.0024',
+      court: '3ª Vara da Fazenda Pública e Autarquias de Belo Horizonte (TJMG)',
+      parties: 'Construções Gerais Ltda (Autor) vs. Estado de Minas Gerais (Réu)',
+      movement_text: 'Intimação Eletrônica: Fica o advogado constituído na OAB/MG nº 145105 intimado da juntada de contestação e documentos pelo Estado de Minas Gerais, para que apresente Impugnação/Réplica no prazo legal de 15 (quinze) dias úteis, indicando provas suplementares.',
+      action_required: 'Apresentar Impugnação à Contestação (Réplica)',
+      deadline: '15 dias úteis (Vencimento: 03/09/2026)',
+      updated_at: '2026-08-12T08:00:00Z',
+    },
+    {
+      id: 'm-4',
+      process_number: '5028877-90.2026.8.13.0702',
+      court: '2ª Vara do Trabalho de Uberlândia (TRT-3 / PJe-JT)',
+      parties: 'Fernando Mendes da Silva (Reclamante) vs. TransLog Distribuidora (Reclamada)',
+      movement_text: 'Notificação PJe: Fica o advogado habilitado na OAB/MG nº 145105 intimado da juntada do laudo pericial técnico referente às condições de trabalho. Prazo sucessivo de 10 (dez) dias úteis para manifestação sobre as conclusões do perito.',
+      action_required: 'Manifestar sobre o Laudo Pericial Técnico',
+      deadline: '10 dias úteis (Vencimento: 26/08/2026)',
+      updated_at: '2026-08-12T08:00:00Z',
+    },
+    {
+      id: 'm-5',
+      process_number: '5031122-33.2026.8.13.0433',
+      court: '1ª Vara Cível da Comarca de Montes Claros (TJMG)',
+      parties: 'Banco S/A (Exequente) vs. Comercial Silva & Cia Ltda (Executado)',
+      movement_text: 'Despacho/Decisão: Detalhamento de ordem judicial de bloqueio via SISBAJUD juntado aos autos. Fica a parte executada intimada, na pessoa de seu patrono cadastrado na OAB/MG nº 145105, para ciência da penhora e interposição de Embargos à Execução no prazo de 15 (quinze) dias.',
+      action_required: 'Interpor Embargos à Execução / Impugnação à Penhora',
+      deadline: '15 dias úteis (Vencimento: 04/09/2026)',
+      updated_at: '2026-08-12T08:00:00Z',
+    }
+  ]);
 
   // Função principal para carregar as movimentações em tempo real da API PJe CNJ
   const fetchLiveMovements = async (sDate: string, eDate: string) => {
@@ -66,11 +117,6 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     }
     return [];
   };
-
-  // Carregar dados reais ao abrir a tela (computador ou celular)
-  useEffect(() => {
-    fetchLiveMovements(startDate, endDate);
-  }, []);
 
   const handleRunCustomQuery = async () => {
     setIsExecutingQuery(true);
