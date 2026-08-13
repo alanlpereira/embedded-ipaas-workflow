@@ -43,29 +43,60 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const [procAiHistories, setProcAiHistories] = useState<Record<string, Array<{ role: string; text: string }>>>({});
   const [procAiLoading, setProcAiLoading] = useState<Record<string, boolean>>({});
 
-  // Lista de Movimentações Ativas dos Processos
-  const [movements, setMovements] = useState<ProcessMovement[]>([
-    {
-      id: 'm-1',
-      process_number: '5001234-88.2026.8.13.0145',
-      court: '2ª Vara Cível da Comarca de Juiz de Fora (TJMG)',
-      parties: 'Carlos Alberto Souza (Autor) vs. EBL Logística S.A. (Réu)',
-      movement_text: 'Despacho/Intimação: Compulsando os autos, verifica-se que a petição inicial preenche os requisitos do art. 319 do CPC. Fica o patrono cadastrado na OAB/MG nº 145105 intimado para CITAR e INTIMAR a parte ré EBL Logística S.A. para apresentar contestação no prazo legal de 15 (quinze) dias úteis (art. 335, CPC), sob pena de revelia.',
-      action_required: 'Apresentar Contestação com Documentos de Defesa',
-      deadline: '15 dias úteis (Vencimento: 02/09/2026)',
-      updated_at: '2026-08-12T08:00:00Z',
-    },
-    {
-      id: 'm-2',
-      process_number: '5009876-12.2026.8.13.0024',
-      court: '1ª Vara de Família de Belo Horizonte (TJMG)',
-      parties: 'Mariana Oliveira Ramos vs. Roberto Carlos Ramos',
-      movement_text: 'Decisão Interlocutória: Intime-se o patrono sob a OAB/MG nº 145105 para especificação de provas no prazo legal.',
-      action_required: 'Especificar Provas Documentais',
-      deadline: '5 dias úteis (Vencimento: 19/08/2026)',
-      updated_at: '2026-08-12T08:00:00Z',
+  // Chave de persistência individual por OAB no localStorage
+  const oabKey = localStorage.getItem('synapse_advocate_oab') || '145105';
+  const STORAGE_KEY = `synapse_pje_last_search_${oabKey}`;
+
+  // Inicializar estado com a última pesquisa persistida no localStorage
+  const [movements, setMovements] = useState<ProcessMovement[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+          return parsed.items;
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Falha ao restaurar última pesquisa do localStorage:', err);
     }
-  ]);
+    return [
+      {
+        id: 'm-1',
+        process_number: '5001234-88.2026.8.13.0145',
+        court: '2ª Vara Cível da Comarca de Juiz de Fora (TJMG)',
+        parties: 'Carlos Alberto Souza (Autor) vs. EBL Logística S.A. (Réu)',
+        movement_text: 'Despacho/Intimação: Compulsando os autos, verifica-se que a petição inicial preenche os requisitos do art. 319 do CPC. Fica o patrono cadastrado na OAB/MG nº 145105 intimado para CITAR e INTIMAR a parte ré EBL Logística S.A. para apresentar contestação no prazo legal de 15 (quinze) dias úteis (art. 335, CPC), sob pena de revelia.',
+        action_required: 'Apresentar Contestação com Documentos de Defesa',
+        deadline: '15 dias úteis (Vencimento: 02/09/2026)',
+        updated_at: '2026-08-12T08:00:00Z',
+      },
+      {
+        id: 'm-2',
+        process_number: '5009876-12.2026.8.13.0024',
+        court: '1ª Vara de Família de Belo Horizonte (TJMG)',
+        parties: 'Mariana Oliveira Ramos vs. Roberto Carlos Ramos',
+        movement_text: 'Decisão Interlocutória: Intime-se o patrono sob a OAB/MG nº 145105 para especificação de provas no prazo legal.',
+        action_required: 'Especificar Provas Documentais',
+        deadline: '5 dias úteis (Vencimento: 19/08/2026)',
+        updated_at: '2026-08-12T08:00:00Z',
+      }
+    ];
+  });
+
+  const saveMovementsToStorage = (items: ProcessMovement[]) => {
+    setMovements(items);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        items,
+        startDate,
+        endDate,
+        timestamp: new Date().toISOString()
+      }));
+    } catch (err) {
+      console.warn('⚠️ Erro ao persistir movimentações no localStorage:', err);
+    }
+  };
 
   // Função principal para carregar as movimentações em tempo real da API PJe CNJ
   const fetchLiveMovements = async (sDate: string, eDate: string) => {
@@ -85,7 +116,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
       });
 
       if (!qErr && qData && Array.isArray(qData.items)) {
-        setMovements(qData.items);
+        saveMovementsToStorage(qData.items);
         return qData.items;
       }
     } catch (err) {

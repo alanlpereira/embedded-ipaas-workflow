@@ -1246,6 +1246,19 @@ function WorkflowAppContent() {
         />
       )}
 
+      {currentTab === 'dashboard_flows' && (
+        <DashboardPage
+          currentProfile={currentProfile!}
+          flowcharts={flowcharts}
+          onOpenFlowchart={(flowchart) => {
+            setActiveFlowchart(flowchart);
+            setCurrentTab('editor');
+          }}
+          onCreateFlowchart={handleCreateFlowchart}
+          onDeleteFlowchart={handleDeleteFlowchart}
+        />
+      )}
+
       {currentTab === 'copilot' && (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           <LegalCopilotChat />
