@@ -303,42 +303,8 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
             </div>
           </div>
 
-          <div>
-            <button
-              onClick={handleRunCustomQuery}
-              disabled={isExecutingQuery || isRunningNow}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '11px 20px',
-                background: 'var(--accent-blue)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
-                opacity: (isExecutingQuery || isRunningNow) ? 0.7 : 1,
-              }}
-            >
-              {isExecutingQuery || isRunningNow ? (
-                <>
-                  <RefreshCw size={16} className="animate-spin" /> Executando Consulta...
-                </>
-              ) : (
-                <>
-                  <Play size={16} /> Executar Consulta Avulsa Agora
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Campo Dedicado de Instrução / Prompt para a IA (Gemini) */}
-          <div style={{ gridColumn: '1 / -1', marginTop: '8px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
+          {/* Campo Dedicado de Instrução / Prompt para a IA (Gemini) - Injetado ANTES do botão */}
+          <div style={{ gridColumn: '1 / -1', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--accent-blue)', marginBottom: '6px' }}>
               <Sparkles size={15} style={{ color: '#38bdf8' }} />
               🤖 Campo de Instrução / Prompt Personalizado para a IA (Gemini)
@@ -362,6 +328,40 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
                 lineHeight: '1.5'
               }}
             />
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', marginTop: '8px' }}>
+            <button
+              onClick={handleRunCustomQuery}
+              disabled={isExecutingQuery || isRunningNow}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '12px 20px',
+                background: 'var(--accent-blue)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
+                opacity: (isExecutingQuery || isRunningNow) ? 0.7 : 1,
+              }}
+            >
+              {isExecutingQuery || isRunningNow ? (
+                <>
+                  <RefreshCw size={16} className="animate-spin" /> Executando Consulta...
+                </>
+              ) : (
+                <>
+                  <Play size={16} /> Executar Consulta Avulsa Agora
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>

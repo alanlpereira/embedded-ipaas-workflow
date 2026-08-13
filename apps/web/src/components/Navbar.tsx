@@ -189,7 +189,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           }}
         >
           <Sparkles size={15} style={{ color: '#38bdf8' }} />
-          Legal Copilot
+          ⚖️ Copilot (IA)
         </button>
 
         <button
