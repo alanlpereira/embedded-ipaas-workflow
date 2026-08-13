@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, User, Paperclip, Send, Copy, Download, Trash2, Check, FileText, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { LegalAiService } from '../services/LegalAiService';
 
 export interface ChatMessage {
   id: string;
@@ -124,7 +125,7 @@ export const LegalCopilotChat: React.FC = () => {
     setIsSending(true);
 
     try {
-      // Montar histórico para a Edge Function
+      // Montar histórico para a IA
       const history = messages
         .filter(m => m.id !== 'welcome-1')
         .map(m => ({
@@ -132,24 +133,18 @@ export const LegalCopilotChat: React.FC = () => {
           text: m.text
         }));
 
-      console.log('📡 Invocando Edge Function legal-copilot...');
+      console.log('📡 Invocando LegalAiService (Tripla Camada de Resiliência)...');
 
-      const { data, error } = await supabase.functions.invoke('legal-copilot', {
-        body: {
-          prompt: trimmedPrompt,
-          history,
-          fileUrls: currentFileUrls
-        }
+      const aiResponse = await LegalAiService.generateLegalContent({
+        prompt: trimmedPrompt,
+        history,
+        fileUrls: currentFileUrls
       });
-
-      if (error) throw new Error(error.message || 'Erro ao invocar a Edge Function legal-copilot.');
-
-      const botReply = data?.reply || 'Desculpe, não foi possível obter o parecer jurídico. Verifique a chave de API.';
 
       const botMsg: ChatMessage = {
         id: `bot-${Date.now()}`,
         role: 'model',
-        text: botReply,
+        text: aiResponse.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 

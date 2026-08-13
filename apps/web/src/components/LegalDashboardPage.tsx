@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Scale, Calendar, Play, Clock, Search, Send, FileText, AlertCircle, CheckCircle, ShieldCheck, ChevronRight, RefreshCw, MessageSquare, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { LegalAiService } from '../services/LegalAiService';
 
 export interface ProcessMovement {
   id: string;
@@ -189,19 +190,14 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     try {
       const processContextPrompt = `[CONTEXTO DO PROCESSO CNJ ${proc.process_number}]:\n• Órgão Julgador: ${proc.court}\n• Partes: ${proc.parties}\n• Texto da Movimentação/Intimação: ${proc.movement_text}\n• Ação Necessária Prévia: ${proc.action_required}\n• Prazo Fatal: ${proc.deadline}\n\n[PERGUNTA/INSTRUÇÃO DO ADVOGADO]: ${qText}`;
 
-      const { data, error } = await supabase.functions.invoke('legal-copilot', {
-        body: {
-          prompt: processContextPrompt,
-          history: currentHistory.map(h => ({ role: h.role, text: h.text }))
-        }
+      const aiResponse = await LegalAiService.generateLegalContent({
+        prompt: processContextPrompt,
+        history: currentHistory.map(h => ({ role: h.role === 'user' ? 'user' : 'model', text: h.text }))
       });
 
-      if (error) throw new Error(error.message || 'Erro ao invocar a Edge Function legal-copilot.');
-
-      const reply = data?.reply || 'Não foi possível obter resposta da IA para este processo.';
       setProcAiHistories(prev => ({
         ...prev,
-        [proc.id]: [...updatedHistory, { role: 'model', text: reply }]
+        [proc.id]: [...updatedHistory, { role: 'model', text: aiResponse.reply }]
       }));
     } catch (err: any) {
       setProcAiHistories(prev => ({
