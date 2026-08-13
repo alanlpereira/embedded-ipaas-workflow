@@ -25,6 +25,7 @@ import { MagicDemoPage } from './components/MagicDemoPage';
 import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
 import { UserSettingsPage } from './components/UserSettingsPage';
 import { LegalDashboardPage } from './components/LegalDashboardPage';
+import { LegalCopilotChat } from './components/LegalCopilotChat';
 import { ClientsPage } from './components/ClientsPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
@@ -1258,6 +1259,12 @@ function WorkflowAppContent() {
           onRunNow={handleRunNow}
           isRunningNow={isRunningNow}
         />
+      )}
+
+      {currentTab === 'copilot' && (
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <LegalCopilotChat />
+        </div>
       )}
 
       {currentTab === 'clients' && (

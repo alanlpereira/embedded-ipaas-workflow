@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { CollaboratorInfo } from '../collaboration/useYjsCollaboration';
 import { EditionBadge } from './EditionBadge';
 
-export type ViewTab = 'dashboard' | 'clients' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions';
+export type ViewTab = 'dashboard' | 'copilot' | 'clients' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions';
 
 interface NavbarProps {
   currentProfile: Profile | null;
@@ -168,6 +168,28 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <LayoutDashboard size={15} />
           Consultas PJe
+        </button>
+
+        <button
+          onClick={() => onNavigate('copilot')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            background: currentTab === 'copilot' ? 'var(--bg-tertiary)' : 'transparent',
+            color: currentTab === 'copilot' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+            border: currentTab === 'copilot' ? '1px solid var(--border-color)' : '1px solid transparent',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Sparkles size={15} style={{ color: '#38bdf8' }} />
+          Legal Copilot
         </button>
 
         <button
