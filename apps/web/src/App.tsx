@@ -1239,7 +1239,7 @@ function WorkflowAppContent() {
       )}
 
       {/* Renderização condicional de abas */}
-      {(currentTab === 'dashboard' || currentTab === 'process_cards') && (
+      {currentTab === 'dashboard' && (
         <LegalDashboardPage
           onRunNow={handleRunNow}
           isRunningNow={isRunningNow}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2 } from 'lucide-react';
 import { ViewTab } from './Navbar';
 import { Profile } from '@ipaas/shared-types';
 
@@ -18,13 +18,26 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onLogout,
   children
 }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileScreen, setIsMobileScreen] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobileScreen(mobile);
+      if (!mobile) setIsMobileMenuOpen(false);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const isMasterOrAdmin = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
   const isMaster = currentProfile?.role === 'Master';
 
   const navItems = [
     // Módulo Jurídico (Disponível para todos os perfis, inclusive Dr. Rodrigo Moura)
     { id: 'dashboard' as ViewTab, label: 'Portal de Processos', icon: <Scale size={18} />, badge: 'PJe Live', group: 'Módulo Jurídico' },
-    { id: 'process_cards' as ViewTab, label: '🎴 Cards dos Processos', icon: <FileText size={18} style={{ color: '#f59e0b' }} />, badge: 'Cards CNJ', group: 'Módulo Jurídico' },
     { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Gemini 1.5', group: 'Módulo Jurídico' },
     { id: 'clients' as ViewTab, label: 'Clientes & Casos', icon: <Users size={18} />, group: 'Módulo Jurídico' },
 
@@ -51,23 +64,48 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const advocateName = currentProfile?.full_name || 'Dr. Rodrigo Moura Rodrigues';
   const advocateOab = 'OAB/MG 145105';
 
+  const handleSelectNav = (tab: ViewTab) => {
+    onNavigate(tab);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', background: '#080c14', color: '#f8fafc', overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', background: '#080c14', color: '#f8fafc', overflow: 'hidden', fontFamily: 'Inter, sans-serif', position: 'relative' }}>
       
-      {/* SIDEBAR LATERAL COM CABEÇALHO E RODAPÉ FIXOS E ÁREA DE NAVEGAÇÃO ROLÁVEL */}
+      {/* 📱 BACKDROP/OVERLAY ESCURO PARA CELULAR (CLICAR EM QUALQUER PONTO FECHA O MENU) */}
+      {isMobileScreen && isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 999,
+            animation: 'fadeIn 0.2s ease-in-out',
+          }}
+        />
+      )}
+
+      {/* 📌 SIDEBAR LATERAL (DESKTOP: FIXA / MOBILE: DRAWER COM OVERLAY COMPLETO) */}
       <aside style={{
-        width: '260px',
+        width: '280px',
         height: '100%',
-        background: 'rgba(15, 23, 42, 0.95)',
+        background: '#0f172a',
         borderRight: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
-        zIndex: 50,
-        boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
+        zIndex: 1000,
+        boxShadow: '4px 0 24px rgba(0,0,0,0.5)',
+        position: isMobileScreen ? 'fixed' : 'relative',
+        top: 0,
+        left: 0,
+        transform: (isMobileScreen && !isMobileMenuOpen) ? 'translateX(-100%)' : 'translateX(0)',
+        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-        {/* 📌 CABEÇALHO DA LOGOMARCA (FIXO NO TOPO - NUNCA ESCONDE) */}
-        <div style={{ padding: '20px 20px 16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', flexShrink: 0 }}>
+        {/* 📌 CABEÇALHO DA LOGOMARCA (SYNAPSE - FIXO NO TOPO COM BOTÃO FECHAR NO MOBILE) */}
+        <div style={{ padding: '20px 20px 16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ background: 'linear-gradient(135deg, #0284c7 0%, #3b82f6 100%)', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 15px rgba(56, 189, 248, 0.4)' }}>
               <Scale size={22} color="#ffffff" />
@@ -77,9 +115,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700 }}>Legal AI & IPaaS</span>
             </div>
           </div>
+
+          {/* Botão X para fechar no mobile */}
+          {isMobileScreen && (
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{ background: 'rgba(255, 255, 255, 0.08)', border: 'none', color: '#ffffff', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
-        {/* 📜 ÁREA DE ROLAGEM DE MENUS (COM OVERFLOW-Y AUTO E SCROLLBAR ESTILIZADO) */}
+        {/* 📜 ÁREA DE ROLAGEM DE MENUS DA SIDEBAR */}
         <div
           className="no-scrollbar"
           style={{
@@ -102,13 +150,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 return (
                   <button
                     key={item.id}
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => handleSelectNav(item.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       width: '100%',
-                      padding: '10px 12px',
+                      padding: '12px 14px',
                       borderRadius: '10px',
                       background: isActive ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)' : 'transparent',
                       color: isActive ? '#38bdf8' : '#94a3b8',
@@ -136,8 +184,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           ))}
         </div>
 
-        {/* 📌 RODAPÉ DO PERFIL DO ADVOGADO (FIXO EMBAIXO - NUNCA CORTA) */}
-        <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', flexShrink: 0, background: 'rgba(15, 23, 42, 0.95)' }}>
+        {/* 📌 RODAPÉ FIXO DO ADVOGADO */}
+        <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', flexShrink: 0, background: '#0f172a' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', background: 'rgba(30, 41, 59, 0.6)', borderRadius: '10px' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: '13px' }}>
               RM
@@ -160,12 +208,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       </aside>
 
       {/* ÁREA PRINCIPAL DA APLICAÇÃO */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', width: isMobileScreen ? '100vw' : 'calc(100vw - 280px)' }}>
         
-        {/* Header Superior Limpo */}
+        {/* Header Superior Responsivo com Botão Hambúrguer no Celular */}
         <header style={{
           height: '60px',
-          padding: '0 24px',
+          padding: '0 16px',
           background: 'rgba(15, 23, 42, 0.8)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
           display: 'flex',
@@ -173,32 +221,48 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           justifyContent: 'space-between',
           flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', margin: 0 }}>
-              {currentTab === 'dashboard' && '🏛️ Portal de Intimações & Processos CNJ'}
-              {currentTab === 'copilot' && '⚖️ Legal Copilot (Assistente de Redação IA)'}
-              {currentTab === 'clients' && '👥 Gestão de Clientes & Casos'}
-              {currentTab === 'dashboard_flows' && '📊 Dashboard de Fluxos e Execuções'}
-              {currentTab === 'editor' && '🔄 Editor de Fluxos e Automações'}
-              {currentTab === 'executions' && '⚡ Painel de Histórico de Execuções'}
-              {currentTab === 'audit' && '🤖 Auditoria & Otimização com IA'}
-              {currentTab === 'templates' && '📄 Galeria de Modelos Jurídicos'}
-              {currentTab === 'integrations' && '🔑 Cofre de Credenciais & Tokens'}
-              {currentTab === 'masterAdmin' && '👑 Painel de Administração Master'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Botão Hambúrguer visível no Celular para Abrir a Sidebar */}
+            {isMobileScreen && (
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                style={{
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  color: '#38bdf8',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Menu size={20} />
+              </button>
+            )}
+
+            <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#ffffff', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {currentTab === 'dashboard' && '🏛️ Portal de Intimações & Processos'}
+              {currentTab === 'copilot' && '⚖️ Legal Copilot (IA)'}
+              {currentTab === 'clients' && '👥 Gestão de Clientes'}
+              {currentTab === 'dashboard_flows' && '📊 Dashboard de Fluxos'}
+              {currentTab === 'editor' && '🔄 Editor de Fluxos'}
+              {currentTab === 'executions' && '⚡ Histórico de Execuções'}
+              {currentTab === 'audit' && '🤖 Auditoria IA'}
+              {currentTab === 'templates' && '📄 Modelos Jurídicos'}
+              {currentTab === 'integrations' && '🔑 Cofre de Credenciais'}
+              {currentTab === 'masterAdmin' && '👑 Admin Master'}
               {currentTab === 'tenantAdmin' && '🏢 Gestão da Organização'}
-              {currentTab === 'settings' && '⚙️ Configurações do Sistema'}
+              {currentTab === 'settings' && '⚙️ Configurações'}
             </h2>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '4px 10px', borderRadius: '20px', fontWeight: 700 }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-              PJe Comunica Online
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '4px 8px', borderRadius: '16px', fontWeight: 700 }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+              PJe Online
             </div>
-
-            <button style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>
-              <Bell size={16} />
-            </button>
           </div>
         </header>
 
