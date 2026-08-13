@@ -54,6 +54,47 @@ function generateICS(processNumber: string, action: string, deadlineIso: string)
   ].join('\r\n');
 }
 
+// FORMATADOR DE DATA COMPACTA (YYYYMMDDTHHMMSSZ) PARA URLS DE CALENDÁRIO
+function formatDateCompact(d: Date): string {
+  if (!d || isNaN(d.getTime())) return '';
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = d.getUTCFullYear();
+  const month = pad(d.getUTCMonth() + 1);
+  const day = pad(d.getUTCDate());
+  const hours = pad(d.getUTCHours() || 17);
+  const minutes = pad(d.getUTCMinutes());
+  const seconds = pad(d.getUTCSeconds());
+  return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+}
+
+// GERADOR DE URL DINÂMICA PARA O GOOGLE CALENDAR
+function buildGoogleCalendarUrl(processNumber: string, actionText: string, dataBaseStr: string, deadlineIsoStr: string): string {
+  if (!deadlineIsoStr) return '';
+  const dFinal = new Date(deadlineIsoStr);
+  if (isNaN(dFinal.getTime())) return '';
+
+  let dStart: Date = new Date();
+  if (dataBaseStr) {
+    if (dataBaseStr.includes('/')) {
+      const [d, m, y] = dataBaseStr.split('/');
+      dStart = new Date(`${y}-${m}-${d}T17:00:00Z`);
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(dataBaseStr)) {
+      dStart = new Date(`${dataBaseStr}T17:00:00Z`);
+    } else {
+      dStart = new Date(dataBaseStr);
+    }
+  }
+  if (isNaN(dStart.getTime())) dStart = new Date();
+
+  const startCompact = formatDateCompact(dStart);
+  const endCompact = formatDateCompact(dFinal);
+
+  const title = `⚖️ [Prazo Fatal PJe] Processo ${processNumber || ''}`;
+  const details = `Ação Necessária: ${actionText || 'Verificar intimação no PJe'}.\nProcesso: ${processNumber}.`;
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startCompact}/${endCompact}&details=${encodeURIComponent(details)}&location=${encodeURIComponent('PJe CNJ / Tribunal de Justiça')}`;
+}
+
 serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -942,11 +983,23 @@ ${combinedEmailsText}`;
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl || settings.url;
 
+        let calendarButtonHtml = '';
         let emailAttachments: any[] = [];
         const primaryIsoDate = contextData.deadline_iso_date || contextData.target_process?.deadline_iso_date;
-        if (primaryIsoDate) {
+        if (primaryIsoDate && !isNaN(new Date(primaryIsoDate).getTime())) {
           const procNum = contextData.target_process?.process_number || contextData.process_number || 'PJe';
           const procAction = contextData.target_process?.action_required || contextData.action_required || 'Manifestação legal nos autos';
+          const dataBaseStr = contextData.target_process?.data_disponibilizacao || contextData.data_disponibilizacao || new Date().toISOString();
+          const gCalUrl = buildGoogleCalendarUrl(procNum, procAction, dataBaseStr, primaryIsoDate);
+          if (gCalUrl) {
+            calendarButtonHtml = `
+              <div style="margin: 20px 0; text-align: center;">
+                <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 12px 22px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
+                  📅 Adicionar ao Google Agenda
+                </a>
+              </div>
+            `;
+          }
           const icsStr = generateICS(procNum, procAction, primaryIsoDate);
           if (icsStr) {
             emailAttachments.push({
@@ -964,7 +1017,7 @@ ${combinedEmailsText}`;
               reply_to: 'corporativo@alp-nexus.com',
               to: finalRecipientArray,
               subject: subject,
-              html: `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h2>${subject}</h2><p>${bodyText}</p><hr/><small>ID Execução: ${executionId}</small></div>`
+              html: `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h2>${subject}</h2><p>${bodyText}</p>${calendarButtonHtml}<hr/><small>ID Execução: ${executionId}</small></div>`
             };
             if (emailAttachments.length > 0) emailBodyObj.attachments = emailAttachments;
 
@@ -1743,6 +1796,23 @@ Seja cirúrgico, direto e hiper-específico.`;
 
           const procSummaryText = proc.summary || `⚖️ Processo CNJ: ${proc.process_number}\n🏛️ Órgão: ${proc.court}\n👥 Partes: ${proc.parties}\n⚠️ Prazo: ${proc.deadline}`;
 
+          let calendarButtonHtml = '';
+          const procDeadlineIso = proc.deadline_iso_date || contextData.deadline_iso_date;
+          if (procDeadlineIso && !isNaN(new Date(procDeadlineIso).getTime())) {
+            const dataBaseStr = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
+            const procAction = proc.action_required || 'Manifestação legal nos autos';
+            const gCalUrl = buildGoogleCalendarUrl(proc.process_number || '', procAction, dataBaseStr, procDeadlineIso);
+            if (gCalUrl) {
+              calendarButtonHtml = `
+                <div style="margin-top: 12px; margin-bottom: 16px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                  <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);">
+                    📅 Adicionar ao Google Agenda
+                  </a>
+                </div>
+              `;
+            }
+          }
+
           processCardsHtmlList.push(`
             <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
               <div style="background: #0284c7; color: #ffffff; display: inline-block; padding: 4px 12px; border-radius: 6px; font-weight: 800; font-size: 13px; margin-bottom: 12px;">
@@ -1750,6 +1820,8 @@ Seja cirúrgico, direto e hiper-específico.`;
               </div>
               <div style="background: rgba(255,255,255,0.05); color: #f8fafc; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-bottom: 16px; border-left: 4px solid #0284c7;">${procSummaryText}</div>
               
+              ${calendarButtonHtml}
+
               <div style="font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">
                 ❓ Enviar a intimação deste processo ao cliente via WhatsApp?
               </div>
