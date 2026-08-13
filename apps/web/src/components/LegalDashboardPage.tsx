@@ -11,6 +11,8 @@ export interface ProcessMovement {
   action_required: string;
   deadline: string;
   updated_at: string;
+  movement_date?: string;
+  data_disponibilizacao?: string;
 }
 
 interface LegalDashboardPageProps {
@@ -341,7 +343,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                <Clock size={14} /> Atualizado às 08:00 AM
+                <Clock size={14} /> Data da Movimentação: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{proc.movement_date || proc.data_disponibilizacao || proc.updated_at || 'Data recente'}</strong>
               </div>
             </div>
 
