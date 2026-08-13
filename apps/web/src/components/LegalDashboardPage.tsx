@@ -37,6 +37,12 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const [isLoadingMovements, setIsLoadingMovements] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
 
+  // Estados da Caixa de Diálogo da IA por Processo
+  const [activeAiDialogId, setActiveAiDialogId] = useState<string | null>(null);
+  const [procAiQuestions, setProcAiQuestions] = useState<Record<string, string>>({});
+  const [procAiHistories, setProcAiHistories] = useState<Record<string, Array<{ role: string; text: string }>>>({});
+  const [procAiLoading, setProcAiLoading] = useState<Record<string, boolean>>({});
+
   // Lista de Movimentações Ativas dos Processos
   const [movements, setMovements] = useState<ProcessMovement[]>([
     {
@@ -136,6 +142,44 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     );
     window.open(`https://wa.me/?text=${waText}`, '_blank');
     showToast(`📱 Resumo do processo ${proc.process_number} enviado para o WhatsApp!`);
+  };
+
+  const handleAskProcessAi = async (proc: ProcessMovement, customQuestion?: string) => {
+    const qText = customQuestion || procAiQuestions[proc.id]?.trim();
+    if (!qText) return;
+
+    setProcAiLoading(prev => ({ ...prev, [proc.id]: true }));
+
+    const currentHistory = procAiHistories[proc.id] || [];
+    const updatedHistory = [...currentHistory, { role: 'user', text: qText }];
+    setProcAiHistories(prev => ({ ...prev, [proc.id]: updatedHistory }));
+    setProcAiQuestions(prev => ({ ...prev, [proc.id]: '' }));
+
+    try {
+      const processContextPrompt = `[CONTEXTO DO PROCESSO CNJ ${proc.process_number}]:\n• Órgão Julgador: ${proc.court}\n• Partes: ${proc.parties}\n• Texto da Movimentação/Intimação: ${proc.movement_text}\n• Ação Necessária Prévia: ${proc.action_required}\n• Prazo Fatal: ${proc.deadline}\n\n[PERGUNTA/INSTRUÇÃO DO ADVOGADO]: ${qText}`;
+
+      const { data, error } = await supabase.functions.invoke('legal-copilot', {
+        body: {
+          prompt: processContextPrompt,
+          history: currentHistory.map(h => ({ role: h.role, text: h.text }))
+        }
+      });
+
+      if (error) throw new Error(error.message || 'Erro ao invocar a Edge Function legal-copilot.');
+
+      const reply = data?.reply || 'Não foi possível obter resposta da IA para este processo.';
+      setProcAiHistories(prev => ({
+        ...prev,
+        [proc.id]: [...updatedHistory, { role: 'model', text: reply }]
+      }));
+    } catch (err: any) {
+      setProcAiHistories(prev => ({
+        ...prev,
+        [proc.id]: [...updatedHistory, { role: 'model', text: `⚠️ Erro de conexão com a IA: ${err.message}` }]
+      }));
+    } finally {
+      setProcAiLoading(prev => ({ ...prev, [proc.id]: false }));
+    }
   };
 
   const showToast = (msg: string) => {
@@ -508,8 +552,145 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
                 >
                   <Send size={14} /> Enviar no WhatsApp do Cliente
                 </button>
+
+                <button
+                  onClick={() => setActiveAiDialogId(activeAiDialogId === proc.id ? null : proc.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    background: activeAiDialogId === proc.id ? '#0284c7' : 'rgba(56, 189, 248, 0.15)',
+                    color: activeAiDialogId === proc.id ? '#ffffff' : '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(56, 189, 248, 0.3)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <MessageSquare size={14} /> {activeAiDialogId === proc.id ? 'Fechar Diálogo IA' : '🤖 Caixa de Diálogo da IA'}
+                </button>
               </div>
             </div>
+
+            {/* Caixa de Diálogo Interativa da IA para ESTE Processo */}
+            {activeAiDialogId === proc.id && (
+              <div style={{
+                marginTop: '12px',
+                padding: '16px',
+                background: 'rgba(15, 23, 42, 0.85)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: '12px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                animation: 'fadeIn 0.2s ease-in-out'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Sparkles size={16} style={{ color: '#38bdf8' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
+                      Caixa de Diálogo da IA — Processo {proc.process_number}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                    Gemini 1.5 Pro Ativo
+                  </span>
+                </div>
+
+                {/* Sugestões Rápidas de Pergunta para este processo */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  <button
+                    onClick={() => handleAskProcessAi(proc, 'Elabore uma síntese executiva da tese defensiva recomendada para esta intimação.')}
+                    style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#38bdf8', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    📜 Síntese Defensiva
+                  </button>
+                  <button
+                    onClick={() => handleAskProcessAi(proc, 'Quais são os principais riscos processuais e prazos fatais envolvidos nesta decisão?')}
+                    style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#f59e0b', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    ⚠️ Analisar Riscos
+                  </button>
+                  <button
+                    onClick={() => handleAskProcessAi(proc, 'Redija uma minuta de petição simples para manifestação neste processo.')}
+                    style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    📑 Minuta de Petição
+                  </button>
+                </div>
+
+                {/* Histórico de Conversas do Processo */}
+                {procAiHistories[proc.id] && procAiHistories[proc.id].length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto', marginBottom: '12px', paddingRight: '4px' }}>
+                    {procAiHistories[proc.id].map((hMsg, hIdx) => (
+                      <div key={hIdx} style={{
+                        alignSelf: hMsg.role === 'user' ? 'flex-end' : 'flex-start',
+                        background: hMsg.role === 'user' ? 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)' : 'rgba(30, 41, 59, 0.9)',
+                        color: '#ffffff',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        fontSize: '13px',
+                        maxWidth: '90%',
+                        whiteSpace: 'pre-wrap',
+                        border: hMsg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        {hMsg.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Status de Carregando */}
+                {procAiLoading[proc.id] && (
+                  <div style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 600, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <RefreshCw size={14} className="animate-spin" /> Analisando o processo via Gemini 1.5 Pro...
+                  </div>
+                )}
+
+                {/* Barra de Digitação */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={procAiQuestions[proc.id] || ''}
+                    onChange={(e) => setProcAiQuestions(prev => ({ ...prev, [proc.id]: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAskProcessAi(proc); }}
+                    placeholder="Digite sua dúvida ou instrução para a IA referente a este processo..."
+                    style={{
+                      flex: 1,
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: '8px',
+                      color: '#ffffff',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={() => handleAskProcessAi(proc)}
+                    disabled={procAiLoading[proc.id] || !procAiQuestions[proc.id]?.trim()}
+                    style={{
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '10px 16px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>Perguntar</span>
+                    <Send size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
