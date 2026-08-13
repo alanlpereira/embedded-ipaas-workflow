@@ -3,6 +3,7 @@ import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, L
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
+import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
 import { getApiUrl } from '../lib/api';
 
 interface MasterAdminPageProps {
@@ -373,7 +374,12 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
         </form>
       </div>
 
-      {/* Seção 2: Tabela de Organizações */}
+      {/* Seção 2: Dashboard de Monitoramento de IA & Custos vs Google Ultra */}
+      <div style={{ marginBottom: '28px' }}>
+        <AiAnalyticsDashboard />
+      </div>
+
+      {/* Seção 3: Tabela de Organizações */}
       <div style={cardStyle}>
         <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
           Organizações Cadastradas ({orgs.length})

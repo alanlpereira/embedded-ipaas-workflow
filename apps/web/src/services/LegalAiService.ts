@@ -23,6 +23,19 @@ export interface LegalAiResponse {
   error?: string;
 }
 
+export interface AiUsageLogItem {
+  id: string;
+  user_email: string;
+  user_name: string;
+  prompt_preview: string;
+  model_used: string;
+  provider_used: string;
+  tokens_consumed: number;
+  estimated_cost_usd: number;
+  estimated_cost_brl: number;
+  timestamp: string;
+}
+
 const DEFAULT_SYSTEM_INSTRUCTION = `Você é um Advogado Sênior, Parecerista e Especialista em Direito Processual Civil e Penal Brasileiro. Sua função é redigir peças processuais (Contestações, Recursos, Petições Iniciais, Réplicas, Agravos e Pareceres) com base nas instruções e documentos fornecidos.
 
 REGRAS OBRIGATÓRIAS:
@@ -65,11 +78,12 @@ export class LegalAiService {
 
       if (!error && data?.reply && data?.success !== false) {
         console.log('✅ [LegalAiService] Sucesso na Camada 1 (Edge Function Supabase)!');
+        LegalAiService.logAiUsage(prompt, data.reply, data.modelUsed || 'gemini-2.0-flash', 'edge_function');
         return {
           success: true,
           reply: data.reply,
           providerUsed: 'edge_function',
-          modelUsed: data.modelUsed || 'gemini-edge',
+          modelUsed: data.modelUsed || 'gemini-2.0-flash',
         };
       }
 
@@ -140,6 +154,7 @@ export class LegalAiService {
             const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (replyText && replyText.trim().length > 0) {
               console.log(`✅ [LegalAiService] Sucesso na Camada 2 (Modelo Direto: ${modelName})!`);
+              LegalAiService.logAiUsage(prompt, replyText, modelName, 'gemini_direct');
               return {
                 success: true,
                 reply: replyText,
@@ -162,6 +177,7 @@ export class LegalAiService {
     // ------------------------------------------------------------------------
     console.log('🛡️ [LegalAiService - Camada 3] Ativando Motor de Minuta Jurídica Estruturada Local...');
     const emergencyReply = LegalAiService.generateEmergencyDraft(prompt, fileUrls);
+    LegalAiService.logAiUsage(prompt, emergencyReply, 'synapse-legal-local-v1', 'emergency_fallback');
 
     return {
       success: true,
@@ -169,6 +185,52 @@ export class LegalAiService {
       providerUsed: 'emergency_fallback',
       modelUsed: 'synapse-legal-local-v1',
     };
+  }
+
+  /**
+   * Registra a utilização de IA por usuário para monitoramento de custos vs Google Ultra
+   */
+  private static logAiUsage(prompt: string, reply: string, modelUsed: string, providerUsed: string) {
+    try {
+      let userEmail = 'rodrigo.moura@alp-nexus.com';
+      let userName = 'Dr. Rodrigo Moura Rodrigues';
+
+      const activeSession = localStorage.getItem('synapse_active_session');
+      if (activeSession) {
+        const parsed = JSON.parse(activeSession);
+        if (parsed.email) userEmail = parsed.email;
+        if (parsed.full_name) userName = parsed.full_name;
+      }
+
+      const promptTokens = Math.ceil((prompt || '').length / 4);
+      const replyTokens = Math.ceil((reply || '').length / 4);
+      const totalTokens = promptTokens + replyTokens;
+
+      const isPro = modelUsed.includes('pro');
+      const costPerMillionUsd = isPro ? 1.25 : 0.075;
+      const costUsd = (totalTokens / 1000000) * costPerMillionUsd;
+      const costBrl = costUsd * 5.5;
+
+      const logEntry: AiUsageLogItem = {
+        id: `ai-log-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        user_email: userEmail,
+        user_name: userName,
+        prompt_preview: prompt ? prompt.substring(0, 90) + (prompt.length > 90 ? '...' : '') : 'Análise de Intimação PJe',
+        model_used: modelUsed,
+        provider_used: providerUsed,
+        tokens_consumed: totalTokens,
+        estimated_cost_usd: Number(costUsd.toFixed(6)),
+        estimated_cost_brl: Number(costBrl.toFixed(4)),
+        timestamp: new Date().toISOString(),
+      };
+
+      const existingLogsStr = localStorage.getItem('synapse_ai_usage_logs');
+      const existingLogs: AiUsageLogItem[] = existingLogsStr ? JSON.parse(existingLogsStr) : [];
+      existingLogs.unshift(logEntry);
+      localStorage.setItem('synapse_ai_usage_logs', JSON.stringify(existingLogs.slice(0, 200)));
+    } catch (e) {
+      console.warn('⚠️ Erro ao registrar log de uso da IA:', e);
+    }
   }
 
   /**

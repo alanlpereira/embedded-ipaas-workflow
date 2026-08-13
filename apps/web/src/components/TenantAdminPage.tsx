@@ -4,6 +4,7 @@ import { Profile, PlanTier } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { EditionBadge } from './EditionBadge';
+import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
 
 interface TenantAdminPageProps {
   currentProfile: Profile | null;
@@ -300,17 +301,7 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
       )}
 
       {activeTab === 'usage' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Consumo de Tokens IA</h3>
-            <div style={{ fontSize: '28px', fontWeight: 900, color: '#38bdf8', marginBottom: '8px' }}>
-              {currentTokensUsed.toLocaleString('pt-BR')} / {currentLimit.toLocaleString('pt-BR')}
-            </div>
-            <div style={{ width: '100%', height: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ width: `${usagePercent}%`, height: '100%', background: 'linear-gradient(90deg, #38bdf8, #3b82f6)' }}></div>
-            </div>
-          </div>
-        </div>
+        <AiAnalyticsDashboard />
       )}
 
       {/* Modal Convidar */}
