@@ -5,6 +5,55 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 
+// GERADOR DE CONVITES DE CALENDÁRIO AGNÓSTICOS (.ICS - RFC 5545)
+function generateICS(processNumber: string, action: string, deadlineIso: string): string {
+  if (!deadlineIso) return '';
+  const dt = new Date(deadlineIso);
+  if (isNaN(dt.getTime())) return '';
+
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = dt.getUTCFullYear();
+  const month = pad(dt.getUTCMonth() + 1);
+  const day = pad(dt.getUTCDate());
+  const hours = pad(dt.getUTCHours() || 17);
+  const minutes = pad(dt.getUTCMinutes());
+  const seconds = pad(dt.getUTCSeconds());
+  const icsTime = `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+
+  const endDt = new Date(dt.getTime() + 3600000);
+  const endYear = endDt.getUTCFullYear();
+  const endMonth = pad(endDt.getUTCMonth() + 1);
+  const endDay = pad(endDt.getUTCDate());
+  const endHours = pad(endDt.getUTCHours());
+  const endMinutes = pad(endDt.getUTCMinutes());
+  const endSeconds = pad(endDt.getUTCSeconds());
+  const icsEndTime = `${endYear}${endMonth}${endDay}T${endHours}${endMinutes}${endSeconds}Z`;
+
+  const cleanNum = String(processNumber || '').replace(/\D/g, '') || 'proc';
+  const uid = `pje-${cleanNum}-${Date.now()}@synapse.legal`;
+  const nowStr = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const cleanAction = String(action || 'Vencimento de Prazo PJe').replace(/[\r\n]+/g, ' ');
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Synapse IPaaS Legal Automation//PJe Calendar 1.0//PT',
+    'CALSCALE:GREGORIAN',
+    'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${nowStr}`,
+    `DTSTART:${icsTime}`,
+    `DTEND:${icsEndTime}`,
+    `SUMMARY:⚖️ [Prazo Fatal PJe] ${cleanAction}`,
+    `DESCRIPTION:Prazo legal registrado no PJe para o Processo ${processNumber}. Ação necessária: ${cleanAction}.`,
+    'LOCATION:Tribunal de Justiça / PJe CNJ',
+    'STATUS:CONFIRMED',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+}
+
 serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -893,22 +942,39 @@ ${combinedEmailsText}`;
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl || settings.url;
 
+        let emailAttachments: any[] = [];
+        const primaryIsoDate = contextData.deadline_iso_date || contextData.target_process?.deadline_iso_date;
+        if (primaryIsoDate) {
+          const procNum = contextData.target_process?.process_number || contextData.process_number || 'PJe';
+          const procAction = contextData.target_process?.action_required || contextData.action_required || 'Manifestação legal nos autos';
+          const icsStr = generateICS(procNum, procAction, primaryIsoDate);
+          if (icsStr) {
+            emailAttachments.push({
+              filename: 'prazo_processual.ics',
+              content: btoa(unescape(encodeURIComponent(icsStr))),
+            });
+          }
+        }
+
         if (resendApiKey) {
           provider = 'resend';
           try {
+            const emailBodyObj: any = {
+              from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <corporativo@alp-nexus.com>',
+              reply_to: 'corporativo@alp-nexus.com',
+              to: finalRecipientArray,
+              subject: subject,
+              html: `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h2>${subject}</h2><p>${bodyText}</p><hr/><small>ID Execução: ${executionId}</small></div>`
+            };
+            if (emailAttachments.length > 0) emailBodyObj.attachments = emailAttachments;
+
             const resp = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${resendApiKey}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                from: Deno.env.get('RESEND_FROM_EMAIL') || 'Synapse Workflows <corporativo@alp-nexus.com>',
-                reply_to: 'corporativo@alp-nexus.com',
-                to: finalRecipientArray,
-                subject: subject,
-                html: `<div style="font-family: sans-serif; padding: 20px; color: #333;"><h2>${subject}</h2><p>${bodyText}</p><hr/><small>ID Execução: ${executionId}</small></div>`
-              })
+              body: JSON.stringify(emailBodyObj)
             });
             sendSuccess = resp.ok;
             if (!resp.ok) {
@@ -1465,7 +1531,8 @@ INSTRUÇÕES OBRIGATÓRIAS:
    📜 *RESUMO DA MOVIMENTAÇÃO:* [Síntese clara e objetiva do teor do despacho/decisão/intimação]
    ⚠️ *AÇÃO NECESSÁRIA:* [O que precisa ser feito pelo advogado/cliente]
    📅 *PRAZO FATAL:* [Prazo e data limite]
-4. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
+4. Além dos campos anteriores, retorne o campo 'deadline_iso_date' contendo a data final de vencimento no formato ISO 8601 (YYYY-MM-DDTHH:mm:ssZ). Calcule a data a partir da data de disponibilização da intimação. Se não houver prazo claro, retorne null.
+5. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
 
               const gResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
                 method: 'POST',
@@ -1487,13 +1554,36 @@ INSTRUÇÕES OBRIGATÓRIAS:
             aiText = `⚖️ *PROCESSO CNJ:* ${proc.process_number || proc.numero_processo}\n🏛️ *ÓRGÃO JULGADOR:* ${proc.court}\n👥 *PARTES:* ${proc.parties}\n📜 *RESUMO DA MOVIMENTAÇÃO:* ${movementSummary}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required}\n📅 *PRAZO FATAL:* ${proc.deadline}`;
           }
 
-          return { ...proc, summary: aiText };
+          // Extração ou cálculo do deadline_iso_date
+          let deadlineIso: string | null = null;
+          const isoMatch = aiText.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/);
+          if (isoMatch) {
+            deadlineIso = isoMatch[0];
+          } else {
+            const baseDateStr = proc.movement_date || proc.data_disponibilizacao || new Date().toISOString().split('T')[0];
+            let dt: Date = new Date();
+            if (baseDateStr.includes('/')) {
+              const [d, m, y] = baseDateStr.split('/');
+              dt = new Date(`${y}-${m}-${d}T17:00:00Z`);
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)) {
+              dt = new Date(`${baseDateStr}T17:00:00Z`);
+            }
+            if (!isNaN(dt.getTime())) {
+              dt.setDate(dt.getDate() + 15);
+              deadlineIso = dt.toISOString();
+            }
+          }
+
+          return { ...proc, summary: aiText, deadline_iso_date: deadlineIso };
         }));
+
+        const primaryIso = processSummaries.find(p => p.deadline_iso_date)?.deadline_iso_date || null;
 
         contextData = {
           ...contextData,
           processes: processSummaries,
           process_summaries: processSummaries,
+          deadline_iso_date: primaryIso,
           ai_response: 'Resumo por processo efetuado com sucesso via IA Gemini.',
         };
 
@@ -1654,22 +1744,39 @@ INSTRUÇÕES OBRIGATÓRIAS:
         let emailSent = false;
         let emailError = null;
 
+        let emailAttachments: any[] = [];
+        const primaryIsoDate = contextData.deadline_iso_date || (targetProcs[0] && targetProcs[0].deadline_iso_date);
+        if (primaryIsoDate) {
+          const procNum = (targetProcs[0] && targetProcs[0].process_number) || 'PJe';
+          const procAction = (targetProcs[0] && targetProcs[0].action_required) || 'Manifestação nos autos';
+          const icsStr = generateICS(procNum, procAction, primaryIsoDate);
+          if (icsStr) {
+            emailAttachments.push({
+              filename: 'prazo_processual.ics',
+              content: btoa(unescape(encodeURIComponent(icsStr))),
+            });
+          }
+        }
+
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         if (resendApiKey) {
           try {
+            const emailBodyObj: any = {
+              from: 'Synapse Legal AI <onboarding@resend.dev>',
+              reply_to: 'corporativo@alp-nexus.com',
+              to: finalRecipientArray,
+              subject: mailSubject,
+              html: mailHtml
+            };
+            if (emailAttachments.length > 0) emailBodyObj.attachments = emailAttachments;
+
             const resp = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${resendApiKey}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                from: 'Synapse Legal AI <onboarding@resend.dev>',
-                reply_to: 'corporativo@alp-nexus.com',
-                to: finalRecipientArray,
-                subject: mailSubject,
-                html: mailHtml
-              })
+              body: JSON.stringify(emailBodyObj)
             });
             emailSent = resp.ok;
             if (!resp.ok) emailError = `HTTP ${resp.status}: ${await resp.text()}`;
