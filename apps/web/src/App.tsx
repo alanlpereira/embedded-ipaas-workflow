@@ -26,6 +26,7 @@ import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
 import { UserSettingsPage } from './components/UserSettingsPage';
 import { LegalDashboardPage } from './components/LegalDashboardPage';
 import { LegalCopilotChat } from './components/LegalCopilotChat';
+import { AppLayout } from './components/AppLayout';
 import { ClientsPage } from './components/ClientsPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
@@ -1197,31 +1198,15 @@ function WorkflowAppContent() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-      <Navbar
-        currentProfile={currentProfile}
-        flowchartName={activeFlowchart?.name || 'Editor de Fluxo'}
-        flowchartDescription={activeFlowchart?.description || ''}
-        onUpdateFlowchartMetadata={handleUpdateFlowchartMetadata}
-        currentTab={currentTab}
-        onNavigate={(tab) => setCurrentTab(tab)}
-        onSave={handleSaveFlowchart}
-        isSaving={isSaving}
-        onRunNow={handleRunNow}
-        isRunningNow={isRunningNow}
-        onLogout={() => {
-          localStorage.removeItem('synapse_active_session');
-          setCurrentProfile(null);
-        }}
-        onOpenEmbedModal={() => setIsEmbedModalOpen(true)}
-        onOpenVersionModal={() => setIsVersionModalOpen(true)}
-        onExportJson={handleExportJson}
-        onOpenImportModal={() => setIsImportModalOpen(true)}
-        onAnalyzeEfficiency={handleAnalyzeEfficiency}
-        isAnalyzingEfficiency={isAnalyzingEfficiency}
-        onClearCache={handleClearCache}
-        collaborators={activeCollaborators}
-      />
+    <AppLayout
+      currentTab={currentTab}
+      onNavigate={(tab) => setCurrentTab(tab)}
+      currentProfile={currentProfile}
+      onLogout={() => {
+        localStorage.removeItem('synapse_active_session');
+        setCurrentProfile(null);
+      }}
+    >
 
       {/* Toast / Snackbar Notification ao Disparar Execução */}
       {toastMessage && (
@@ -1428,7 +1413,7 @@ function WorkflowAppContent() {
           onClose={() => setSelectedNode(null)}
         />
       )}
-    </div>
+    </AppLayout>
   );
 }
 
