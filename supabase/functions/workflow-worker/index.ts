@@ -1536,10 +1536,27 @@ INSTRUÇÕES OBRIGATÓRIAS:
 5. Além dos campos anteriores, retorne o campo 'deadline_days' (número inteiro indicando apenas a quantidade de dias do prazo, ex: 15, 5, 10; retorne 0 se não houver prazo) e o campo 'deadline_iso_date' (opcional, formato ISO 8601 YYYY-MM-DDTHH:mm:ssZ).
 6. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
 
+              const systemInstructionText = `Você é um advogado litigante sênior e pragmático. Sua missão é ler despachos/intimações e extrair a essência processual para um colega.
+REGRAS ABSOLUTAS PARA O CAMPO 'action_required':
+
+PROIBIDO usar jargões genéricos como 'Tomar ciência da decisão', 'Providenciar manifestação', ou 'Apresentar peças'.
+
+Extraia a DETERMINAÇÃO EXATA do juiz. O QUE deve ser feito?
+
+Exemplos bons: 'Pagar honorários periciais de R$ 2.000', 'Apresentar rol de testemunhas', 'Juntar comprovante de residência atualizado', 'Comparecer à audiência de conciliação dia X'.
+
+Se for apenas uma publicação de sentença sem ordem explícita, resuma a decisão: 'Sentença procedente: condenou o réu a pagar X'.
+Seja cirúrgico, direto e hiper-específico.`;
+
               const gResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                body: JSON.stringify({
+                  system_instruction: {
+                    parts: [{ text: systemInstructionText }]
+                  },
+                  contents: [{ parts: [{ text: promptText }] }]
+                })
               });
 
               if (gResp.ok) {
