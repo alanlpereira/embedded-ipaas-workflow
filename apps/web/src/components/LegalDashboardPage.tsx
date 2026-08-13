@@ -141,6 +141,33 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const buildGoogleCalendarUrlUI = (proc: ProcessMovement) => {
+    const procNum = proc.process_number || '';
+    const actionText = proc.action_required || proc.movement_text || 'Verificar intimação no PJe';
+    const baseDateStr = proc.movement_date || proc.data_disponibilizacao || proc.updated_at || new Date().toISOString().split('T')[0];
+
+    let dStart = new Date();
+    if (baseDateStr.includes('/')) {
+      const [d, m, y] = baseDateStr.split('/');
+      dStart = new Date(`${y}-${m}-${d}T17:00:00Z`);
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)) {
+      dStart = new Date(`${baseDateStr}T17:00:00Z`);
+    } else {
+      dStart = new Date(baseDateStr);
+    }
+    if (isNaN(dStart.getTime())) dStart = new Date();
+
+    const dFinal = new Date(dStart.getTime() + 15 * 86400000);
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const fmt = (d: Date) => `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours()||17)}${pad(d.getUTCMinutes())}00Z`;
+
+    const title = `⚖️ [Prazo Fatal PJe] Processo ${procNum}`;
+    const details = `Ação Necessária: ${actionText}.\nPartes: ${proc.parties || 'N/A'}.\nÓrgão: ${proc.court || 'N/A'}.`;
+
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(dStart)}/${fmt(dFinal)}&details=${encodeURIComponent(details)}&location=${encodeURIComponent('PJe CNJ / Tribunal de Justiça')}`;
+  };
+
   // Filtragem analítica com blindagem rigorosa contra campos nulos/undefined
   const filteredMovements = movements.filter(m => {
     if (!m) return false;
@@ -411,25 +438,48 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
                 </div>
               </div>
 
-              <button
-                onClick={() => handleSendWhatsAppNotification(proc)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  background: '#22c55e',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
-                }}
-              >
-                <Send size={14} /> Enviar no WhatsApp do Cliente
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <a
+                  href={buildGoogleCalendarUrlUI(proc)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    background: '#3b82f6',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)',
+                  }}
+                >
+                  <Calendar size={14} /> Adicionar ao Google Agenda
+                </a>
+
+                <button
+                  onClick={() => handleSendWhatsAppNotification(proc)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    background: '#22c55e',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                  }}
+                >
+                  <Send size={14} /> Enviar no WhatsApp do Cliente
+                </button>
+              </div>
             </div>
           </div>
         ))}

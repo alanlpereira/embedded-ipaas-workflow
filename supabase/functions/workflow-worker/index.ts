@@ -67,12 +67,8 @@ function formatDateCompact(d: Date): string {
   return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
 }
 
-// GERADOR DE URL DINÂMICA PARA O GOOGLE CALENDAR
-function buildGoogleCalendarUrl(processNumber: string, actionText: string, dataBaseStr: string, deadlineIsoStr: string): string {
-  if (!deadlineIsoStr) return '';
-  const dFinal = new Date(deadlineIsoStr);
-  if (isNaN(dFinal.getTime())) return '';
-
+// GERADOR DE URL DINÂMICA PARA O GOOGLE CALENDAR (Garantia de Retorno)
+function buildGoogleCalendarUrl(processNumber: string, actionText: string, dataBaseStr: string, deadlineIsoStr?: string | null): string {
   let dStart: Date = new Date();
   if (dataBaseStr) {
     if (dataBaseStr.includes('/')) {
@@ -85,6 +81,13 @@ function buildGoogleCalendarUrl(processNumber: string, actionText: string, dataB
     }
   }
   if (isNaN(dStart.getTime())) dStart = new Date();
+
+  let dFinal: Date;
+  if (deadlineIsoStr && !isNaN(new Date(deadlineIsoStr).getTime())) {
+    dFinal = new Date(deadlineIsoStr);
+  } else {
+    dFinal = new Date(dStart.getTime() + 15 * 86400000);
+  }
 
   const startCompact = formatDateCompact(dStart);
   const endCompact = formatDateCompact(dFinal);
@@ -983,23 +986,22 @@ ${combinedEmailsText}`;
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         const emailWebhookUrl = Deno.env.get('EMAIL_WEBHOOK_URL') || settings.webhookUrl || settings.url;
 
-        let calendarButtonHtml = '';
-        let emailAttachments: any[] = [];
+        const procNum = contextData.target_process?.process_number || contextData.process_number || 'PJe';
+        const procAction = contextData.target_process?.action_required || contextData.action_required || 'Manifestação legal nos autos';
+        const dataBaseStr = contextData.target_process?.data_disponibilizacao || contextData.data_disponibilizacao || new Date().toISOString();
         const primaryIsoDate = contextData.deadline_iso_date || contextData.target_process?.deadline_iso_date;
+        const gCalUrl = buildGoogleCalendarUrl(procNum, procAction, dataBaseStr, primaryIsoDate);
+
+        const calendarButtonHtml = `
+          <div style="margin: 20px 0; text-align: center;">
+            <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 12px 22px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
+              📅 Adicionar ao Google Agenda
+            </a>
+          </div>
+        `;
+
+        let emailAttachments: any[] = [];
         if (primaryIsoDate && !isNaN(new Date(primaryIsoDate).getTime())) {
-          const procNum = contextData.target_process?.process_number || contextData.process_number || 'PJe';
-          const procAction = contextData.target_process?.action_required || contextData.action_required || 'Manifestação legal nos autos';
-          const dataBaseStr = contextData.target_process?.data_disponibilizacao || contextData.data_disponibilizacao || new Date().toISOString();
-          const gCalUrl = buildGoogleCalendarUrl(procNum, procAction, dataBaseStr, primaryIsoDate);
-          if (gCalUrl) {
-            calendarButtonHtml = `
-              <div style="margin: 20px 0; text-align: center;">
-                <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 12px 22px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
-                  📅 Adicionar ao Google Agenda
-                </a>
-              </div>
-            `;
-          }
           const icsStr = generateICS(procNum, procAction, primaryIsoDate);
           if (icsStr) {
             emailAttachments.push({
@@ -1796,22 +1798,17 @@ Seja cirúrgico, direto e hiper-específico.`;
 
           const procSummaryText = proc.summary || `⚖️ Processo CNJ: ${proc.process_number}\n🏛️ Órgão: ${proc.court}\n👥 Partes: ${proc.parties}\n⚠️ Prazo: ${proc.deadline}`;
 
-          let calendarButtonHtml = '';
-          const procDeadlineIso = proc.deadline_iso_date || contextData.deadline_iso_date;
-          if (procDeadlineIso && !isNaN(new Date(procDeadlineIso).getTime())) {
-            const dataBaseStr = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
-            const procAction = proc.action_required || 'Manifestação legal nos autos';
-            const gCalUrl = buildGoogleCalendarUrl(proc.process_number || '', procAction, dataBaseStr, procDeadlineIso);
-            if (gCalUrl) {
-              calendarButtonHtml = `
-                <div style="margin-top: 12px; margin-bottom: 16px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
-                  <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);">
-                    📅 Adicionar ao Google Agenda
-                  </a>
-                </div>
-              `;
-            }
-          }
+          const dataBaseStr = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
+          const procAction = proc.action_required || proc.movement_text || 'Manifestação legal nos autos';
+          const gCalUrl = buildGoogleCalendarUrl(proc.process_number || '', procAction, dataBaseStr, proc.deadline_iso_date || contextData.deadline_iso_date);
+
+          const calendarButtonHtml = `
+            <div style="margin-top: 12px; margin-bottom: 16px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
+              <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);">
+                📅 Adicionar ao Google Agenda
+              </a>
+            </div>
+          `;
 
           processCardsHtmlList.push(`
             <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
