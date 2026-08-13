@@ -943,29 +943,31 @@ ${combinedEmailsText}`;
 
         if (httpUrl && httpUrl.startsWith('http')) {
           try {
-            // Construir Query String dinâmica para requisições GET/HEAD interpolando variáveis de contexto
+            // Motor Regex robusto para interpolação dinâmica de queryParams no modelo SaaS
             let finalUrl = httpUrl;
             const queryParamsObj = settings.queryParams || settings.params || settings.query;
 
             if (queryParamsObj && typeof queryParamsObj === 'object') {
               const searchParams = new URLSearchParams();
               for (const [k, v] of Object.entries(queryParamsObj)) {
-                let valStr = String(v ?? '').trim();
-                if (valStr.includes('{{')) {
-                  const keyName = valStr.replace(/[{}]/g, '').replace('context.', '').trim();
-                  valStr = String(contextData[keyName] || settings[keyName] || '');
+                let valStr = String(v ?? '');
+                const matches = valStr.match(/{{(.*?)}}/g);
+                if (matches) {
+                  matches.forEach(match => {
+                    const key = match.replace(/[{}]/g, '').trim();
+                    const pureKey = key.replace('context.', '');
+                    const resolvedValue = contextData[pureKey] || settings[pureKey] || '';
+                    valStr = valStr.replace(match, String(resolvedValue));
+                  });
                 }
-                if (valStr) {
-                  searchParams.append(k, valStr);
-                }
+                if (valStr.trim()) searchParams.append(k, valStr.trim());
               }
               const queryString = searchParams.toString();
               if (queryString) {
                 finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryString;
               }
             }
-
-            console.log(`🌐 [WORKER HTTP] Disparando ${method} para URL final concatenada: ${finalUrl}`);
+            console.log('🌐 [WORKER HTTP] GET URL: ' + finalUrl);
 
             const resp = await fetch(finalUrl, {
               method,
