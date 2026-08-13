@@ -1507,7 +1507,13 @@ ${combinedEmailsText}`;
 
         const processSummaries = await Promise.all(targetProcesses.map(async (proc: any) => {
           let aiText = '';
-          const movementText = proc.movement_text || proc.text || proc.content || proc.body || proc.notice || proc.teor || proc.publicacao || proc.intimacao || proc.despacho || 'Sem texto de movimentação disponível.';
+          const rawMovementText = proc.movement_text || proc.texto || proc.teor || proc.content || proc.body || proc.notice || proc.publicacao || proc.intimacao || proc.despacho || '';
+          const cleanMovementText = String(rawMovementText)
+            .replace(/<[^>]*>?/gm, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const movementText = cleanMovementText || 'Sem texto de movimentação disponível.';
 
           if (geminiApiKey) {
             try {
@@ -1524,17 +1530,18 @@ Analise detalhadamente o PROCESSO e o TEXTO COMPLETO DA MOVIMENTAÇÃO/INTIMAÇ�
 
 INSTRUÇÕES OBRIGATÓRIAS:
 1. Trate este processo de forma 100% INDIVIDUAL.
-2. A data de publicação deste documento é ${pubDate}. Busque por menções a prazos (ex: 'prazo de 5 dias', '15 dias').
-3. Sintetize obrigatoriamente o texto da movimentação/intimação na seção "📜 *RESUMO DA MOVIMENTAÇÃO:*".
-4. Estruture a resposta com os seguintes campos em destaque:
+2. A data de publicação deste documento é ${pubDate}.
+3. Leia atentamente o corpo da intimação acima. Localize qualquer menção a prazos processuais (ex: 'prazo de 15 dias', '5 dias', '10 dias'). Extraia APENAS o número inteiro de dias e preencha o campo 'deadline_days'. Se o texto não citar nenhum prazo, retorne null.
+4. Sintetize obrigatoriamente o texto da movimentação/intimação na seção "📜 *RESUMO DA MOVIMENTAÇÃO:*".
+5. Estruture a resposta com os seguintes campos em destaque:
    ⚖️ *PROCESSO CNJ:* [Número do Processo]
    🏛️ *ÓRGÃO JULGADOR:* [Nome do Órgão/Vara]
    👥 *PARTES:* [Autor vs Réu]
    📜 *RESUMO DA MOVIMENTAÇÃO:* [Síntese clara e objetiva do teor do despacho/decisão/intimação]
    ⚠️ *AÇÃO NECESSÁRIA:* [O que precisa ser feito pelo advogado/cliente]
    📅 *PRAZO FATAL:* [Prazo e data limite]
-5. Além dos campos anteriores, retorne o campo 'deadline_days' (número inteiro indicando apenas a quantidade de dias do prazo, ex: 15, 5, 10; retorne 0 se não houver prazo) e o campo 'deadline_iso_date' (opcional, formato ISO 8601 YYYY-MM-DDTHH:mm:ssZ).
-6. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
+6. Além dos campos anteriores, retorne o campo 'deadline_days' (número inteiro indicando apenas a quantidade de dias do prazo, ex: 15, 5, 10; retorne 0 ou null se não houver prazo) e o campo 'deadline_iso_date' (opcional, formato ISO 8601 YYYY-MM-DDTHH:mm:ssZ).
+7. Formate em texto limpo e legível tanto para e-mail quanto para WhatsApp.`;
 
               const systemInstructionText = `Você é um advogado litigante sênior e pragmático. Sua missão é ler despachos/intimações e extrair a essência processual para um colega.
 REGRAS ABSOLUTAS PARA O CAMPO 'action_required':
@@ -1578,7 +1585,7 @@ Seja cirúrgico, direto e hiper-específico.`;
           let deadlineIso: string | null = null;
 
           // 1. Extrair quantidade de dias
-          const daysMatch = aiText.match(/"deadline_days"\s*:\s*(\d+)/i) || aiText.match(/(?:prazo|prazo\s+legal)\s+(?:de\s+)?(\d+)\s+dias/i);
+          const daysMatch = aiText.match(/"deadline_days"\s*:\s*(\d+)/i) || aiText.match(/(?:prazo|prazo\s+legal|prazo\s+de)\s+(?:de\s+)?(\d+)\s+dias/i);
           if (daysMatch) {
             deadlineDays = parseInt(daysMatch[1], 10);
           }
@@ -1589,9 +1596,9 @@ Seja cirúrgico, direto e hiper-específico.`;
             deadlineIso = isoMatch[0];
           }
 
-          // 3. Cálculo de Rede de Segurança (JavaScript/Deno)
+          // 3. Cálculo de Rede de Segurança em Deno (Data Zero + deadlineDays)
+          const dataBaseStr = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
           if ((!deadlineIso || isNaN(new Date(deadlineIso).getTime())) && deadlineDays > 0) {
-            const dataBaseStr = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
             let dataBase: Date = new Date();
             if (dataBaseStr.includes('/')) {
               const [d, m, y] = dataBaseStr.split('/');
@@ -1606,6 +1613,8 @@ Seja cirúrgico, direto e hiper-específico.`;
             dataBase.setDate(dataBase.getDate() + deadlineDays);
             deadlineIso = dataBase.toISOString();
           }
+
+          console.log(`📅 [CALENDAR DIAGNOSTIC] Proc: ${proc.process_number || proc.id} | Data Base: ${dataBaseStr} | Dias: ${deadlineDays} | ISO Calculado: ${deadlineIso}`);
 
           return {
             ...proc,
