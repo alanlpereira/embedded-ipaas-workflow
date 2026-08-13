@@ -39,9 +39,9 @@ serve(async (req) => {
         }
       });
       if (pjeRes.ok) {
-        const pjeData = await pjeRes.json();
-        if (pjeData && Array.isArray(pjeData.items)) {
-          items = pjeData.items.map((item: any, idx: number) => {
+        const cnjData = await pjeRes.json();
+        if (cnjData && Array.isArray(cnjData.items)) {
+          items = cnjData.items.map((item: any, idx: number) => {
             const rawDate = item.data_disponibilizacao || item.dataDisponibilizacao || item.data_comunicacao || item.dataComunicacao || item.created_at || new Date().toISOString();
             let formattedDate = String(rawDate).includes('T') ? String(rawDate).split('T')[0] : String(rawDate);
             if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
@@ -49,23 +49,28 @@ serve(async (req) => {
               formattedDate = `${d}/${m}/${y}`;
             }
 
+            const destinatariosList = Array.isArray(item.destinatarioAdvogados) && item.destinatarioAdvogados.length > 0
+              ? item.destinatarioAdvogados.map((a: any) => a.nome).filter(Boolean).join(', ')
+              : (Array.isArray(item.destinatarios) ? item.destinatarios.map((d: any) => d.nome).filter(Boolean).join(', ') : (item.destinatarios || 'Partes não informadas na API'));
+
+            const rawText = item.texto || item.teor || item.titulo || item.conteudo || 'Sem texto de movimentação disponível no PJe.';
+            const cleanMovementText = String(rawText).replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 800);
+
             return {
-              id: `pje-real-${idx + 1}`,
-              process_number: item.numero_processo || item.numeroProcesso || item.numero || `Proc-${idx + 1}`,
-              court: item.nomeOrgao || item.orgao || item.siglaTribunal || 'Tribunal de Justiça',
-              parties: Array.isArray(item.destinatarioAdvogados)
-                ? item.destinatarioAdvogados.map((a: any) => a.nome).filter(Boolean).join(', ')
-                : (item.destinatarios || 'Partes do Processo'),
+              id: String(item.id || `pje-real-${idx + 1}`),
+              process_number: String(item.numero_processo || item.numeroProcessoFormatado || item.numeroProcesso || item.numero || `Proc-${idx + 1}`),
+              court: String(item.nomeOrgao || item.orgao || item.siglaTribunal || 'Tribunal de Justiça'),
+              parties: String(destinatariosList || 'Partes não informadas na API'),
               advocate: `OAB/${targetUf} ${targetOab}`,
               oab: targetOab,
               uf: targetUf,
-              notice: item.tipoComunicacao || item.meio || 'Intimação Eletrônica PJe',
-              movement_text: (item.texto || item.teor || item.titulo || 'Movimentação PJe').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 800),
+              notice: String(item.tipoComunicacao || item.meio || 'Intimação Eletrônica PJe'),
+              movement_text: cleanMovementText,
               action_required: 'Tomar ciência da intimação e providenciar manifestação nos autos',
               deadline: 'Conforme prazo legal indicado no PJe',
               movement_date: formattedDate,
-              data_disponibilizacao: formattedDate,
-              updated_at: formattedDate,
+              data_disponibilizacao: String(item.data_disponibilizacao || item.dataDisponibilizacao || formattedDate),
+              updated_at: new Date().toISOString(),
             };
           });
         }

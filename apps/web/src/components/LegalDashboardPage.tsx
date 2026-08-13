@@ -34,6 +34,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isExecutingQuery, setIsExecutingQuery] = useState(false);
   const [isLoadingMovements, setIsLoadingMovements] = useState(false);
+  const [isQuerying, setIsQuerying] = useState(false);
 
   // Lista de Movimentações Ativas dos Processos
   const [movements, setMovements] = useState<ProcessMovement[]>([
@@ -49,42 +50,12 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     },
     {
       id: 'm-2',
-      process_number: '5009876-12.2026.8.13.0145',
-      court: '1ª Vara de Família e Sucessões de Belo Horizonte (TJMG)',
-      parties: 'Mariana Oliveira Ramos (Requerente) vs. Roberto Carlos Ramos (Requerido)',
-      movement_text: 'Decisão Interlocutória: Tendo em vista que a conciliação restou infrutífera, intime-se o patrono sob a OAB/MG nº 145105 para que, no prazo comum de 5 (cinco) dias úteis, especifique justificadamente as provas que pretendem produzir na instrução processual.',
-      action_required: 'Especificar Provas Documentais e ROL de Testemunhas',
+      process_number: '5009876-12.2026.8.13.0024',
+      court: '1ª Vara de Família de Belo Horizonte (TJMG)',
+      parties: 'Mariana Oliveira Ramos vs. Roberto Carlos Ramos',
+      movement_text: 'Decisão Interlocutória: Intime-se o patrono sob a OAB/MG nº 145105 para especificação de provas no prazo legal.',
+      action_required: 'Especificar Provas Documentais',
       deadline: '5 dias úteis (Vencimento: 19/08/2026)',
-      updated_at: '2026-08-12T08:00:00Z',
-    },
-    {
-      id: 'm-3',
-      process_number: '5014321-45.2026.8.13.0024',
-      court: '3ª Vara da Fazenda Pública e Autarquias de Belo Horizonte (TJMG)',
-      parties: 'Construções Gerais Ltda (Autor) vs. Estado de Minas Gerais (Réu)',
-      movement_text: 'Intimação Eletrônica: Fica o advogado constituído na OAB/MG nº 145105 intimado da juntada de contestação e documentos pelo Estado de Minas Gerais, para que apresente Impugnação/Réplica no prazo legal de 15 (quinze) dias úteis, indicando provas suplementares.',
-      action_required: 'Apresentar Impugnação à Contestação (Réplica)',
-      deadline: '15 dias úteis (Vencimento: 03/09/2026)',
-      updated_at: '2026-08-12T08:00:00Z',
-    },
-    {
-      id: 'm-4',
-      process_number: '5028877-90.2026.8.13.0702',
-      court: '2ª Vara do Trabalho de Uberlândia (TRT-3 / PJe-JT)',
-      parties: 'Fernando Mendes da Silva (Reclamante) vs. TransLog Distribuidora (Reclamada)',
-      movement_text: 'Notificação PJe: Fica o advogado habilitado na OAB/MG nº 145105 intimado da juntada do laudo pericial técnico referente às condições de trabalho. Prazo sucessivo de 10 (dez) dias úteis para manifestação sobre as conclusões do perito.',
-      action_required: 'Manifestar sobre o Laudo Pericial Técnico',
-      deadline: '10 dias úteis (Vencimento: 26/08/2026)',
-      updated_at: '2026-08-12T08:00:00Z',
-    },
-    {
-      id: 'm-5',
-      process_number: '5031122-33.2026.8.13.0433',
-      court: '1ª Vara Cível da Comarca de Montes Claros (TJMG)',
-      parties: 'Banco S/A (Exequente) vs. Comercial Silva & Cia Ltda (Executado)',
-      movement_text: 'Despacho/Decisão: Detalhamento de ordem judicial de bloqueio via SISBAJUD juntado aos autos. Fica a parte executada intimada, na pessoa de seu patrono cadastrado na OAB/MG nº 145105, para ciência da penhora e interposição de Embargos à Execução no prazo de 15 (quinze) dias.',
-      action_required: 'Interpor Embargos à Execução / Impugnação à Penhora',
-      deadline: '15 dias úteis (Vencimento: 04/09/2026)',
       updated_at: '2026-08-12T08:00:00Z',
     }
   ]);
@@ -119,7 +90,10 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   };
 
   const handleRunCustomQuery = async () => {
+    setIsQuerying(true);
     setIsExecutingQuery(true);
+    setMovements([]); // Limpar a tela imediatamente
+
     const oab = localStorage.getItem('synapse_advocate_oab') || '145105';
     const uf = localStorage.getItem('synapse_advocate_uf') || 'MG';
 
@@ -135,7 +109,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
         showToast(`ℹ️ Nenhuma movimentação localizada no PJe para o período (${startDate} a ${endDate}).`);
       }
 
-      // 2. Disparar a execução completa do fluxo (Gemini + E-mail + WhatsApp) com os dados atualizados da pesquisa
+      // 2. Disparar a execução completa do fluxo (Gemini + E-mail + WhatsApp)
       if (onRunNow) {
         await onRunNow({
           start_date: startDate,
@@ -147,9 +121,10 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
       }
     } catch (err: any) {
       console.warn('⚠️ Aviso na execução da consulta:', err);
-      showToast(`⚠️ Consulta enviada para processamento.`);
+      showToast(`⚠️ Consulta enviada para processamento em segundo plano.`);
     } finally {
-      setTimeout(() => setIsExecutingQuery(false), 1200);
+      setIsQuerying(false);
+      setIsExecutingQuery(false);
     }
   };
 
@@ -166,12 +141,15 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Filtragem por Número CNJ ou Nome da Parte
-  const filteredMovements = movements.filter(m =>
-    m.process_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.parties.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.court.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filtragem analítica com blindagem rigorosa contra campos nulos/undefined
+  const filteredMovements = movements.filter(m => {
+    if (!m) return false;
+    const pNum = String(m.process_number || '').toLowerCase();
+    const pParties = String(m.parties || '').toLowerCase();
+    const pCourt = String(m.court || '').toLowerCase();
+    const query = String(searchQuery || '').toLowerCase().trim();
+    return pNum.includes(query) || pParties.includes(query) || pCourt.includes(query);
+  });
 
   return (
     <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
@@ -456,13 +434,13 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
           </div>
         ))}
 
-        {isLoadingMovements && (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--accent-blue)', fontWeight: 600 }}>
-            📡 Consultando API do PJe CNJ em tempo real para o período ({startDate} a {endDate})...
+        {(isQuerying || isLoadingMovements) && (
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--accent-blue)', fontWeight: 700, fontSize: '15px' }}>
+            📡 Carregando movimentações do PJe CNJ em tempo real...
           </div>
         )}
 
-        {!isLoadingMovements && filteredMovements.length === 0 && (
+        {!isQuerying && !isLoadingMovements && filteredMovements.length === 0 && (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
             {searchQuery
               ? `Nenhum processo ou movimentação encontrada para o termo "${searchQuery}".`
