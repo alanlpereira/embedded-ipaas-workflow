@@ -515,6 +515,41 @@ export const LegalCopilotChat: React.FC = () => {
         </div>
       )}
 
+      {/* Sugestões Rápidas de Prompts para a IA */}
+      <div style={{
+        padding: '8px 24px',
+        background: 'rgba(15, 23, 42, 0.7)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        display: 'flex',
+        gap: '8px',
+        overflowX: 'auto'
+      }}>
+        <button
+          onClick={() => setInputPrompt('Elabore uma Contestação cível completa fundamentada no CPC para ação de cobrança.')}
+          style={{ background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#38bdf8', padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          ⚖️ Redigir Contestação
+        </button>
+        <button
+          onClick={() => setInputPrompt('Analise a intimação anexada e apresente parecer parecerista com os pontos controversos e prazos.')}
+          style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          📜 Parecer de Intimação
+        </button>
+        <button
+          onClick={() => setInputPrompt('Elabore petição simples de juntada de procuração e substabelecimento.')}
+          style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#f59e0b', padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          📄 Juntada de Procuração
+        </button>
+        <button
+          onClick={() => setInputPrompt('Elabore minuta de Recurso de Apelação alegando cerceamento de defesa.')}
+          style={{ background: 'rgba(168, 85, 247, 0.12)', border: '1px solid rgba(168, 85, 247, 0.3)', color: '#c084fc', padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          📑 Minuta de Apelação
+        </button>
+      </div>
+
       {/* Footer de Entrada (Input & Botões) */}
       <div style={{
         padding: '16px 24px',

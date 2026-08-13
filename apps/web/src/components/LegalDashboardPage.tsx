@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Scale, Calendar, Play, Clock, Search, Send, FileText, AlertCircle, CheckCircle, ShieldCheck, ChevronRight, RefreshCw, MessageSquare } from 'lucide-react';
+import { Scale, Calendar, Play, Clock, Search, Send, FileText, AlertCircle, CheckCircle, ShieldCheck, ChevronRight, RefreshCw, MessageSquare, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export interface ProcessMovement {
@@ -31,6 +31,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const [startDate, setStartDate] = useState(yesterday);
   const [endDate, setEndDate] = useState(today);
   const [searchQuery, setSearchQuery] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('Analisar intimações, extrair determinação judicial e calcular prazo fatal em dias');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isExecutingQuery, setIsExecutingQuery] = useState(false);
   const [isLoadingMovements, setIsLoadingMovements] = useState(false);
@@ -116,7 +117,8 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
           end_date: endDate,
           oab_number: oab,
           oab_uf: uf,
-          processes: fetchedItems
+          processes: fetchedItems,
+          custom_ai_prompt: aiPrompt,
         });
       }
     } catch (err: any) {
@@ -333,6 +335,33 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
                 </>
               )}
             </button>
+          </div>
+
+          {/* Campo Dedicado de Instrução / Prompt para a IA (Gemini) */}
+          <div style={{ gridColumn: '1 / -1', marginTop: '8px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--accent-blue)', marginBottom: '6px' }}>
+              <Sparkles size={15} style={{ color: '#38bdf8' }} />
+              🤖 Campo de Instrução / Prompt Personalizado para a IA (Gemini)
+            </label>
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="Digite a instrução que a IA deve seguir ao resumir e analisar as intimações do PJe (ex: Focar em prazos de recurso, honorários ou audiências)..."
+              rows={2}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                fontSize: '13px',
+                outline: 'none',
+                resize: 'none',
+                fontFamily: 'inherit',
+                lineHeight: '1.5'
+              }}
+            />
           </div>
         </div>
       </div>
