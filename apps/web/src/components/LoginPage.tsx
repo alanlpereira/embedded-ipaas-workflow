@@ -190,22 +190,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       }}>
         {/* Header */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #1e293b, #334155)',
-            border: '1px solid rgba(59, 130, 246, 0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)',
-            marginBottom: '16px',
-          }}>
-            <Scale size={30} color="#3b82f6" />
-          </div>
+          <img
+            src="/logo-synapse.jpg"
+            alt="Logo Synapse"
+            style={{
+              height: '64px',
+              width: 'auto',
+              objectFit: 'contain',
+              borderRadius: '16px',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              boxShadow: '0 0 25px rgba(56, 189, 248, 0.35)',
+              marginBottom: '16px',
+            }}
+          />
 
-          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1.5px', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1.5px', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '4px' }}>
             Portal do Advogado
           </span>
 
