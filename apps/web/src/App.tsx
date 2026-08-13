@@ -1010,7 +1010,7 @@ function WorkflowAppContent() {
   const [isRunningNow, setIsRunningNow] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const handleRunNow = async () => {
+  const handleRunNow = async (customContext?: Record<string, any>) => {
     if (!activeFlowchart) return;
     setIsRunningNow(true);
 
@@ -1081,6 +1081,7 @@ function WorkflowAppContent() {
           manual_trigger: true,
           triggered_by: currentProfile?.email || 'Usuário IPaaS',
           triggered_at: new Date().toISOString(),
+          ...(customContext || {})
         },
         started_at: new Date().toISOString(),
       };

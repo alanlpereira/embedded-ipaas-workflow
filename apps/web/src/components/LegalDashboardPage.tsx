@@ -16,7 +16,7 @@ export interface ProcessMovement {
 }
 
 interface LegalDashboardPageProps {
-  onRunNow?: () => void;
+  onRunNow?: (customContext?: Record<string, any>) => Promise<any>;
   isRunningNow?: boolean;
 }
 
@@ -93,18 +93,46 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     const oab = localStorage.getItem('synapse_advocate_oab') || '145105';
     const uf = localStorage.getItem('synapse_advocate_uf') || 'MG';
 
-    showToast(`⚡ AUTOMATIZAÇÃO: Disparando execução no PJe CNJ (OAB/${uf} ${oab}) de ${startDate} até ${endDate}...`);
+    showToast(`⚡ AUTOMATIZAÇÃO: Buscando processos do PJe CNJ (OAB/${uf} ${oab}) de ${startDate} até ${endDate}...`);
 
+    let fetchedItems: ProcessMovement[] = [];
     try {
-      if (onRunNow) {
-        await onRunNow();
+      // 1. Consultar a Edge Function para atualizar A TELA DO APP imediatamente
+      const { data: qData, error: qErr } = await supabase.functions.invoke('workflow-worker', {
+        body: {
+          action: 'query_pje',
+          start_date: startDate,
+          end_date: endDate,
+          oab_number: oab,
+          oab_uf: uf,
+        }
+      });
+
+      if (!qErr && qData && Array.isArray(qData.items)) {
+        fetchedItems = qData.items;
+        if (fetchedItems.length > 0) {
+          setMovements(fetchedItems);
+          showToast(`✅ ${fetchedItems.length} movimentação(ões) atualizada(s) na tela para o período (${startDate} a ${endDate}).`);
+        } else {
+          showToast(`ℹ️ Nenhuma movimentação localizada no PJe para o período (${startDate} a ${endDate}).`);
+        }
       }
-      showToast(`🚀 Execução do fluxo disparada com sucesso! Resumo por IA sendo enviado por E-mail e WhatsApp.`);
+
+      // 2. Disparar a execução completa do fluxo (Gemini + E-mail + WhatsApp) com os dados atualizados da pesquisa
+      if (onRunNow) {
+        await onRunNow({
+          start_date: startDate,
+          end_date: endDate,
+          oab_number: oab,
+          oab_uf: uf,
+          processes: fetchedItems
+        });
+      }
     } catch (err: any) {
-      console.warn('⚠️ Aviso na execução do fluxo:', err);
-      showToast(`⚠️ Fluxo enviado para processamento em segundo plano.`);
+      console.warn('⚠️ Aviso na execução da consulta:', err);
+      showToast(`⚠️ Consulta enviada para processamento.`);
     } finally {
-      setTimeout(() => setIsExecutingQuery(false), 1500);
+      setTimeout(() => setIsExecutingQuery(false), 1200);
     }
   };
 

@@ -20,6 +20,65 @@ serve(async (req) => {
     };
   }
 
+  // Ação especial: Consulta avulsa síncrona para atualizar a tela do app (desktop/mobile)
+  if (body.action === 'query_pje') {
+    const targetOab = String(body.oab_number || body.oab || '145105').trim();
+    const targetUf = String(body.oab_uf || body.uf || 'MG').trim().toUpperCase();
+    const startDate = body.start_date || new Date(Date.now() - 86400000 * 15).toISOString().split('T')[0];
+    const endDate = body.end_date || new Date().toISOString().split('T')[0];
+
+    console.log(`📡 [WORKER QUERY_PJE] Buscando PJe CNJ para OAB/${targetUf} ${targetOab} de ${startDate} até ${endDate}...`);
+    const pjeUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacao?numeroOab=${targetOab}&ufOab=${targetUf}&dataDisponibilizacaoInicio=${startDate}&dataDisponibilizacaoFim=${endDate}&pagina=1&itensPorPagina=100`;
+
+    let items: any[] = [];
+    try {
+      const pjeRes = await fetch(pjeUrl, {
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        }
+      });
+      if (pjeRes.ok) {
+        const pjeData = await pjeRes.json();
+        if (pjeData && Array.isArray(pjeData.items)) {
+          items = pjeData.items.map((item: any, idx: number) => {
+            const rawDate = item.data_disponibilizacao || item.dataDisponibilizacao || item.data_comunicacao || item.dataComunicacao || item.created_at || new Date().toISOString();
+            let formattedDate = String(rawDate).includes('T') ? String(rawDate).split('T')[0] : String(rawDate);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+              const [y, m, d] = formattedDate.split('-');
+              formattedDate = `${d}/${m}/${y}`;
+            }
+
+            return {
+              id: `pje-real-${idx + 1}`,
+              process_number: item.numero_processo || item.numeroProcesso || item.numero || `Proc-${idx + 1}`,
+              court: item.nomeOrgao || item.orgao || item.siglaTribunal || 'Tribunal de Justiça',
+              parties: Array.isArray(item.destinatarioAdvogados)
+                ? item.destinatarioAdvogados.map((a: any) => a.nome).filter(Boolean).join(', ')
+                : (item.destinatarios || 'Partes do Processo'),
+              advocate: `OAB/${targetUf} ${targetOab}`,
+              oab: targetOab,
+              uf: targetUf,
+              notice: item.tipoComunicacao || item.meio || 'Intimação Eletrônica PJe',
+              movement_text: (item.texto || item.teor || item.titulo || 'Movimentação PJe').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 800),
+              action_required: 'Tomar ciência da intimação e providenciar manifestação nos autos',
+              deadline: 'Conforme prazo legal indicado no PJe',
+              movement_date: formattedDate,
+              data_disponibilizacao: formattedDate,
+              updated_at: formattedDate,
+            };
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Erro ao consultar PJe:', err.message);
+    }
+
+    return new Response(JSON.stringify({ success: true, items, count: items.length }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -1300,12 +1359,12 @@ ${combinedEmailsText}`;
 
         const targetOab = String(contextData.oab_number || settings.oabNumber || settings.oab_number || '145105').trim();
         const targetUf = String(contextData.oab_uf || settings.oabUf || settings.oab_uf || 'MG').trim().toUpperCase();
-        const startDate = contextData.start_date || '2024-01-01';
-        const endDate = contextData.end_date || new Date().toISOString().split('T')[0];
+        const startDate = contextData.start_date || settings.startDate || settings.start_date || new Date(Date.now() - 86400000 * 15).toISOString().split('T')[0];
+        const endDate = contextData.end_date || settings.endDate || settings.end_date || new Date().toISOString().split('T')[0];
 
         let liveApiProcesses: any[] = [];
         try {
-          const pjeUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacao?numeroOab=${targetOab}&ufOab=${targetUf}&dataDisponibilizacaoInicio=${startDate}&dataDisponibilizacaoFim=${endDate}&pagina=1&itensPorPagina=50`;
+          const pjeUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacao?numeroOab=${targetOab}&ufOab=${targetUf}&dataDisponibilizacaoInicio=${startDate}&dataDisponibilizacaoFim=${endDate}&pagina=1&itensPorPagina=100`;
           console.log(`📡 [WORKER] AUTOMATIZADO: Consultando API Oficial do PJe CNJ: ${pjeUrl}`);
           
           const pjeRes = await fetch(pjeUrl, {
