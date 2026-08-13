@@ -143,7 +143,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       const rodrigoProfile: Profile = {
         id: 'user-rodrigo-moura-id',
-        organization_id: 'org-alp-nexus',
+        organization_id: 'org-legal-ops',
         email: targetEmail.includes('@') ? targetEmail : 'rodrigo.moura@alp-nexus.com',
         full_name: 'Dr. Rodrigo Moura (OAB/MG 145105)',
         role: 'Master',

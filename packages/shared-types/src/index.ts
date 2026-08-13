@@ -1,6 +1,6 @@
 export type UserRole = 'Master' | 'Admin' | 'Member' | 'Viewer';
 
-export type PlanTier = 'Forge' | 'Kinex' | 'Axiom' | 'Synapse';
+export type PlanTier = 'Forge' | 'Kinex' | 'Axiom' | 'Synapse' | 'LegalOps';
 
 export interface Organization {
   id: string;

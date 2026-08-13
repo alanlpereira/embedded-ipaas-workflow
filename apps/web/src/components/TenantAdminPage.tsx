@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Building, Users, Activity, ShieldCheck, UserPlus, Zap, Lock, CreditCard, ChevronRight, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Building, Users, Activity, ShieldCheck, UserPlus, Zap, Lock, CreditCard, ChevronRight, CheckCircle2, Trash2 } from 'lucide-react';
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -13,19 +13,30 @@ interface TeamMemberItem {
   id: string;
   name: string;
   email: string;
-  role: 'Admin' | 'Member' | 'Viewer';
+  role: 'Admin' | 'Member' | 'Viewer' | 'Master';
   status: 'ACTIVE' | 'INVITED';
   joined_at: string;
+  edition?: string;
 }
 
-const initialMembers: TeamMemberItem[] = [
+const defaultTenantMembers: TeamMemberItem[] = [
+  {
+    id: 'usr-rodrigo-moura-id',
+    name: 'Dr. Rodrigo Moura Rodrigues',
+    email: 'rodrigo.moura@alp-nexus.com',
+    role: 'Master',
+    status: 'ACTIVE',
+    joined_at: '2026-08-10',
+    edition: 'LegalOps',
+  },
   {
     id: 'mem-1',
-    name: 'Alan Pereira (Você)',
+    name: 'Dr. Alan Pereira (Você)',
     email: 'alan.pereira@alp-nexus.com',
     role: 'Admin',
     status: 'ACTIVE',
     joined_at: '2026-08-01',
+    edition: 'Synapse',
   },
   {
     id: 'mem-2',
@@ -34,6 +45,7 @@ const initialMembers: TeamMemberItem[] = [
     role: 'Member',
     status: 'ACTIVE',
     joined_at: '2026-08-02',
+    edition: 'Synapse',
   },
   {
     id: 'mem-3',
@@ -42,6 +54,7 @@ const initialMembers: TeamMemberItem[] = [
     role: 'Viewer',
     status: 'INVITED',
     joined_at: '2026-08-04',
+    edition: 'Synapse',
   },
 ];
 
@@ -50,23 +63,45 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
   const { currentOrg } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'team' | 'activity' | 'usage'>('team');
-  const [members, setMembers] = useState<TeamMemberItem[]>(initialMembers);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [members, setMembers] = useState<TeamMemberItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('synapse_team_members');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((m: any) => ({
+            id: m.id,
+            name: m.full_name || m.name || m.email,
+            email: m.email,
+            role: m.role || 'Member',
+            status: 'ACTIVE',
+            joined_at: m.created_at ? m.created_at.split('T')[0] : '2026-08-10',
+            edition: m.organization_id === 'org-legal-ops' || m.email?.includes('rodrigo.moura') ? 'LegalOps' : 'Synapse',
+          }));
+        }
+      }
+    } catch (e) {}
+    return defaultTenantMembers;
+  });
 
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState<'Admin' | 'Member' | 'Viewer'>('Member');
+  const [newMemberRole, setNewMemberRole] = useState<'Admin' | 'Member' | 'Viewer' | 'Master'>('Member');
 
-  const edition: PlanTier = (currentOrg?.plan_tier as PlanTier) || 'Synapse';
+  const edition: PlanTier = (currentProfile?.organization_id === 'org-legal-ops' || currentProfile?.email === 'rodrigo.moura@alp-nexus.com')
+    ? 'LegalOps'
+    : ((currentOrg?.plan_tier as PlanTier) || 'Synapse');
 
   const baseLimits: Record<PlanTier, number> = {
     Forge: 10000,
     Kinex: 50000,
     Axiom: 200000,
     Synapse: 1000000,
+    LegalOps: 500000,
   };
 
-  const currentLimit = baseLimits[edition] || 1000000;
+  const currentLimit = baseLimits[edition] || 500000;
   const currentTokensUsed = currentOrg?.ai_tokens_used || 142000;
   const usagePercent = Math.min(100, Math.round((currentTokensUsed / currentLimit) * 100));
 
@@ -76,18 +111,52 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
 
     const newMember: TeamMemberItem = {
       id: `mem-${Date.now()}`,
-      name: newMemberName,
-      email: newMemberEmail,
+      name: newMemberName.trim(),
+      email: newMemberEmail.trim(),
       role: newMemberRole,
       status: 'INVITED',
       joined_at: new Date().toISOString().split('T')[0],
+      edition: edition,
     };
 
-    setMembers((prev) => [...prev, newMember]);
+    const updated = [newMember, ...members];
+    setMembers(updated);
+    try {
+      const teamProfiles = updated.map(m => ({
+        id: m.id,
+        organization_id: m.edition === 'LegalOps' ? 'org-legal-ops' : 'org-alp-nexus',
+        email: m.email,
+        full_name: m.name,
+        role: m.role,
+        created_at: m.joined_at,
+        updated_at: m.joined_at,
+      }));
+      localStorage.setItem('synapse_team_members', JSON.stringify(teamProfiles));
+    } catch (e) {}
+
     setNewMemberName('');
     setNewMemberEmail('');
     setIsInviteModalOpen(false);
-    alert(t.messages.memberAdded);
+    alert(t.messages.memberAdded || 'Novo membro convidado com sucesso!');
+  };
+
+  const handleDeleteMember = (memberId: string, memberName: string) => {
+    if (confirm(`Remover ${memberName} da organização?`)) {
+      const updated = members.filter(m => m.id !== memberId);
+      setMembers(updated);
+      try {
+        const teamProfiles = updated.map(m => ({
+          id: m.id,
+          organization_id: m.edition === 'LegalOps' ? 'org-legal-ops' : 'org-alp-nexus',
+          email: m.email,
+          full_name: m.name,
+          role: m.role,
+          created_at: m.joined_at,
+          updated_at: m.joined_at,
+        }));
+        localStorage.setItem('synapse_team_members', JSON.stringify(teamProfiles));
+      } catch (e) {}
+    }
   };
 
   return (
@@ -99,209 +168,129 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
             <div style={{ padding: '8px', borderRadius: '12px', background: 'rgba(0, 242, 254, 0.15)', color: 'var(--accent-cyan)' }}>
               <Building size={22} />
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                  {currentOrg?.name || 'Organização Principal'}
-                </h1>
-                <EditionBadge edition={edition} size="medium" />
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                {t.tenantAdmin.subtitle}
-              </p>
-            </div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.5px' }}>
+              {currentProfile?.organization_id === 'org-legal-ops' ? 'Advocacia Rodrigo Moura & Associados' : (currentOrg?.name || 'ALP Nexus Enterprise')}
+            </h1>
+            <EditionBadge edition={edition} size="medium" />
           </div>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+            {t.tenantAdmin.subtitle}
+          </p>
         </div>
-      </div>
 
-      {/* Abas Internas de Gestão da Organização */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
         <button
-          onClick={() => setActiveTab('team')}
+          onClick={() => setIsInviteModalOpen(true)}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
+            padding: '10px 18px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
+            color: '#0a0c10',
+            fontWeight: 800,
+            fontSize: '13px',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0, 242, 254, 0.3)',
+          }}
+        >
+          <UserPlus size={16} />
+          {t.tenantAdmin.addMemberBtn}
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        <button
+          onClick={() => setActiveTab('team')}
+          style={{
             padding: '8px 16px',
             borderRadius: '8px',
             background: activeTab === 'team' ? 'var(--bg-tertiary)' : 'transparent',
             color: activeTab === 'team' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
-            fontSize: '13px',
+            border: activeTab === 'team' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontWeight: 700,
+            fontSize: '13px',
             cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
           <Users size={16} />
-          {t.tenantAdmin.teamTab}
+          {t.tenantAdmin.teamTab} ({members.length})
         </button>
-
         <button
           onClick={() => setActiveTab('usage')}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
             padding: '8px 16px',
             borderRadius: '8px',
             background: activeTab === 'usage' ? 'var(--bg-tertiary)' : 'transparent',
             color: activeTab === 'usage' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
-            fontSize: '13px',
+            border: activeTab === 'usage' ? '1px solid var(--border-color)' : '1px solid transparent',
             fontWeight: 700,
+            fontSize: '13px',
             cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
           <Zap size={16} />
           {t.tenantAdmin.usageTab}
         </button>
-
-        <button
-          onClick={() => setActiveTab('activity')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            background: activeTab === 'activity' ? 'var(--bg-tertiary)' : 'transparent',
-            color: activeTab === 'activity' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: 'none',
-            fontSize: '13px',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          <Activity size={16} />
-          {t.tenantAdmin.activityTab}
-        </button>
       </div>
 
-      {/* Conteúdo Aba Uso do Plano e Edição */}
-      {activeTab === 'usage' && (
-        <div>
-          <div style={{
-            background: 'var(--bg-glass)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '20px',
-            padding: '28px',
-            marginBottom: '28px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <div>
-                <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {t.tenantAdmin.secPlanTitle}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                  <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
-                    Edição Ativa: {edition} Edition
-                  </h2>
-                  <EditionBadge edition={edition} size="large" />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              <div style={{ background: 'var(--bg-tertiary)', borderRadius: '16px', padding: '20px', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                  {t.tenantAdmin.tokensUsage}
-                </span>
-                <h3 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: '8px 0' }}>
-                  {currentTokensUsed.toLocaleString()} / {currentLimit.toLocaleString()}
-                </h3>
-                <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--bg-primary)', overflow: 'hidden' }}>
-                  <div style={{ width: `${usagePercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-cyan), var(--accent-blue))' }} />
-                </div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '8px' }}>
-                  {usagePercent}% da quota mensal consumida
-                </span>
-              </div>
-
-              <div style={{ background: 'var(--bg-tertiary)', borderRadius: '16px', padding: '20px', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                  {t.tenantAdmin.executionsUsage}
-                </span>
-                <h3 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: '8px 0' }}>
-                  3.840 Execuções
-                </h3>
-                <span style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CheckCircle2 size={14} /> Execuções ilimitadas no motor {edition}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Conteúdo Aba Equipe */}
+      {/* Conteúdo das Abas */}
       {activeTab === 'team' && (
         <div style={{
-          background: 'var(--bg-glass)',
-          backdropFilter: 'blur(16px)',
+          background: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
-          borderRadius: '20px',
-          padding: '24px',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              {t.tenantAdmin.secTeamTitle}
-            </h3>
-            <button
-              onClick={() => setIsInviteModalOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
-                color: '#0a0c10',
-                fontWeight: 800,
-                fontSize: '12px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <UserPlus size={15} />
-              {t.tenantAdmin.addMemberBtn}
-            </button>
-          </div>
-
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', textTransform: 'uppercase', fontSize: '11px', color: 'var(--text-muted)' }}>
-                <th style={{ padding: '12px', textAlign: 'left' }}>Nome</th>
-                <th style={{ padding: '12px', textAlign: 'left' }}>E-mail</th>
-                <th style={{ padding: '12px', textAlign: 'left' }}>Função</th>
-                <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
+              <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Membro</th>
+                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>E-mail</th>
+                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Edição Habilitada</th>
+                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Função</th>
+                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Status</th>
+                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
-              {members.map((member) => (
-                <tr key={member.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <td style={{ padding: '14px 12px', color: 'var(--text-primary)', fontWeight: 600 }}>{member.name}</td>
-                  <td style={{ padding: '14px 12px', color: 'var(--text-secondary)' }}>{member.email}</td>
-                  <td style={{ padding: '14px 12px' }}>
-                    <span style={{
-                      padding: '3px 8px',
-                      borderRadius: '8px',
-                      background: member.role === 'Admin' ? 'rgba(0, 242, 254, 0.15)' : 'var(--bg-tertiary)',
-                      color: member.role === 'Admin' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                    }}>
-                      {member.role}
+              {members.map((m) => (
+                <tr key={m.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <td style={{ padding: '16px 24px', color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px' }}>
+                    {m.name}
+                  </td>
+                  <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                    {m.email}
+                  </td>
+                  <td style={{ padding: '16px 24px' }}>
+                    <EditionBadge edition={m.edition || (m.email.includes('rodrigo.moura') ? 'LegalOps' : 'Synapse')} size="small" />
+                  </td>
+                  <td style={{ padding: '16px 24px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 8px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                      {m.role}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 12px' }}>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: member.status === 'ACTIVE' ? '#10b981' : '#f59e0b',
-                    }}>
-                      {member.status === 'ACTIVE' ? 'Ativo' : 'Convidado'}
+                  <td style={{ padding: '16px 24px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: m.status === 'ACTIVE' ? '#10b981' : '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={12} /> {m.status}
                     </span>
+                  </td>
+                  <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleDeleteMember(m.id, m.name)}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -310,82 +299,36 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
         </div>
       )}
 
-      {/* Modal Convidar Membro */}
+      {activeTab === 'usage' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Consumo de Tokens IA</h3>
+            <div style={{ fontSize: '28px', fontWeight: 900, color: '#38bdf8', marginBottom: '8px' }}>
+              {currentTokensUsed.toLocaleString('pt-BR')} / {currentLimit.toLocaleString('pt-BR')}
+            </div>
+            <div style={{ width: '100%', height: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${usagePercent}%`, height: '100%', background: 'linear-gradient(90deg, #38bdf8, #3b82f6)' }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Convidar */}
       {isInviteModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 60, padding: '20px'
-        }}>
-          <div style={{
-            width: '100%', maxWidth: '440px',
-            background: 'var(--bg-glass)', backdropFilter: 'blur(20px)',
-            border: '1px solid var(--border-color)', borderRadius: '20px', padding: '24px'
-          }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
-              {t.team.modal.title}
-            </h3>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '28px', width: '90%', maxWidth: '420px' }}>
+            <h3 style={{ margin: '0 0 16px 0', color: 'var(--text-primary)', fontSize: '18px', fontWeight: 800 }}>Convidar Novo Membro</h3>
             <form onSubmit={handleInviteMember} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-                  {t.team.modal.fullName}
-                </label>
-                <input
-                  type="text"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  placeholder="Nome do usuário"
-                  required
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-                  {t.team.modal.email}
-                </label>
-                <input
-                  type="email"
-                  value={newMemberEmail}
-                  onChange={(e) => setNewMemberEmail(e.target.value)}
-                  placeholder="email@empresa.com"
-                  required
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-                  {t.team.modal.roleSelect}
-                </label>
-                <select
-                  value={newMemberRole}
-                  onChange={(e) => setNewMemberRole(e.target.value as any)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}
-                >
-                  <option value="Admin">Admin</option>
-                  <option value="Member">Member</option>
-                  <option value="Viewer">Viewer</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsInviteModalOpen(false)}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  {t.team.modal.cancel}
-                </button>
-                <button
-                  type="submit"
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--accent-cyan)', border: 'none', color: '#0a0c10', fontWeight: 800, cursor: 'pointer' }}
-                >
-                  {t.team.modal.submit}
-                </button>
+              <input type="text" value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="Nome completo (Ex: Dr. Rodrigo Moura)" required style={{ padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+              <input type="email" value={newMemberEmail} onChange={e => setNewMemberEmail(e.target.value)} placeholder="rodrigo.moura@alp-nexus.com" required style={{ padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+              <select value={newMemberRole} onChange={e => setNewMemberRole(e.target.value as any)} style={{ padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                <option value="Admin">Admin</option>
+                <option value="Member">Member</option>
+                <option value="Viewer">Viewer</option>
+              </select>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setIsInviteModalOpen(false)} style={{ padding: '8px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>Cancelar</button>
+                <button type="submit" style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--accent-cyan)', color: '#0a0c10', fontWeight: 800, border: 'none' }}>Salvar Membro</button>
               </div>
             </form>
           </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hammer, Zap, Cpu, Sparkles, Shield } from 'lucide-react';
+import { Hammer, Zap, Cpu, Sparkles, Shield, Scale } from 'lucide-react';
 import { PlanTier } from '@ipaas/shared-types';
 
 interface EditionBadgeProps {
@@ -49,6 +49,13 @@ export const EditionBadge: React.FC<EditionBadgeProps> = ({
       bg: 'rgba(0, 242, 254, 0.15)',
       border: 'rgba(0, 242, 254, 0.3)',
       icon: <Sparkles size={size === 'small' ? 11 : size === 'medium' ? 13 : 15} color="#00f2fe" />,
+    },
+    LegalOps: {
+      label: 'Legal Ops Edition',
+      color: '#10b981', // Verde Esmeralda / Emerald
+      bg: 'rgba(16, 185, 129, 0.15)',
+      border: 'rgba(16, 185, 129, 0.3)',
+      icon: <Scale size={size === 'small' ? 11 : size === 'medium' ? 13 : 15} color="#10b981" />,
     },
   };
 

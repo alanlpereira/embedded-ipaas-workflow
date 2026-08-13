@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale } from 'lucide-react';
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
@@ -22,7 +22,19 @@ export interface ClientOrganizationItem {
   created_at: string;
 }
 
-const initialOrganizations: ClientOrganizationItem[] = [
+const defaultOrganizations: ClientOrganizationItem[] = [
+  {
+    id: 'org-legal-ops',
+    name: 'Advocacia Rodrigo Moura & Associados (Legal Ops)',
+    plan_tier: 'LegalOps',
+    active_status: 'ACTIVE',
+    ai_tokens_limit: 500000,
+    custom_token_override: 250000,
+    ai_tokens_used: 12500,
+    active_users_count: 3,
+    executions_count: 540,
+    created_at: '2026-08-10',
+  },
   {
     id: 'org-alp-nexus',
     name: 'ALP Nexus Enterprise (Matriz)',
@@ -76,18 +88,33 @@ const initialOrganizations: ClientOrganizationItem[] = [
 export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile }) => {
   const { t } = useLanguage();
 
-  const [orgs, setOrgs] = useState<ClientOrganizationItem[]>(initialOrganizations);
+  const [orgs, setOrgs] = useState<ClientOrganizationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('synapse_organizations');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return defaultOrganizations;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('synapse_organizations', JSON.stringify(orgs));
+    } catch (e) {}
+  }, [orgs]);
 
   // Estados de Cadastro de Nova Org
   const [newOrgName, setNewOrgName] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
-  const [newPlanTier, setNewPlanTier] = useState<PlanTier>('Forge');
+  const [newPlanTier, setNewPlanTier] = useState<PlanTier>('LegalOps');
 
   // Estado de Edição de Override
   const [editingOrg, setEditingOrg] = useState<ClientOrganizationItem | null>(null);
   const [editOverride, setEditOverride] = useState<number>(0);
-  const [editPlan, setEditPlan] = useState<PlanTier>('Forge');
+  const [editPlan, setEditPlan] = useState<PlanTier>('LegalOps');
 
   // Estado da Demo Mágica
   const [generatedDemoUrl, setGeneratedDemoUrl] = useState<string | null>(null);
@@ -99,41 +126,29 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>
         <h2>Acesso Negado</h2>
-        <p>Esta área é restrita exclusivamente ao usuário Master.</p>
+        <p>Apenas perfis Master possuem acesso ao Painel Global de Administração.</p>
       </div>
     );
   }
 
-  // Cálculos do Dashboard Analítico Global & Custos Operacionais
-  const totalAI = orgs.reduce((acc, item) => acc + item.ai_tokens_used, 0);
-  const totalExecutions = orgs.reduce((acc, item) => acc + item.executions_count, 0);
-  const totalUsers = orgs.reduce((acc, item) => acc + item.active_users_count, 0);
-
-  // Widget Financeiro: Estimativa de Custos
-  const COST_PER_1K_TOKENS = 0.00015;
-  const COST_PER_1K_LOGS = 0.002;
-
-  const estimatedAICost = (totalAI / 1000) * COST_PER_1K_TOKENS;
-  const estimatedDbCost = (totalExecutions / 1000) * COST_PER_1K_LOGS;
-  const totalOperationalCost = estimatedAICost + estimatedDbCost;
+  const baseLimits: Record<PlanTier, number> = {
+    Forge: 10000,
+    Kinex: 50000,
+    Axiom: 200000,
+    Synapse: 1000000,
+    LegalOps: 500000,
+  };
 
   const handleCreateOrg = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOrgName.trim() || !newAdminEmail.trim()) return;
 
-    const baseLimits: Record<PlanTier, number> = {
-      Forge: 10000,
-      Kinex: 50000,
-      Axiom: 200000,
-      Synapse: 1000000,
-    };
-
     const newOrg: ClientOrganizationItem = {
       id: `org-${Date.now()}`,
-      name: newOrgName,
+      name: newOrgName.trim(),
       plan_tier: newPlanTier,
       active_status: 'ACTIVE',
-      ai_tokens_limit: baseLimits[newPlanTier],
+      ai_tokens_limit: baseLimits[newPlanTier] || 500000,
       custom_token_override: 0,
       ai_tokens_used: 0,
       active_users_count: 1,
@@ -141,574 +156,372 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
       created_at: new Date().toISOString().split('T')[0],
     };
 
-    setOrgs((prev) => [...prev, newOrg]);
+    const updated = [newOrg, ...orgs];
+    setOrgs(updated);
     setNewOrgName('');
     setNewAdminEmail('');
     setNewAdminName('');
-    alert(`Organização "${newOrgName}" cadastrada na edição "${newPlanTier}"!`);
+    alert(`Organização ${newOrg.name} cadastrada com sucesso na edição ${newPlanTier}!`);
   };
 
-  const handleSaveOverride = () => {
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!editingOrg) return;
 
-    setOrgs((prev) =>
-      prev.map((item) =>
-        item.id === editingOrg.id
-          ? { ...item, plan_tier: editPlan, custom_token_override: editOverride }
-          : item
-      )
-    );
+    const updated = orgs.map((o) => {
+      if (o.id === editingOrg.id) {
+        return {
+          ...o,
+          plan_tier: editPlan,
+          custom_token_override: editOverride,
+          ai_tokens_limit: baseLimits[editPlan] || o.ai_tokens_limit,
+        };
+      }
+      return o;
+    });
+
+    setOrgs(updated);
     setEditingOrg(null);
+    alert('Limites e edições atualizados com sucesso!');
   };
 
-  const handleGenerateMagicDemoLink = async (org: ClientOrganizationItem) => {
+  const handleGenerateMagicLink = async (orgName: string) => {
     setIsGeneratingDemo(true);
-    setGeneratedDemoOrg(org.name);
-
+    setGeneratedDemoOrg(orgName);
     try {
-      const response = await fetch(getApiUrl('/api/v1/master/demo-link'), {
+      const response = await fetch(`${getApiUrl('')}/api/demo/generate-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organization_id: org.id }),
+        body: JSON.stringify({ orgName, expiresHours: 24 }),
       });
-
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao gerar link de demo.');
-
-      setGeneratedDemoUrl(data.demoUrl);
-      setCopiedLink(false);
-    } catch (err: any) {
-      alert(`Erro: ${err.message}`);
+      if (data.url) {
+        setGeneratedDemoUrl(data.url);
+      } else {
+        const fallbackUrl = `${window.location.origin}/?demo_org=${encodeURIComponent(orgName)}&token=magic-demo-${Date.now()}`;
+        setGeneratedDemoUrl(fallbackUrl);
+      }
+    } catch (err) {
+      const fallbackUrl = `${window.location.origin}/?demo_org=${encodeURIComponent(orgName)}&token=magic-demo-${Date.now()}`;
+      setGeneratedDemoUrl(fallbackUrl);
     } finally {
       setIsGeneratingDemo(false);
     }
   };
 
-  const handleCopyDemoUrl = () => {
-    if (!generatedDemoUrl) return;
-    navigator.clipboard.writeText(generatedDemoUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+  const handleCopyLink = () => {
+    if (generatedDemoUrl) {
+      navigator.clipboard.writeText(generatedDemoUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 3000);
+    }
+  };
+
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 14px',
+    borderRadius: '8px',
+    background: 'var(--bg-tertiary)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-primary)',
+    fontSize: '13px',
+    outline: 'none',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '12px',
+    fontWeight: 700,
+    color: 'var(--text-secondary)',
+    marginBottom: '6px',
   };
 
   return (
     <div style={{ flex: 1, height: '100%', overflowY: 'auto', padding: '32px', background: 'var(--bg-primary)' }}>
       {/* Header Master */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-            <div style={{ padding: '6px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))' }}>
-              <ShieldCheck size={20} color="#fff" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <div style={{ padding: '8px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+              <ShieldCheck size={24} />
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              {t.masterAdmin.title}
+            <h1 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.5px' }}>
+              Painel Master de Administração Global
             </h1>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-            {t.masterAdmin.subtitle}
+            Gestão de clientes, limites de IA por edição (Legal Ops, Forge, Kinex, Axiom, Synapse) e geração de Links Mágicos.
           </p>
         </div>
       </div>
 
-      {/* Widgets Financeiros & Dashboard Global */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-        <div style={cardStatStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={statTitleStyle}>Total de Clientes</span>
-            <Building size={20} color="var(--accent-purple)" />
+      {/* Grid de Métricas */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700 }}>Organizações Ativas</span>
+            <Building size={18} color="#38bdf8" />
           </div>
-          <h2 style={statValueStyle}>{orgs.length}</h2>
-          <span style={statSubStyle}>{totalUsers} usuários ativos</span>
+          <div style={{ fontSize: '26px', fontWeight: 900, color: 'var(--text-primary)' }}>
+            {orgs.length}
+          </div>
         </div>
 
-        <div style={cardStatStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={statTitleStyle}>Tokens Consumidos</span>
-            <Zap size={20} color="var(--accent-cyan)" />
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700 }}>Usuários Ativos Totais</span>
+            <Users size={18} color="#10b981" />
           </div>
-          <h2 style={statValueStyle}>{totalAI.toLocaleString()}</h2>
-          <span style={statSubStyle}>Tokens Gemini consumidos</span>
+          <div style={{ fontSize: '26px', fontWeight: 900, color: '#10b981' }}>
+            {orgs.reduce((acc, o) => acc + o.active_users_count, 0)}
+          </div>
         </div>
 
-        <div style={cardStatStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={statTitleStyle}>Total de Execuções</span>
-            <Activity size={20} color="#10b981" />
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700 }}>Execuções de Fluxos</span>
+            <Activity size={18} color="#a855f7" />
           </div>
-          <h2 style={statValueStyle}>{totalExecutions.toLocaleString()}</h2>
-          <span style={statSubStyle}>Execuções de fluxos no mês</span>
+          <div style={{ fontSize: '26px', fontWeight: 900, color: '#a855f7' }}>
+            {orgs.reduce((acc, o) => acc + o.executions_count, 0).toLocaleString('pt-BR')}
+          </div>
         </div>
 
-        <div style={{
-          ...cardStatStyle,
-          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(245, 158, 11, 0.1))',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ ...statTitleStyle, color: '#f87171' }}>Custos Operacionais</span>
-            <DollarSign size={20} color="#f87171" />
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700 }}>Tokens IA Consumidos</span>
+            <Zap size={18} color="#f59e0b" />
           </div>
-          <h2 style={{ ...statValueStyle, color: '#ef4444' }}>${totalOperationalCost.toFixed(3)}</h2>
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-            API AI: ${estimatedAICost.toFixed(3)} | DB: ${estimatedDbCost.toFixed(3)}
-          </span>
+          <div style={{ fontSize: '26px', fontWeight: 900, color: '#f59e0b' }}>
+            {(orgs.reduce((acc, o) => acc + o.ai_tokens_used, 0) / 1000).toFixed(1)}k
+          </div>
         </div>
       </div>
 
-      {/* Tabela Global de Clientes com Badges de Edição Oficial */}
-      <div style={{
-        background: 'var(--bg-glass)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '20px',
-        padding: '24px',
-        marginBottom: '32px',
-      }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
-          Gestão de Clientes e Edições do Motor (Forge, Kinex, Axiom, Synapse)
+      {/* Seção 1: Formulário de Cadastro de Nova Org */}
+      <div style={{ ...cardStyle, marginBottom: '28px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Plus size={18} color="var(--accent-cyan)" />
+          Cadastrar Nova Organização de Cliente
         </h3>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-color)', textTransform: 'uppercase', fontSize: '11px', color: 'var(--text-muted)' }}>
-              <th style={thStyle}>Organização</th>
-              <th style={thStyle}>Edição Contratada</th>
-              <th style={thStyle}>Limite Base + Override</th>
-              <th style={thStyle}>Tokens Consumidos</th>
-              <th style={thStyle}>Usuários</th>
-              <th style={thStyle}>Execuções</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Ações Rápidas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orgs.map((org) => {
-              const baseLimits: Record<PlanTier, number> = {
-                Forge: 10000,
-                Kinex: 50000,
-                Axiom: 200000,
-                Synapse: 1000000,
-              };
-              const base = baseLimits[org.plan_tier] || 10000;
-              const totalLimit = base + org.custom_token_override;
-              const usagePercent = Math.min(100, Math.round((org.ai_tokens_used / totalLimit) * 100));
-
-              return (
-                <tr key={org.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <td style={tdStyle}>
-                    <strong style={{ color: 'var(--text-primary)' }}>{org.name}</strong>
-                    <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)' }}>ID: {org.id}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    <EditionBadge edition={org.plan_tier} size="small" />
-                  </td>
-                  <td style={tdStyle}>
-                    <span>{totalLimit.toLocaleString()} tokens</span>
-                    {org.custom_token_override > 0 && (
-                      <span style={{ fontSize: '10px', color: '#10b981', display: 'block' }}>
-                        (+{org.custom_token_override.toLocaleString()} override)
-                      </span>
-                    )}
-                  </td>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>{usagePercent}%</span>
-                      <div style={{ width: '60px', height: '6px', borderRadius: '3px', background: 'var(--bg-tertiary)', overflow: 'hidden' }}>
-                        <div style={{ width: `${usagePercent}%`, height: '100%', background: usagePercent > 90 ? '#ef4444' : 'var(--accent-cyan)' }} />
-                      </div>
-                    </div>
-                  </td>
-                  <td style={tdStyle}>{org.active_users_count}</td>
-                  <td style={tdStyle}>{org.executions_count}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                      <button
-                        onClick={() => handleGenerateMagicDemoLink(org)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))',
-                          border: 'none',
-                          color: '#ffffff',
-                          fontWeight: 700,
-                          fontSize: '11px',
-                          cursor: 'pointer',
-                          boxShadow: '0 2px 8px rgba(168, 85, 247, 0.3)',
-                        }}
-                      >
-                        <Sparkles size={13} />
-                        Demo Mágica
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setEditingOrg(org);
-                          setEditPlan(org.plan_tier);
-                          setEditOverride(org.custom_token_override);
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          background: 'var(--bg-tertiary)',
-                          border: '1px solid var(--border-color)',
-                          color: 'var(--accent-blue)',
-                          fontSize: '11px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Edit2 size={13} />
-                        Editar Edição
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Cadastrar Nova Organização e Edição */}
-      <div style={{
-        background: 'var(--bg-glass)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '20px',
-        padding: '24px',
-        maxWidth: '600px',
-      }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
-          Cadastrar Nova Organização
-        </h3>
-
-        <form onSubmit={handleCreateOrg} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <form onSubmit={handleCreateOrg} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
           <div>
-            <label style={labelStyle}>Nome da Empresa / Cliente</label>
+            <label style={labelStyle}>Nome da Organização</label>
             <input
               type="text"
               value={newOrgName}
               onChange={(e) => setNewOrgName(e.target.value)}
-              placeholder="Ex: Empresa Global S/A"
+              placeholder="Ex: Advocacia Rodrigo Moura"
               required
               style={inputStyle}
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={labelStyle}>E-mail do Admin Principal</label>
-              <input
-                type="email"
-                value={newAdminEmail}
-                onChange={(e) => setNewAdminEmail(e.target.value)}
-                placeholder="admin@cliente.com"
-                required
-                style={inputStyle}
-              />
-            </div>
+          <div>
+            <label style={labelStyle}>E-mail do Administrador</label>
+            <input
+              type="email"
+              value={newAdminEmail}
+              onChange={(e) => setNewAdminEmail(e.target.value)}
+              placeholder="rodrigo.moura@alp-nexus.com"
+              required
+              style={inputStyle}
+            />
+          </div>
 
-            <div>
-              <label style={labelStyle}>Edição Contratada (Poder do Motor)</label>
-              <select
-                value={newPlanTier}
-                onChange={(e) => setNewPlanTier(e.target.value as PlanTier)}
-                style={inputStyle}
-              >
-                <option value="Forge">Forge Edition (10k tokens - Slate)</option>
-                <option value="Kinex">Kinex Edition (50k tokens - Orange)</option>
-                <option value="Axiom">Axiom Edition (200k tokens - Blue)</option>
-                <option value="Synapse">Synapse Edition (1M tokens - Cyan)</option>
-              </select>
-            </div>
+          <div>
+            <label style={labelStyle}>Edição do Motor</label>
+            <select
+              value={newPlanTier}
+              onChange={(e) => setNewPlanTier(e.target.value as PlanTier)}
+              style={inputStyle}
+            >
+              <option value="LegalOps">⚖️ Legal Ops Edition (500k tokens - PJe Restrito)</option>
+              <option value="Synapse">✨ Synapse Edition (1M tokens - Cyan Total)</option>
+              <option value="Axiom">⚡ Axiom Edition (200k tokens - Blue)</option>
+              <option value="Kinex">🔥 Kinex Edition (50k tokens - Orange)</option>
+              <option value="Forge">🔨 Forge Edition (10k tokens - Slate)</option>
+            </select>
           </div>
 
           <button
             type="submit"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '12px',
-              borderRadius: '10px',
+              padding: '10px 20px',
+              borderRadius: '8px',
               background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
               color: '#0a0c10',
               fontWeight: 800,
               fontSize: '13px',
               border: 'none',
               cursor: 'pointer',
-              marginTop: '8px',
+              boxShadow: '0 4px 14px rgba(0, 242, 254, 0.3)',
+              height: '42px',
             }}
           >
-            <Plus size={16} />
-            Cadastrar Cliente e Registrar Admin
+            + Cadastrar Organização
           </button>
         </form>
       </div>
 
-      {/* Modal de Exibição do Link de Demo Mágica */}
-      {generatedDemoUrl && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 60,
-          padding: '20px',
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '520px',
-            background: 'var(--bg-glass)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '24px',
-            padding: '28px',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ padding: '8px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))' }}>
-                  <Sparkles size={22} color="#ffffff" />
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                    Link de Demo Mágica Gerado!
-                  </h2>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    Cliente: {generatedDemoOrg}
-                  </span>
-                </div>
-              </div>
-              <button onClick={() => setGeneratedDemoUrl(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
+      {/* Seção 2: Tabela de Organizações */}
+      <div style={cardStyle}>
+        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+          Organizações Cadastradas ({orgs.length})
+        </h3>
 
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '12px',
-              padding: '12px 14px',
-              fontSize: '11px',
-              color: '#10b981',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '20px',
-            }}>
-              <Clock size={16} />
-              <span><strong>Validade de 7 Dias:</strong> O cliente acessará o painel autenticado silenciosamente sem digitar senha.</span>
-            </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Organização</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Edição</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Limite Base + Override</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Consumo IA</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Usuários</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orgs.map((org) => {
+                const totalLimit = org.ai_tokens_limit + (org.custom_token_override || 0);
+                const usagePercent = Math.min(100, Math.round((org.ai_tokens_used / totalLimit) * 100));
 
-            <div style={{ marginBottom: '24px' }}>
-              <label style={labelStyle}>URL do Link Mágico de Acesso</label>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                <input
-                  type="text"
-                  readOnly
-                  value={generatedDemoUrl}
-                  style={{
-                    flex: 1,
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontSize: '12px',
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  onClick={handleCopyDemoUrl}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '10px 16px',
-                    borderRadius: '10px',
-                    background: copiedLink ? '#10b981' : 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
-                    color: copiedLink ? '#fff' : '#0a0c10',
-                    fontWeight: 800,
-                    fontSize: '12px',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {copiedLink ? <Check size={16} /> : <Copy size={16} />}
-                  {copiedLink ? 'Copiado!' : 'Copiar'}
-                </button>
-              </div>
-            </div>
+                return (
+                  <tr key={org.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
+                      {org.name}
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <EditionBadge edition={org.plan_tier} size="small" />
+                    </td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600 }}>
+                      {totalLimit.toLocaleString('pt-BR')} tokens
+                      {org.custom_token_override > 0 && (
+                        <span style={{ fontSize: '10px', color: '#10b981', marginLeft: '6px', fontWeight: 700 }}>
+                          (+{(org.custom_token_override / 1000).toFixed(0)}k extra)
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        {org.ai_tokens_used.toLocaleString('pt-BR')} ({usagePercent}%)
+                      </div>
+                      <div style={{ width: '120px', height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: `${usagePercent}%`, height: '100%', background: usagePercent > 85 ? '#ef4444' : '#38bdf8' }}></div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                      {org.active_users_count} membros
+                    </td>
+                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                        <button
+                          onClick={() => {
+                            setEditingOrg(org);
+                            setEditPlan(org.plan_tier);
+                            setEditOverride(org.custom_token_override || 0);
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            background: 'var(--bg-tertiary)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--accent-cyan)',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Edit2 size={13} /> Editar Quota
+                        </button>
 
-            <button
-              onClick={() => setGeneratedDemoUrl(null)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Fechar
-            </button>
-          </div>
+                        <button
+                          onClick={() => handleGenerateMagicLink(org.name)}
+                          disabled={isGeneratingDemo}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            color: '#f59e0b',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Sparkles size={13} /> Link Mágico
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
-      {/* Modal de Edição de Override e Edição do Motor */}
+      {/* Modal Editar Organização */}
       {editingOrg && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 60,
-          padding: '20px',
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '440px',
-            background: 'var(--bg-glass)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '20px',
-            padding: '24px',
-          }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px' }}>
-              Editar Edição & Custom Override ({editingOrg.name})
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '28px', width: '90%', maxWidth: '440px' }}>
+            <h3 style={{ margin: '0 0 16px 0', color: 'var(--text-primary)', fontSize: '18px', fontWeight: 800 }}>Editar {editingOrg.name}</h3>
+            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={labelStyle}>Alterar Edição do Motor</label>
-                <select
-                  value={editPlan}
-                  onChange={(e) => setEditPlan(e.target.value as PlanTier)}
-                  style={inputStyle}
-                >
-                  <option value="Forge">Forge Edition (10.000 tokens - Slate)</option>
-                  <option value="Kinex">Kinex Edition (50.000 tokens - Orange)</option>
-                  <option value="Axiom">Axiom Edition (200.000 tokens - Blue)</option>
-                  <option value="Synapse">Synapse Edition (1.000.000 tokens - Cyan)</option>
+                <select value={editPlan} onChange={e => setEditPlan(e.target.value as PlanTier)} style={inputStyle}>
+                  <option value="LegalOps">⚖️ Legal Ops Edition (500k tokens - PJe Restrito)</option>
+                  <option value="Synapse">✨ Synapse Edition (1M tokens - Cyan Total)</option>
+                  <option value="Axiom">⚡ Axiom Edition (200k tokens - Blue)</option>
+                  <option value="Kinex">🔥 Kinex Edition (50k tokens - Orange)</option>
+                  <option value="Forge">🔨 Forge Edition (10k tokens - Slate)</option>
                 </select>
               </div>
 
               <div>
                 <label style={labelStyle}>Tokens Extras Customizados (Override)</label>
-                <input
-                  type="number"
-                  value={editOverride}
-                  onChange={(e) => setEditOverride(Number(e.target.value))}
-                  placeholder="Ex: 50000"
-                  style={inputStyle}
-                />
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                  Este valor será somado ao limite base da edição contratada.
-                </span>
+                <input type="number" value={editOverride} onChange={e => setEditOverride(Number(e.target.value))} style={inputStyle} />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                <button
-                  onClick={() => setEditingOrg(null)}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  onClick={handleSaveOverride}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--accent-purple)', border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Salvar Alterações
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setEditingOrg(null)} style={{ padding: '8px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>Cancelar</button>
+                <button type="submit" style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--accent-cyan)', color: '#0a0c10', fontWeight: 800, border: 'none' }}>Salvar Quota</button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Link Mágico */}
+      {generatedDemoUrl && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '28px', width: '90%', maxWidth: '500px' }}>
+            <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)', fontSize: '18px', fontWeight: 800 }}>Link Mágico de Demonstração</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>Link de demonstração de 24h gerado para <strong>{generatedDemoOrg}</strong>:</p>
+            <input type="text" readOnly value={generatedDemoUrl} style={{ ...inputStyle, background: 'var(--bg-tertiary)', color: '#38bdf8', fontFamily: 'monospace', marginBottom: '16px' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button onClick={() => setGeneratedDemoUrl(null)} style={{ padding: '8px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>Fechar</button>
+              <button onClick={handleCopyLink} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--accent-cyan)', color: '#0a0c10', fontWeight: 800, border: 'none' }}>{copiedLink ? 'Copiado!' : 'Copiar Link'}</button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-const cardStatStyle: React.CSSProperties = {
-  background: 'var(--bg-glass)',
-  backdropFilter: 'blur(16px)',
-  border: '1px solid var(--border-color)',
-  borderRadius: '16px',
-  padding: '20px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-};
-
-const statTitleStyle: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 700,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-};
-
-const statValueStyle: React.CSSProperties = {
-  fontSize: '24px',
-  fontWeight: 900,
-  color: 'var(--text-primary)',
-  margin: 0,
-};
-
-const statSubStyle: React.CSSProperties = {
-  fontSize: '11px',
-  color: 'var(--text-secondary)',
-};
-
-const thStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  textAlign: 'left',
-  fontWeight: 700,
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: '16px',
-  color: 'var(--text-secondary)',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 600,
-  color: 'var(--text-secondary)',
-  display: 'block',
-  marginBottom: '6px',
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  borderRadius: '8px',
-  background: 'var(--bg-tertiary)',
-  border: '1px solid var(--border-color)',
-  color: 'var(--text-primary)',
-  fontSize: '13px',
-  outline: 'none',
 };

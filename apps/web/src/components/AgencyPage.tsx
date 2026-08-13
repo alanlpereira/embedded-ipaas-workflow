@@ -40,6 +40,7 @@ export const AgencyPage: React.FC<AgencyPageProps> = ({
       Kinex: 50000,
       Axiom: 200000,
       Synapse: 1000000,
+      LegalOps: 500000,
     };
 
     const created: ExtendedOrganization = {

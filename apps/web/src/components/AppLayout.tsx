@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2 } from 'lucide-react';
 import { ViewTab } from './Navbar';
-import { Profile } from '@ipaas/shared-types';
+import { Profile, PlanTier } from '@ipaas/shared-types';
+import { EditionBadge } from './EditionBadge';
 
 interface AppLayoutProps {
   currentTab: ViewTab;
@@ -32,8 +33,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const isMasterOrAdmin = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
-  const isMaster = currentProfile?.role === 'Master';
+  const isRodrigoOrLegalOps = currentProfile?.organization_id === 'org-legal-ops' || currentProfile?.email?.includes('rodrigo.moura');
+  const currentEdition: PlanTier = isRodrigoOrLegalOps ? 'LegalOps' : 'Synapse';
+
+  const isMasterOrAdmin = (currentProfile?.role === 'Master' || currentProfile?.role === 'Admin') && !isRodrigoOrLegalOps;
+  const isMaster = currentProfile?.role === 'Master' && !isRodrigoOrLegalOps;
 
   const navItems = [
     // Módulo Jurídico (Disponível para todos os perfis, inclusive Dr. Rodrigo Moura)
@@ -41,7 +45,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Gemini 1.5', group: 'Módulo Jurídico' },
     { id: 'clients' as ViewTab, label: 'Clientes & Casos', icon: <Users size={18} />, group: 'Módulo Jurídico' },
 
-    // Módulo de Automação / Engenharia de Fluxos (Exibido para Admin/Master com controle de acesso)
+    // Módulo de Automação / Engenharia de Fluxos (Exibido para Admin/Master de edições completas)
     ...(isMasterOrAdmin ? [
       { id: 'dashboard_flows' as ViewTab, label: 'Dashboard de Fluxos', icon: <LayoutDashboard size={18} />, group: 'Automações & IPaaS' },
       { id: 'editor' as ViewTab, label: 'Editor de Fluxos', icon: <Workflow size={18} />, group: 'Automações & IPaaS' },
@@ -51,18 +55,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       { id: 'integrations' as ViewTab, label: 'Cofre de Integrações', icon: <Lock size={18} />, group: 'Automações & IPaaS' },
     ] : []),
 
-    // Administração da Plataforma (Exibido apenas para Master)
+    // Administração da Plataforma (Exibido para Master / Admin)
     ...(isMaster ? [
       { id: 'masterAdmin' as ViewTab, label: 'Admin Master Global', icon: <ShieldCheck size={18} color="#f59e0b" />, group: 'Administração' },
-      { id: 'tenantAdmin' as ViewTab, label: 'Gestão da Organização', icon: <Building2 size={18} />, group: 'Administração' },
     ] : []),
+    { id: 'tenantAdmin' as ViewTab, label: 'Gestão da Organização', icon: <Building2 size={18} />, group: 'Administração' },
 
     // Configurações Gerais
     { id: 'settings' as ViewTab, label: 'Configurações', icon: <Settings size={18} />, group: 'Geral' },
   ];
 
   const advocateName = currentProfile?.full_name || 'Dr. Rodrigo Moura Rodrigues';
-  const advocateOab = 'OAB/MG 145105';
+  const advocateOab = currentProfile?.professional_id || 'OAB/MG 145105';
 
   const handleSelectNav = (tab: ViewTab) => {
     onNavigate(tab);
@@ -72,7 +76,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: '#080c14', color: '#f8fafc', overflow: 'hidden', fontFamily: 'Inter, sans-serif', position: 'relative' }}>
       
-      {/* 📱 BACKDROP/OVERLAY ESCURO PARA CELULAR (CLICAR EM QUALQUER PONTO FECHA O MENU) */}
+      {/* 📱 BACKDROP/OVERLAY ESCURO PARA CELULAR */}
       {isMobileScreen && isMobileMenuOpen && (
         <div
           onClick={() => setIsMobileMenuOpen(false)}
@@ -82,7 +86,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             background: 'rgba(0, 0, 0, 0.75)',
             backdropFilter: 'blur(4px)',
             zIndex: 999,
-            animation: 'fadeIn 0.2s ease-in-out',
           }}
         />
       )}
@@ -104,7 +107,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         transform: (isMobileScreen && !isMobileMenuOpen) ? 'translateX(-100%)' : 'translateX(0)',
         transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-        {/* 📌 CABEÇALHO DA LOGOMARCA (SYNAPSE - FIXO NO TOPO COM BOTÃO FECHAR NO MOBILE) */}
+        {/* 📌 CABEÇALHO DA LOGOMARCA (SYNAPSE - FIXO NO TOPO COM BADGE DE EDIÇÃO) */}
         <div style={{ padding: '20px 20px 16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img
@@ -115,7 +118,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             />
             <div>
               <h1 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.4px' }}>Synapse</h1>
-              <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700 }}>Legal AI & IPaaS</span>
+              <div style={{ marginTop: '2px' }}>
+                <EditionBadge edition={currentEdition} size="small" />
+              </div>
             </div>
           </div>
 
@@ -190,7 +195,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* 📌 RODAPÉ FIXO DO ADVOGADO */}
         <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', flexShrink: 0, background: '#0f172a' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', background: 'rgba(30, 41, 59, 0.6)', borderRadius: '10px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: '13px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isRodrigoOrLegalOps ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: '13px' }}>
               RM
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -225,7 +230,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Botão Hambúrguer visível no Celular para Abrir a Sidebar */}
+            {/* Botão Hambúrguer no Celular */}
             {isMobileScreen && (
               <button
                 onClick={() => setIsMobileMenuOpen(true)}

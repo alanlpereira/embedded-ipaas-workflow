@@ -61,6 +61,16 @@ const mockOrganizations: ExtendedOrganization[] = [
     updated_at: '2026-08-04',
   },
   {
+    id: 'org-legal-ops',
+    name: 'Advocacia Rodrigo Moura & Associados',
+    plan_tier: 'LegalOps',
+    ai_tokens_limit: 500000,
+    ai_tokens_used: 12500,
+    primary_color: '#10b981',
+    created_at: '2026-08-10',
+    updated_at: '2026-08-13',
+  },
+  {
     id: 'org-forge-dev',
     name: 'Forge Starter Studio',
     plan_tier: 'Forge',
