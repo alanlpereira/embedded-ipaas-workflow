@@ -304,7 +304,8 @@ export const AiAnalyticsDashboard: React.FC = () => {
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{realUserSummaries.length} advogados reais</span>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="w-full overflow-x-auto" style={{ width: '100%', overflowX: 'auto', boxSizing: 'border-box' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
               <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Advogado / E-mail</th>
@@ -353,6 +354,7 @@ export const AiAnalyticsDashboard: React.FC = () => {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* 📜 HISTÓRICO DE REQUISIÇÕES EM TEMPO REAL */}
@@ -364,8 +366,8 @@ export const AiAnalyticsDashboard: React.FC = () => {
           </h3>
         </div>
 
-        <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="w-full overflow-x-auto" style={{ maxHeight: '350px', overflowY: 'auto', overflowX: 'auto', width: '100%', boxSizing: 'border-box' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Data/Hora</th>

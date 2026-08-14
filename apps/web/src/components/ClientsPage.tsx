@@ -177,7 +177,7 @@ export const ClientsPage: React.FC = () => {
   );
 
   return (
-    <div style={{ flex: 1, padding: '28px 24px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
+    <div className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '28px 24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
       {/* Toast */}
       {toastMessage && (
         <div style={{
@@ -301,11 +301,14 @@ export const ClientsPage: React.FC = () => {
         </div>
       ) : (
         /* 📋 Lista de Clientes Real do Banco de Dados */
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '16px',
-        }}>
+        <div className="w-full overflow-x-auto" style={{ width: '100%', overflowX: 'auto', boxSizing: 'border-box' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: '16px',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}>
           {filteredClients.map((client) => (
             <div key={client.id} style={{
               background: 'var(--bg-glass)',
@@ -376,6 +379,7 @@ export const ClientsPage: React.FC = () => {
             </div>
           ))}
         </div>
+      </div>
       )}
 
       {/* Modal de Cadastro / Edição */}

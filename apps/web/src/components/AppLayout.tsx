@@ -275,7 +275,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </header>
 
         {/* Conteúdo da Página */}
-        <main style={{ flex: 1, overflowY: 'auto', background: '#080c14' }}>
+        <main className="flex-1 min-w-0 w-full overflow-x-hidden max-w-[100vw]" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden', overflowY: 'auto', background: '#080c14' }}>
           {children}
         </main>
       </div>

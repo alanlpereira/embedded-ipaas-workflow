@@ -274,7 +274,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   });
 
   return (
-    <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
+    <div className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
       {/* Toast */}
       {toastMessage && (
         <div style={{
@@ -505,11 +505,11 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
           }}>
             {/* Header do Card do Processo */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent-blue)', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '100%', overflow: 'hidden' }}>
+                <span className="truncate break-all" style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent-blue)', fontFamily: 'monospace', wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%' }}>
                   ⚖️ {proc.process_number}
                 </span>
-                <span style={{ fontSize: '11px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                <span style={{ fontSize: '11px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600, flexShrink: 0 }}>
                   CNJ PJe
                 </span>
               </div>

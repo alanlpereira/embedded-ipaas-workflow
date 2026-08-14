@@ -140,10 +140,10 @@ export const AuditPage: React.FC<AuditPageProps> = ({ currentProfile, onInspectD
             backdropFilter: 'blur(16px)',
             border: '1px solid var(--border-color)',
             borderRadius: '16px',
-            overflow: 'hidden',
           }}
         >
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div className="w-full overflow-x-auto" style={{ width: '100%', overflowX: 'auto', boxSizing: 'border-box' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '550px' }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--text-muted)' }}>Status</th>
@@ -251,6 +251,7 @@ export const AuditPage: React.FC<AuditPageProps> = ({ currentProfile, onInspectD
               })}
             </tbody>
           </table>
+        </div>
         </div>
 
         {/* Painel Lateral com Rastro de Execução (Execution Trace Timeline) */}
