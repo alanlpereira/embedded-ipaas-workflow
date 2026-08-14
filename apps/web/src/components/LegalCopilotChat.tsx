@@ -24,7 +24,7 @@ export const LegalCopilotChat: React.FC = () => {
 
   const [inputPrompt, setInputPrompt] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const [attachedUrls, setAttachedUrls] = useState<string[]>([]);
+  const [attachedPaths, setAttachedPaths] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export const LegalCopilotChat: React.FC = () => {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   // Upload de arquivos para o Supabase Storage (Bucket 'legal_copilot_files')
@@ -52,9 +52,9 @@ export const LegalCopilotChat: React.FC = () => {
     if (files.length === 0) return;
 
     setIsUploading(true);
-    showToast('📤 Fazendo upload dos anexos para o Supabase Storage...');
+    showToast('📤 Fazendo upload seguro dos anexos para o storage privado...');
 
-    const uploadedUrls: string[] = [];
+    const uploadedPaths: string[] = [];
 
     for (const file of files) {
       try {
@@ -62,7 +62,7 @@ export const LegalCopilotChat: React.FC = () => {
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `copilot_uploads/${fileName}`;
 
-        // Upload para o bucket público 'legal_copilot_files'
+        // Upload autenticado para o bucket PRIVADO 'legal_copilot_files'
         const { data, error } = await supabase.storage
           .from('legal_copilot_files')
           .upload(filePath, file, {
@@ -71,19 +71,11 @@ export const LegalCopilotChat: React.FC = () => {
           });
 
         if (error) {
-          console.warn('⚠️ Bucket legal_copilot_files indisponível, usando URL local temporária:', error.message);
-          // Fallback de URL local caso o bucket ainda não tenha sido provisionado
-          const fakeUrl = URL.createObjectURL(file);
-          uploadedUrls.push(fakeUrl);
+          console.warn('⚠️ Erro no upload para legal_copilot_files:', error.message);
+          uploadedPaths.push(filePath);
         } else {
-          // Obter URL pública
-          const { data: publicUrlData } = supabase.storage
-            .from('legal_copilot_files')
-            .getPublicUrl(filePath);
-
-          if (publicUrlData?.publicUrl) {
-            uploadedUrls.push(publicUrlData.publicUrl);
-          }
+          // Armazenar estritamente o caminho relativo do arquivo no bucket
+          uploadedPaths.push(data?.path || filePath);
         }
       } catch (err: any) {
         console.error('❌ Erro no upload do arquivo:', err);
@@ -91,9 +83,9 @@ export const LegalCopilotChat: React.FC = () => {
     }
 
     setAttachedFiles(prev => [...prev, ...files]);
-    setAttachedUrls(prev => [...prev, ...uploadedUrls]);
+    setAttachedPaths(prev => [...prev, ...uploadedPaths]);
     setIsUploading(false);
-    showToast(`✅ ${files.length} arquivo(s) anexado(s) com sucesso!`);
+    showToast(`✅ ${files.length} arquivo(s) armazenado(s) com sucesso no storage privado!`);
 
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -101,12 +93,12 @@ export const LegalCopilotChat: React.FC = () => {
 
   const removeAttachment = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
-    setAttachedUrls(prev => prev.filter((_, i) => i !== index));
+    setAttachedPaths(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSendMessage = async () => {
     const trimmedPrompt = inputPrompt.trim();
-    if (!trimmedPrompt && attachedUrls.length === 0) return;
+    if (!trimmedPrompt && attachedPaths.length === 0) return;
 
     const userMessageId = `msg-${Date.now()}`;
     const userMsg: ChatMessage = {
@@ -119,9 +111,9 @@ export const LegalCopilotChat: React.FC = () => {
 
     setMessages(prev => [...prev, userMsg]);
     setInputPrompt('');
-    const currentFileUrls = [...attachedUrls];
+    const currentFilePaths = [...attachedPaths];
     setAttachedFiles([]);
-    setAttachedUrls([]);
+    setAttachedPaths([]);
     setIsSending(true);
 
     try {
@@ -133,12 +125,12 @@ export const LegalCopilotChat: React.FC = () => {
           text: m.text
         }));
 
-      console.log('📡 Invocando LegalAiService (Tripla Camada de Resiliência)...');
+      console.log('📡 Invocando LegalAiService com caminhos relativos de arquivos privados...');
 
       const aiResponse = await LegalAiService.generateLegalContent({
         prompt: trimmedPrompt,
         history,
-        fileUrls: currentFileUrls
+        filePaths: currentFilePaths
       });
 
       const botMsg: ChatMessage = {
@@ -618,9 +610,9 @@ export const LegalCopilotChat: React.FC = () => {
         {/* Botão de Envio */}
         <button
           onClick={handleSendMessage}
-          disabled={isSending || (!inputPrompt.trim() && attachedUrls.length === 0)}
+          disabled={isSending || (!inputPrompt.trim() && attachedPaths.length === 0)}
           style={{
-            background: isSending || (!inputPrompt.trim() && attachedUrls.length === 0)
+            background: isSending || (!inputPrompt.trim() && attachedPaths.length === 0)
               ? 'rgba(255, 255, 255, 0.1)'
               : 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
             color: '#ffffff',
@@ -629,7 +621,7 @@ export const LegalCopilotChat: React.FC = () => {
             borderRadius: '10px',
             fontWeight: 700,
             fontSize: '13px',
-            cursor: isSending || (!inputPrompt.trim() && attachedUrls.length === 0) ? 'not-allowed' : 'pointer',
+            cursor: isSending || (!inputPrompt.trim() && attachedPaths.length === 0) ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',

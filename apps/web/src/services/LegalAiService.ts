@@ -12,6 +12,7 @@ export interface LegalAiRequestOptions {
   prompt: string;
   history?: LegalAiMessage[];
   fileUrls?: string[];
+  filePaths?: string[];
   systemInstruction?: string;
 }
 
@@ -57,7 +58,8 @@ export class LegalAiService {
    * Gera conteúdo jurídico (Contestações, Pareceres, Análises) utilizando Tripla Camada de Resiliência.
    */
   static async generateLegalContent(options: LegalAiRequestOptions): Promise<LegalAiResponse> {
-    const { prompt, history = [], fileUrls = [], systemInstruction = DEFAULT_SYSTEM_INSTRUCTION } = options;
+    const { prompt, history = [], fileUrls = [], filePaths = [], systemInstruction = DEFAULT_SYSTEM_INSTRUCTION } = options;
+    const targetPaths = filePaths.length > 0 ? filePaths : fileUrls;
 
     console.log('⚖️ [LegalAiService] Iniciando processamento de IA Jurídica...');
 
@@ -71,7 +73,8 @@ export class LegalAiService {
         body: {
           prompt,
           history,
-          fileUrls,
+          fileUrls: targetPaths,
+          filePaths: targetPaths,
           apiKey: CLIENT_GEMINI_KEY || undefined,
         },
       });
