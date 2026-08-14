@@ -88,9 +88,24 @@ serve(async (req) => {
     userParts.push({ text: userPromptText });
 
     if (targetPaths.length > 0) {
-      for (const filePath of targetPaths) {
+      for (const rawFilePath of targetPaths) {
         try {
-          console.log(`📥 [LEGAL COPILOT EDGE] Baixando arquivo do bucket privado legal_copilot_files: ${filePath}...`);
+          // MITIGAÇÃO DE PATH TRAVERSAL: Normalizar caminho e bloquear sequências maliciosas (../, ..\, null bytes, esquema de URL)
+          const filePath = String(rawFilePath || '').trim();
+          
+          if (
+            filePath.includes('..') ||
+            filePath.includes('\\') ||
+            filePath.includes('\0') ||
+            filePath.startsWith('/') ||
+            filePath.startsWith('http://') ||
+            filePath.startsWith('https://')
+          ) {
+            console.warn(`🚨 [RED TEAM DEFENSE] Bloqueada tentativa de Path Traversal / Acesso Malicioso: ${filePath}`);
+            continue;
+          }
+
+          console.log(`📥 [LEGAL COPILOT EDGE] Baixando arquivo validado do bucket privado legal_copilot_files: ${filePath}...`);
           
           const { data: fileBlob, error: downloadErr } = await supabaseAdmin.storage
             .from('legal_copilot_files')

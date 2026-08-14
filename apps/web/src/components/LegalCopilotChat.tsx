@@ -60,7 +60,20 @@ export const LegalCopilotChat: React.FC = () => {
       try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `copilot_uploads/${fileName}`;
+        
+        // Isolar uploads pelo UID do usuário autenticado para mitigar Path Traversal
+        const userSessionStr = localStorage.getItem('synapse_active_session');
+        let userIdPrefix = 'user_shared';
+        if (userSessionStr) {
+          try {
+            const userSession = JSON.parse(userSessionStr);
+            if (userSession.id || userSession.email) {
+              userIdPrefix = String(userSession.id || userSession.email).replace(/[^a-zA-Z0-9_-]/g, '_');
+            }
+          } catch (e) {}
+        }
+
+        const filePath = `${userIdPrefix}/${fileName}`;
 
         // Upload autenticado para o bucket PRIVADO 'legal_copilot_files'
         const { data, error } = await supabase.storage
