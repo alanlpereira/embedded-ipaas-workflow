@@ -102,10 +102,14 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   // Função principal para carregar as movimentações em tempo real da API PJe CNJ
   const fetchLiveMovements = async (sDate: string, eDate: string) => {
     setIsLoadingMovements(true);
+    // Limpar o estado local imediatamente antes de buscar novos dados para evitar acumular itens antigos
+    setMovements([]);
+
     const oab = localStorage.getItem('synapse_advocate_oab') || '145105';
     const uf = localStorage.getItem('synapse_advocate_uf') || 'MG';
 
     try {
+      console.log(`📡 [PJE CNJ CLIENT] Solicitando busca de movimentações OAB/${uf} ${oab} de ${sDate} a ${eDate}...`);
       const { data: qData, error: qErr } = await supabase.functions.invoke('workflow-worker', {
         body: {
           action: 'query_pje',
@@ -116,12 +120,30 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
         }
       });
 
-      if (!qErr && qData && Array.isArray(qData.items)) {
-        saveMovementsToStorage(qData.items);
-        return qData.items;
+      if (qErr) {
+        console.error('❌ [PJE CNJ CLIENT ERROR] Erro na requisição à Edge Function:', qErr);
+        showToast(`❌ Erro na consulta do PJe: ${qErr.message || 'Falha de comunicação com o servidor'}`);
+        return [];
       }
-    } catch (err) {
-      console.warn('⚠️ Erro ao buscar movimentações PJe em tempo real:', err);
+
+      if (qData && Array.isArray(qData.items)) {
+        // DEDUPLICAÇÃO NO FRONTEND: Filtrar itens repetidos por processo + data + trecho da movimentação
+        const seenKeys = new Set<string>();
+        const deduplicatedItems: ProcessMovement[] = qData.items.filter((m: ProcessMovement) => {
+          if (!m || !m.process_number) return false;
+          const key = `${m.process_number}_${m.movement_date || m.data_disponibilizacao}_${String(m.movement_text || '').slice(0, 40)}`;
+          if (seenKeys.has(key)) return false;
+          seenKeys.add(key);
+          return true;
+        });
+
+        console.log(`✅ [PJE CNJ CLIENT SUCCESS] ${deduplicatedItems.length} movimentações únicas obtidas (após deduplicação).`);
+        saveMovementsToStorage(deduplicatedItems);
+        return deduplicatedItems;
+      }
+    } catch (err: any) {
+      console.error('❌ [PJE CNJ CLIENT EXCEPTION] Exceção na busca em tempo real:', err);
+      showToast(`⚠️ Erro ao conectar ao PJe CNJ: ${err.message || 'Falha de rede'}`);
     } finally {
       setIsLoadingMovements(false);
     }

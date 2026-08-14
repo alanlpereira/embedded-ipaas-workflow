@@ -134,7 +134,7 @@ serve(async (req) => {
       if (pjeRes.ok) {
         const cnjData = await pjeRes.json();
         if (cnjData && Array.isArray(cnjData.items)) {
-          items = cnjData.items.map((item: any, idx: number) => {
+          const rawItems = cnjData.items.map((item: any, idx: number) => {
             const rawDate = item.data_disponibilizacao || item.dataDisponibilizacao || item.data_comunicacao || item.dataComunicacao || item.created_at || new Date().toISOString();
             let formattedDate = String(rawDate).includes('T') ? String(rawDate).split('T')[0] : String(rawDate);
             if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
@@ -148,10 +148,14 @@ serve(async (req) => {
 
             const rawText = item.texto || item.teor || item.titulo || item.conteudo || 'Sem texto de movimentação disponível no PJe.';
             const cleanMovementText = String(rawText).replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().slice(0, 800);
+            const rawProcNum = String(item.numero_processo || item.numeroProcessoFormatado || item.numeroProcesso || item.numero || `Proc-${idx + 1}`);
+
+            // ID estável determinístico para evitar duplicatas no React e no banco
+            const stableId = item.id ? `pje-${item.id}` : `pje-${rawProcNum.replace(/[^a-zA-Z0-9]/g, '')}-${formattedDate.replace(/\//g, '')}`;
 
             return {
-              id: String(item.id || `pje-real-${idx + 1}`),
-              process_number: String(item.numero_processo || item.numeroProcessoFormatado || item.numeroProcesso || item.numero || `Proc-${idx + 1}`),
+              id: stableId,
+              process_number: rawProcNum,
               court: String(item.nomeOrgao || item.orgao || item.siglaTribunal || 'Tribunal de Justiça'),
               parties: String(destinatariosList || 'Partes não informadas na API'),
               advocate: `OAB/${targetUf} ${targetOab}`,
@@ -165,6 +169,15 @@ serve(async (req) => {
               data_disponibilizacao: String(item.data_disponibilizacao || item.dataDisponibilizacao || formattedDate),
               updated_at: new Date().toISOString(),
             };
+          });
+
+          // DEDUPLICAÇÃO ESTRITA: Garantir que movimentos duplicados na mesma data sejam descartados
+          const seenKeys = new Set<string>();
+          items = rawItems.filter((m: any) => {
+            const key = `${m.process_number}_${m.movement_date}_${m.movement_text.slice(0, 50)}`;
+            if (seenKeys.has(key)) return false;
+            seenKeys.add(key);
+            return true;
           });
         }
       }
@@ -1541,20 +1554,25 @@ ${combinedEmailsText}`;
           ? liveApiProcesses
           : (Array.isArray(contextData.processes) && contextData.processes.length > 0
             ? contextData.processes
-            : mockProcessesList);
+            : []);
 
         // FILTRO ANALÍTICO E ESTRITO POR OAB E UF DO ADVOGADO:
-        // Garante 100% que APENAS processos pertencentes à OAB do advogado autenticado sejam mantidos!
-        const targetProcesses = rawList.filter((proc: any) => {
+        const filteredProcesses = rawList.filter((proc: any) => {
           const itemOab = String(proc.oab || proc.oab_number || proc.numero_oab || '').trim();
           const itemUf = String(proc.uf || proc.oab_uf || proc.uf_oab || '').trim().toUpperCase();
-          const fullText = `${proc.movement_text || ''} ${proc.notice || ''} ${proc.advocate || ''}`.toLowerCase();
 
-          // 1. Se o item possuir OAB declarada e for diferente da OAB do advogado, rejeitar!
           if (itemOab && itemOab !== targetOab) return false;
           if (itemUf && itemUf !== targetUf) return false;
 
-          // 2. Se não houver OAB no item, verificar se o texto traz OABs conflitantes
+          return true;
+        });
+
+        // DEDUPLICAÇÃO ESTRITA NA EXECUÇÃO DO FLUXO
+        const seenProcKeys = new Set<string>();
+        const targetProcesses = filteredProcesses.filter((proc: any) => {
+          const key = `${proc.process_number}_${proc.movement_date || proc.data_disponibilizacao}_${String(proc.movement_text || '').slice(0, 50)}`;
+          if (seenProcKeys.has(key)) return false;
+          seenProcKeys.add(key);
           return true;
         });
 

@@ -11,32 +11,23 @@ export interface ClientRecord {
 }
 
 export const ClientsPage: React.FC = () => {
-  const [clients, setClients] = useState<ClientRecord[]>([
-    {
-      id: 'c-1',
-      name: 'Carlos Alberto Souza',
-      cpf: '123.456.789-00',
-      phone: '+55 37 9958-3402',
-      email: 'carlos.souza@email.com',
-      created_at: '2026-08-01T10:00:00Z',
-    },
-    {
-      id: 'c-2',
-      name: 'Mariana Oliveira Ramos',
-      cpf: '987.654.321-11',
-      phone: '+55 32 98865-4825',
-      email: 'mariana.ramos@email.com',
-      created_at: '2026-08-05T14:30:00Z',
-    },
-    {
-      id: 'c-3',
-      name: 'Construções Gerais Ltda (Rep: Roberto Silva)',
-      cpf: '456.789.123-22',
-      phone: '+55 31 99999-1122',
-      email: 'roberto@construcoesgerais.com',
-      created_at: '2026-08-10T09:15:00Z',
-    }
-  ]);
+  const [clients, setClients] = useState<ClientRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('synapse_clients_list');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return []; // Começar sem nenhum mock estático por padrão
+  });
+
+  const saveClients = (newList: ClientRecord[]) => {
+    setClients(newList);
+    try {
+      localStorage.setItem('synapse_clients_list', JSON.stringify(newList));
+    } catch (e) {}
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,7 +60,7 @@ export const ClientsPage: React.FC = () => {
 
   const handleDeleteClient = (id: string) => {
     if (confirm('Deseja realmente remover este cliente cadastrado?')) {
-      setClients(clients.filter(c => c.id !== id));
+      saveClients(clients.filter(c => c.id !== id));
       showToast('Cliente removido com sucesso!');
     }
   };
@@ -79,7 +70,7 @@ export const ClientsPage: React.FC = () => {
     if (!name || !cpf || !phone) return;
 
     if (editingClient) {
-      setClients(clients.map(c => c.id === editingClient.id ? { ...c, name, cpf, phone, email } : c));
+      saveClients(clients.map(c => c.id === editingClient.id ? { ...c, name, cpf, phone, email } : c));
       showToast('Cadastro do cliente atualizado com sucesso!');
     } else {
       const newClient: ClientRecord = {
@@ -90,7 +81,7 @@ export const ClientsPage: React.FC = () => {
         email,
         created_at: new Date().toISOString(),
       };
-      setClients([newClient, ...clients]);
+      saveClients([newClient, ...clients]);
       showToast('Novo cliente cadastrado com sucesso!');
     }
 
@@ -188,12 +179,45 @@ export const ClientsPage: React.FC = () => {
       </div>
 
       {/* Lista de Clientes */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-        gap: '16px',
-      }}>
-        {filteredClients.map((client) => (
+      {filteredClients.length === 0 ? (
+        <div style={{
+          padding: '48px 24px',
+          textAlign: 'center',
+          background: 'rgba(15, 23, 42, 0.4)',
+          border: '1px dashed var(--border-color)',
+          borderRadius: '16px',
+          margin: '20px 0'
+        }}>
+          <Users size={42} style={{ color: 'var(--text-muted)', opacity: 0.5, marginBottom: '12px' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+            Nenhum cliente cadastrado ainda
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+            Clique no botão acima para cadastrar os clientes e contatos que receberão notificações de intimacões do PJe.
+          </p>
+          <button
+            onClick={openAddModal}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              background: 'var(--accent-blue)',
+              color: '#fff',
+              border: 'none',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            + Cadastrar Primeiro Cliente
+          </button>
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: '16px',
+        }}>
+          {filteredClients.map((client) => (
           <div key={client.id} style={{
             background: 'var(--bg-glass)',
             border: '1px solid var(--border-color)',
@@ -263,6 +287,7 @@ export const ClientsPage: React.FC = () => {
           </div>
         ))}
       </div>
+      )}
 
       {/* Modal de Cadastro / Edição */}
       {isModalOpen && (

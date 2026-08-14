@@ -63,7 +63,7 @@ export const AiAnalyticsDashboard: React.FC = () => {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {}
-    return realHistoricalLogs;
+    return []; // Padrão dinâmico: Começa limpo e preenche conforme requisições reais forem efetuadas
   });
 
   const handleRefresh = () => {
@@ -77,7 +77,7 @@ export const AiAnalyticsDashboard: React.FC = () => {
         }
       }
     } catch (e) {}
-    setLogs(realHistoricalLogs);
+    setLogs([]);
   };
 
   // Base real de usuários cadastrados no sistema
@@ -377,30 +377,39 @@ export const AiAnalyticsDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log) => (
-                <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '12px' }}>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>
-                    {log.user_name}
-                  </td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-secondary)', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {log.prompt_preview}
-                  </td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 6px', borderRadius: '6px', fontWeight: 700 }}>
-                      {log.model_used}
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px 16px', color: '#f59e0b', fontWeight: 700 }}>
-                    {log.tokens_consumed.toLocaleString('pt-BR')}
-                  </td>
-                  <td style={{ padding: '12px 16px', color: '#10b981', fontWeight: 700 }}>
-                    R$ {log.estimated_cost_brl.toFixed(4)}
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    <Bot size={28} style={{ opacity: 0.4, marginBottom: '8px', display: 'block', margin: '0 auto 8px auto' }} />
+                    Nenhum registro de uso de IA capturado ainda. As chamadas efetuadas no Legal Copilot ou nos fluxos serão registradas aqui em tempo real.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '12px' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>
+                      {log.user_name}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-secondary)', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {log.prompt_preview}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 6px', borderRadius: '6px', fontWeight: 700 }}>
+                        {log.model_used}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#f59e0b', fontWeight: 700 }}>
+                      {log.tokens_consumed.toLocaleString('pt-BR')}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#10b981', fontWeight: 700 }}>
+                      R$ {log.estimated_cost_brl.toFixed(4)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
