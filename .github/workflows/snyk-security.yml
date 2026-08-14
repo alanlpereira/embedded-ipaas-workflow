@@ -1,9 +1,8 @@
 # Workflow do GitHub Actions para Análise Automatizada de Segurança via Snyk
 # -----------------------------------------------------------------------------------
 # ⚠️ ATENÇÃO E CONFIGURAÇÃO OBRIGATÓRIA:
-# Para ativar este workflow no repositório do GitHub:
-# 1. Copie este arquivo para .github/workflows/snyk-security.yml usando um token PAT com escopo 'workflow'.
-# 2. A chave de API da Snyk (SNYK_TOKEN) precisa ser cadastrada nas configurações do repositório no GitHub:
+# Para que este workflow funcione no repositório do GitHub, a chave de API da Snyk (SNYK_TOKEN)
+# precisa ser cadastrada nas configurações do repositório no GitHub:
 # -> Acesse: Settings -> Secrets and variables -> Actions -> New repository secret
 # -> Nome da Secret: SNYK_TOKEN
 # -> Valor: Obtenha a API Key gratuita da sua conta no painel da Snyk (https://app.snyk.io/)
