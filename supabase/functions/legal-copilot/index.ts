@@ -1,5 +1,6 @@
 // Supabase Edge Function: legal-copilot
-// Módulo Legal Copilot: Redação de Peças Processuais e Análise Documental via IA Resiliente (Storage Privado)
+// Módulo Legal Copilot: Redação de Peças Processuais e Análise Documental via IA Resiliente
+// Recursos: Storage Privado + Rate Limiting de Proteção Financeira (20 req/min por usuário)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
@@ -35,7 +36,7 @@ serve(async (req) => {
       payload = {};
     }
 
-    const { prompt, history = [], fileUrls = [], filePaths = [], apiKey } = payload;
+    const { prompt, history = [], fileUrls = [], filePaths = [], apiKey, userId, user_id } = payload;
     const targetPaths: string[] = (Array.isArray(filePaths) && filePaths.length > 0)
       ? filePaths
       : (Array.isArray(fileUrls) ? fileUrls : []);
@@ -55,11 +56,105 @@ serve(async (req) => {
       );
     }
 
-    // Instanciar cliente Supabase com Service Role Key para acessar o bucket privado
+    // Instanciar cliente Supabase com Service Role Key para RLS e gestão de Rate Limits
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ------------------------------------------------------------------------
+    // 🛡️ MOTOR DE RATE LIMITING (Proteção Contra Abusos Financeiros - Max 20 req/min)
+    // ------------------------------------------------------------------------
+    let targetUserId = userId || user_id;
+
+    // Tentar extrair o User ID a partir do Token JWT de Autenticação
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.replace('Bearer ', '').trim();
+        const { data: userData } = await supabaseAdmin.auth.getUser(token);
+        if (userData?.user?.id) {
+          targetUserId = userData.user.id;
+        }
+      } catch (authErr) {
+        console.warn('⚠️ Não foi possível resolver usuário a partir do Bearer Token:', authErr);
+      }
+    }
+
+    // Fallback de identificador: IP do Cliente ou Usuário Anônimo
+    if (!targetUserId) {
+      targetUserId = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'client_anonymous';
+    }
+
+    const MAX_REQUESTS_PER_MINUTE = 20;
+    const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
+
+    // Consultar histórico de requisições do usuário nos últimos 60 segundos
+    let requestsCountInLastMinute = 0;
+    try {
+      const { data: limitRecords, error: limitErr } = await supabaseAdmin
+        .from('rate_limits')
+        .select('count')
+        .eq('user_id', targetUserId)
+        .eq('endpoint', 'legal-copilot')
+        .gte('window_start', oneMinuteAgoIso);
+
+      if (!limitErr && Array.isArray(limitRecords)) {
+        requestsCountInLastMinute = limitRecords.reduce((acc, rec) => acc + (rec.count || 1), 0);
+      }
+    } catch (rlCheckErr) {
+      console.warn('⚠️ Erro ao consultar a tabela rate_limits:', rlCheckErr);
+    }
+
+    console.log(`📊 [RATE LIMIT CHECK] Usuário ${targetUserId} | Requisições no último minuto: ${requestsCountInLastMinute}/${MAX_REQUESTS_PER_MINUTE}`);
+
+    // Bloquear caso ultrapasse o limite financeiro seguro (20 requisições/minuto)
+    if (requestsCountInLastMinute >= MAX_REQUESTS_PER_MINUTE) {
+      console.warn(`🚨 [RATE LIMIT EXCEEDED] Bloqueio HTTP 429 ativado para ${targetUserId}. Limite de ${MAX_REQUESTS_PER_MINUTE} req/min atingido!`);
+      
+      // Registrar tentativa excedida para auditoria
+      try {
+        await supabaseAdmin.from('rate_limits').insert([{
+          user_id: targetUserId,
+          endpoint: 'legal-copilot',
+          count: 1,
+          window_start: new Date().toISOString()
+        }]);
+      } catch (e) {}
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Limite de requisições excedido (Rate Limit: máximo de ${MAX_REQUESTS_PER_MINUTE} requisições por minuto). Aguarde um instante e tente novamente.`,
+          retryAfterSeconds: 60,
+          currentRate: requestsCountInLastMinute,
+          maxRate: MAX_REQUESTS_PER_MINUTE
+        }),
+        { 
+          status: 429, // HTTP 429 Too Many Requests
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': '60'
+          } 
+        }
+      );
+    }
+
+    // Incrementar contador de requisições para a janela atual
+    try {
+      await supabaseAdmin.from('rate_limits').insert([{
+        user_id: targetUserId,
+        endpoint: 'legal-copilot',
+        count: 1,
+        window_start: new Date().toISOString()
+      }]);
+    } catch (rlInsertErr) {
+      console.warn('⚠️ Erro ao registrar incremento em rate_limits:', rlInsertErr);
+    }
+
+    // ------------------------------------------------------------------------
+    // 🤖 PROCESSAMENTO DE IA JURÍDICA (GOOGLE GEMINI MULTIMODAL)
+    // ------------------------------------------------------------------------
     const systemInstructionText = `Você é um Advogado Sênior e Parecerista do Direito Brasileiro. Sua função é redigir peças processuais, memorandos e petições com base nas instruções e documentos fornecidos. REGRAS: 1. Use linguagem culta, técnica e formal. 2. Estruture as peças com endereçamento, qualificação, dos fatos, do direito e dos pedidos. 3. NUNCA invente números de leis, jurisprudências ou fatos que não estejam no escopo. Se faltar informação, use colchetes [INSERIR AQUI]. 4. Formate a saída em Markdown claro.`;
 
     const contents: any[] = [];
@@ -90,7 +185,7 @@ serve(async (req) => {
     if (targetPaths.length > 0) {
       for (const rawFilePath of targetPaths) {
         try {
-          // MITIGAÇÃO DE PATH TRAVERSAL: Normalizar caminho e bloquear sequências maliciosas (../, ..\, null bytes, esquema de URL)
+          // MITIGAÇÃO DE PATH TRAVERSAL: Normalizar caminho e bloquear sequências maliciosas
           const filePath = String(rawFilePath || '').trim();
           
           if (
@@ -115,7 +210,6 @@ serve(async (req) => {
             const arrayBuffer = await fileBlob.arrayBuffer();
             const base64Data = arrayBufferToBase64(arrayBuffer);
             
-            // Determinar o MIME Type adequado
             let mimeType = fileBlob.type || 'application/pdf';
             if (filePath.endsWith('.png')) mimeType = 'image/png';
             if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) mimeType = 'image/jpeg';
