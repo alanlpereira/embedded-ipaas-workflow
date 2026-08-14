@@ -1,0 +1,59 @@
+# Workflow do GitHub Actions para Análise Automatizada de Segurança via Snyk
+# -----------------------------------------------------------------------------------
+# ⚠️ ATENÇÃO E CONFIGURAÇÃO OBRIGATÓRIA:
+# Para ativar este workflow no repositório do GitHub:
+# 1. Copie este arquivo para .github/workflows/snyk-security.yml usando um token PAT com escopo 'workflow'.
+# 2. A chave de API da Snyk (SNYK_TOKEN) precisa ser cadastrada nas configurações do repositório no GitHub:
+# -> Acesse: Settings -> Secrets and variables -> Actions -> New repository secret
+# -> Nome da Secret: SNYK_TOKEN
+# -> Valor: Obtenha a API Key gratuita da sua conta no painel da Snyk (https://app.snyk.io/)
+# -----------------------------------------------------------------------------------
+
+name: Snyk Security Scan
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    - cron: '0 3 * * 1' # Executa semanalmente toda segunda-feira às 03:00 UTC
+
+jobs:
+  security-audit:
+    name: Snyk Vulnerability Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código-fonte
+        uses: actions/checkout@v4
+
+      - name: Configurar ambiente Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8.15.0
+
+      - name: Instalar dependências do projeto
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Executar Snyk Test para varredura de vulnerabilidades de pacotes
+        uses: snyk/actions/node@master
+        continue-on-error: true # Permite que a pipeline gere relatórios sem quebrar a build no primeiro alerta
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --all-projects --severity-threshold=high
+
+      - name: Executar Snyk Code Test para varredura de vulnerabilidades SAST no código-fonte
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+          args: --all-projects

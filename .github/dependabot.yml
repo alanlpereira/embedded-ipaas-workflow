@@ -1,0 +1,35 @@
+# Configuração do Dependabot para Atualizações Semanal de Segurança de Dependências
+version: 2
+updates:
+  # Monitoramento de pacotes npm no Frontend (apps/web)
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore(deps-web)"
+
+  # Monitoramento de pacotes npm na raiz do projeto
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore(deps-root)"
+
+  # Monitoramento de Actions do GitHub Workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "ci/cd"
+      - "security"
