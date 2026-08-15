@@ -219,24 +219,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             return;
           }
 
-          const { data: profile } = await supabase
+          // ⚡ FASE 1: FETCH COMPLETO E SÍNCRONO DA TABELA profiles
+          const { data: dbProfile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
-          const userProfile: Profile = profile || {
+          const fullProfile: Profile = {
             id: data.user.id,
-            organization_id: 'org-alp-nexus',
+            organization_id: dbProfile?.organization_id || 'org-alp-nexus',
             email: data.user.email || email,
-            full_name: data.user.user_metadata?.full_name || fullName,
-            role: (data.user.user_metadata?.role as any) || 'Master',
-            created_at: new Date().toISOString(),
+            full_name: dbProfile?.full_name || data.user.user_metadata?.full_name || fullName || '',
+            oab_number: dbProfile?.oab_number || '',
+            oab_uf: dbProfile?.oab_uf || 'MG',
+            professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
+            role: dbProfile?.role || (data.user.user_metadata?.role as any) || 'Member',
+            subscription_status: dbProfile?.subscription_status || 'active',
+            subscription_plan: dbProfile?.subscription_plan || 'Pro',
+            avatar_url: dbProfile?.avatar_url || '',
+            phone: dbProfile?.phone || '',
+            created_at: dbProfile?.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
 
-          localStorage.setItem('synapse_active_session', JSON.stringify(userProfile));
-          onLoginSuccess(userProfile);
+          localStorage.setItem('synapse_active_session', JSON.stringify(fullProfile));
+          onLoginSuccess(fullProfile);
         }
       } catch (err: any) {
         if (selectedPlanPriceId) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ReactFlowProvider, applyNodeChanges, applyEdgeChanges, addEdge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
-import { PlayCircle, X } from 'lucide-react';
+import { PlayCircle, X, Loader2 } from 'lucide-react';
 import { Navbar, ViewTab } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { WorkflowCanvas } from './components/WorkflowCanvas';
@@ -284,20 +284,54 @@ function WorkflowAppContent() {
 
   const canEdit = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
 
-  // Verificar sessão inicial no Supabase
+  // ⚡ FASE 2: TRAVA DE CARREGAMENTO DO PERFIL (PREVINE RACE CONDITION NOS GUARDS)
+  const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
+
+  // Verificar e hidratar perfil síncronamente do Supabase na inicialização
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) setCurrentProfile(data as Profile);
-          });
+    let isMounted = true;
+    async function initAuthProfile() {
+      try {
+        setIsLoadingProfile(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: dbProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (dbProfile && isMounted) {
+            const fullProfile: Profile = {
+              id: session.user.id,
+              organization_id: dbProfile.organization_id || 'org-alp-nexus',
+              email: session.user.email || dbProfile.email || '',
+              full_name: dbProfile.full_name || '',
+              oab_number: dbProfile.oab_number || '',
+              oab_uf: dbProfile.oab_uf || 'MG',
+              professional_id: dbProfile.professional_id || (dbProfile.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
+              role: dbProfile.role || 'Member',
+              subscription_status: dbProfile.subscription_status || 'active',
+              subscription_plan: dbProfile.subscription_plan || 'Pro',
+              avatar_url: dbProfile.avatar_url || '',
+              phone: dbProfile.phone || '',
+              created_at: dbProfile.created_at || new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            setCurrentProfile(fullProfile);
+            localStorage.setItem('synapse_active_session', JSON.stringify(fullProfile));
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Erro ao carregar perfil inicial no Supabase:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
       }
-    });
+    }
+    initAuthProfile();
+    return () => { isMounted = false; };
   }, []);
 
   // Recuperação e sincronização automática de fluxogramas salvos no Supabase
@@ -1296,7 +1330,7 @@ function WorkflowAppContent() {
   }
 
   // PASSO 1 (Sessão): Está autenticado no Supabase Auth? (Se não, redireciona para login/vitrine)
-  if ((!currentProfile || hasPlanInUrl) && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
+  if ((!currentProfile || hasPlanInUrl) && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath && !isLoadingProfile) {
     return (
       <LoginPage
         onLoginSuccess={(profile) => {
@@ -1311,12 +1345,23 @@ function WorkflowAppContent() {
     );
   }
 
+  // ⏳ FASE 2: TRAVA DE CARREGAMENTO DO PERFIL (PREVINE RACE CONDITION NO LOGIN)
+  // Se a sessão Auth existe mas os dados do banco ainda estão sendo buscados, segura os early returns!
+  if (isLoadingProfile && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath && !isJuridicoPath) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: '#080c14', color: '#38bdf8', fontFamily: 'Inter, sans-serif' }}>
+        <Loader2 size={36} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+        <h2 style={{ fontSize: '16px', fontWeight: 800, marginTop: '16px', color: '#ffffff' }}>⚡ Sincronizando credenciais jurídicas...</h2>
+        <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Buscando perfil completo e permissões diretamente do Supabase.</p>
+      </div>
+    );
+  }
+
   // PASSO 2 (Onboarding - Lead Capture): O perfil atual NÃO possui 'oab' ou 'full_name'?
-  // O usuário DEVE preencher isso ANTES de ver a tela de planos!
-  const storedOab = typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') : null;
+  // Avalia APENAS se o perfil já terminou de carregar do Supabase (isLoadingProfile === false)
   const isProfileComplete = Boolean(
     currentProfile?.full_name?.trim() &&
-    (currentProfile?.oab_number?.trim() || (storedOab && storedOab.trim() !== ''))
+    currentProfile?.oab_number?.trim()
   );
 
   if (currentProfile && !isProfileComplete && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
