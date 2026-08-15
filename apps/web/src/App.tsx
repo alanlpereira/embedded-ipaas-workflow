@@ -28,6 +28,7 @@ import { LegalDashboardPage } from './components/LegalDashboardPage';
 import { LegalCopilotChat } from './components/LegalCopilotChat';
 import { AppLayout } from './components/AppLayout';
 import { ClientsPage } from './components/ClientsPage';
+import { PricingPage } from './components/PricingPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
@@ -1268,6 +1269,10 @@ function WorkflowAppContent() {
 
       {currentTab === 'clients' && (
         <ClientsPage />
+      )}
+
+      {currentTab === 'pricing' && (
+        <PricingPage />
       )}
 
       {currentTab === 'templates' && (

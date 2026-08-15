@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon, Pencil } from 'lucide-react';
+import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon, Pencil, CreditCard } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { CollaboratorInfo } from '../collaboration/useYjsCollaboration';
 import { EditionBadge } from './EditionBadge';
 
-export type ViewTab = 'dashboard' | 'copilot' | 'clients' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions' | 'dashboard_flows';
+export type ViewTab = 'dashboard' | 'copilot' | 'clients' | 'pricing' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions' | 'dashboard_flows';
 
 interface NavbarProps {
   currentProfile: Profile | null;
@@ -210,6 +210,28 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Users size={15} />
           Clientes
+        </button>
+
+        <button
+          onClick={() => onNavigate('pricing')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            background: currentTab === 'pricing' ? 'var(--bg-tertiary)' : 'transparent',
+            color: currentTab === 'pricing' ? '#10b981' : 'var(--text-secondary)',
+            border: currentTab === 'pricing' ? '1px solid #10b981' : '1px solid transparent',
+            fontSize: '12px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <CreditCard size={15} style={{ color: '#10b981' }} />
+          Planos & Assinaturas
         </button>
 
         <button
