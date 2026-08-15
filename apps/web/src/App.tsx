@@ -1087,6 +1087,11 @@ function WorkflowAppContent() {
         context_data: {
           manual_trigger: true,
           triggered_by: currentProfile?.email || 'Usuário IPaaS',
+          lawyer_email: currentProfile?.email,
+          user_email: currentProfile?.email,
+          email_to: currentProfile?.email,
+          lawyer_name: currentProfile?.full_name || 'Dr(a). Advogado(a)',
+          lawyer_oab: currentProfile?.oab_number,
           triggered_at: new Date().toISOString(),
           ...(customContext || {})
         },

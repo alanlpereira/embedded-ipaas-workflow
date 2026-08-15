@@ -995,7 +995,7 @@ ${combinedEmailsText}`;
           });
         };
 
-        const rawRecipient = settings.to || settings.recipient || settings.recipients || contextData.email_to || contextData.email?.from || 'corporativo@alp-nexus.com';
+        const rawRecipient = contextData.lawyer_email || contextData.user_email || settings.to || settings.recipient || settings.recipients || contextData.email_to || contextData.email?.from || 'corporativo@alp-nexus.com';
         let subject = settings.subject || `Notificação: Workflow "${workflow.name}"`;
         let bodyText = settings.body || settings.message || `O fluxo "${workflow.name}" executou o nó ${nodeLabel} com sucesso.`;
 
@@ -1790,7 +1790,7 @@ Seja cirúrgico, direto e hiper-específico.`;
           });
         };
 
-        const rawRecipient = settings.recipientEmail || settings.approvalConfig?.recipientEmail || settings.approvalConfig?.to || settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'alanlpereira@hotmail.com';
+        const rawRecipient = contextData.lawyer_email || contextData.user_email || settings.recipientEmail || settings.approvalConfig?.recipientEmail || settings.approvalConfig?.to || settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'corporativo@alp-nexus.com';
         const interpolatedRecipient = interpolateVars(rawRecipient);
         const recipientList = Array.from(new Set(
           interpolatedRecipient

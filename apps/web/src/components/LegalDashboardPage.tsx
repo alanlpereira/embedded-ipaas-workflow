@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Scale, Calendar, Play, Clock, Search, Send, FileText, AlertCircle, CheckCircle, ShieldCheck, ChevronRight, RefreshCw, MessageSquare, Sparkles } from 'lucide-react';
+import { Scale, Calendar, Play, Clock, Search, Send, FileText, AlertCircle, CheckCircle, ShieldCheck, ChevronRight, RefreshCw, MessageSquare, Sparkles, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { LegalAiService } from '../services/LegalAiService';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
@@ -498,6 +498,27 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
             />
           </div>
 
+          {/* Indicador Visual Silencioso do Destinatário Automático do Resumo */}
+          <div style={{
+            gridColumn: '1 / -1',
+            background: 'rgba(59, 130, 246, 0.08)',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '12.5px',
+            color: '#38bdf8',
+            fontWeight: 600,
+            marginTop: '4px'
+          }}>
+            <Mail size={16} style={{ color: '#38bdf8', flexShrink: 0 }} />
+            <span>
+              📧 O resumo das movimentações será enviado automaticamente para o seu e-mail registrado (<strong>{lawyerEmail || 'advogado@synapse.law'}</strong>) para revisão.
+            </span>
+          </div>
+
           <div style={{ gridColumn: '1 / -1', marginTop: '8px' }}>
             <button
               onClick={handleRunCustomQuery}
@@ -518,15 +539,18 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
                 cursor: 'pointer',
                 boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
                 opacity: (isExecutingQuery || isRunningNow) ? 0.7 : 1,
+                transition: 'all 0.2s ease',
               }}
             >
-              {isExecutingQuery || isRunningNow ? (
+              {(isExecutingQuery || isRunningNow) ? (
                 <>
-                  <RefreshCw size={16} className="animate-spin" /> Executando Consulta...
+                  <RefreshCw size={18} className="animate-spin" />
+                  <span>Consultando PJe CNJ e Gerando Resumo...</span>
                 </>
               ) : (
                 <>
-                  <Play size={16} /> Executar Consulta Avulsa Agora
+                  <Play size={18} />
+                  <span>Executar Consulta PJe & Disparar Automação</span>
                 </>
               )}
             </button>
