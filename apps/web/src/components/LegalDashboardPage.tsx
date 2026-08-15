@@ -238,7 +238,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const buildGoogleCalendarUrlUI = (proc: ProcessMovement) => {
+  const buildAgnosticCalendarUrlsUI = (proc: ProcessMovement) => {
     const procNum = proc.process_number || '';
     const actionText = proc.action_required || proc.movement_text || 'Verificar intimação no PJe';
     const baseDateStr = proc.movement_date || proc.data_disponibilizacao || proc.updated_at || new Date().toISOString().split('T')[0];
@@ -261,8 +261,37 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
 
     const title = `⚖️ [Prazo Fatal PJe] Processo ${procNum}`;
     const details = `Ação Necessária: ${actionText}.\nPartes: ${proc.parties || 'N/A'}.\nÓrgão: ${proc.court || 'N/A'}.`;
+    const location = 'PJe CNJ / Tribunal de Justiça';
 
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(dStart)}/${fmt(dFinal)}&details=${encodeURIComponent(details)}&location=${encodeURIComponent('PJe CNJ / Tribunal de Justiça')}`;
+    const cleanNum = procNum.replace(/\D/g, '') || 'proc';
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Synapse IPaaS Legal//PT',
+      'METHOD:REQUEST',
+      'BEGIN:VEVENT',
+      `UID:pje-${cleanNum}-${Date.now()}@synapse.legal`,
+      `DTSTAMP:${fmt(new Date())}`,
+      `DTSTART:${fmt(dStart)}`,
+      `DTEND:${fmt(dFinal)}`,
+      `SUMMARY:${title}`,
+      `DESCRIPTION:${details.replace(/\n/g, '\\n')}`,
+      `LOCATION:${location}`,
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(dStart)}/${fmt(dFinal)}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+    const outlookWebUrl = `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${encodeURIComponent(title)}&startdt=${dStart.toISOString()}&enddt=${dFinal.toISOString()}&body=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+    const icsDataUrl = `data:text/calendar;charset=utf8,${encodeURIComponent(icsContent)}`;
+
+    return {
+      gCalUrl,
+      outlookWebUrl,
+      icsDataUrl,
+      icsFileName: `prazo_processo_${cleanNum}.ics`
+    };
   };
 
   // Filtragem analítica com blindagem rigorosa contra campos nulos/undefined
@@ -575,26 +604,77 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <a
-                  href={buildGoogleCalendarUrlUI(proc)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    background: '#3b82f6',
-                    color: '#fff',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    textDecoration: 'none',
-                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)',
-                  }}
-                >
-                  <Calendar size={14} /> Adicionar ao Google Agenda
-                </a>
+                {(() => {
+                  const calUrls = buildAgnosticCalendarUrlsUI(proc);
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <a
+                        href={calUrls.icsDataUrl}
+                        download={calUrls.icsFileName}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 12px',
+                          background: '#0284c7',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)',
+                        }}
+                        title="Baixar convite .ics (compatível com Apple Calendar, Outlook, Thunderbird, iOS e Android)"
+                      >
+                        <Calendar size={14} /> 🍏 Apple / iCal (.ics)
+                      </a>
+
+                      <a
+                        href={calUrls.gCalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 12px',
+                          background: '#3b82f6',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)',
+                        }}
+                        title="Adicionar diretamente no Google Agenda Web"
+                      >
+                        🌐 Google Agenda
+                      </a>
+
+                      <a
+                        href={calUrls.outlookWebUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 12px',
+                          background: '#0078d4',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          boxShadow: '0 2px 8px rgba(0, 120, 212, 0.4)',
+                        }}
+                        title="Adicionar diretamente no Outlook / Office 365 Web"
+                      >
+                        💻 Outlook
+                      </a>
+                    </div>
+                  );
+                })()}
 
                 <button
                   onClick={() => handleSendWhatsAppNotification(proc)}

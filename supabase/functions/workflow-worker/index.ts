@@ -67,8 +67,8 @@ function formatDateCompact(d: Date): string {
   return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
 }
 
-// GERADOR DE URL DINÂMICA PARA O GOOGLE CALENDAR (Garantia de Retorno)
-function buildGoogleCalendarUrl(processNumber: string, actionText: string, dataBaseStr: string, deadlineIsoStr?: string | null): string {
+// GERADOR AGNÓSTICO DE LINKS E DADOS DE CALENDÁRIO (ICS / Apple / Google / Outlook / Office 365)
+function buildAgnosticCalendarUrls(processNumber: string, actionText: string, dataBaseStr: string, deadlineIsoStr?: string | null) {
   let dStart: Date = new Date();
   if (dataBaseStr) {
     if (dataBaseStr.includes('/')) {
@@ -91,11 +91,33 @@ function buildGoogleCalendarUrl(processNumber: string, actionText: string, dataB
 
   const startCompact = formatDateCompact(dStart);
   const endCompact = formatDateCompact(dFinal);
+  const startIso = dStart.toISOString();
+  const endIso = dFinal.toISOString();
 
   const title = `⚖️ [Prazo Fatal PJe] Processo ${processNumber || ''}`;
   const details = `Ação Necessária: ${actionText || 'Verificar intimação no PJe'}.\nProcesso: ${processNumber}.`;
+  const location = 'PJe CNJ / Tribunal de Justiça';
 
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startCompact}/${endCompact}&details=${encodeURIComponent(details)}&location=${encodeURIComponent('PJe CNJ / Tribunal de Justiça')}`;
+  const cleanNum = String(processNumber || '').replace(/\D/g, '') || 'proc';
+  const icsStr = generateICS(processNumber, actionText, dFinal.toISOString());
+  const icsBase64 = btoa(unescape(encodeURIComponent(icsStr || '')));
+
+  const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startCompact}/${endCompact}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+  const outlookWebUrl = `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${encodeURIComponent(title)}&startdt=${startIso}&enddt=${endIso}&body=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+  const office365Url = `https://outlook.office.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${encodeURIComponent(title)}&startdt=${startIso}&enddt=${endIso}&body=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+  const icsDataUrl = `data:text/calendar;charset=utf8;base64,${icsBase64}`;
+
+  return {
+    title,
+    details,
+    gCalUrl,
+    outlookWebUrl,
+    office365Url,
+    icsDataUrl,
+    icsStr,
+    icsBase64,
+    fileName: `prazo_${cleanNum}.ics`,
+  };
 }
 
 serve(async (req) => {
@@ -1003,25 +1025,36 @@ ${combinedEmailsText}`;
         const procAction = contextData.target_process?.action_required || contextData.action_required || 'Manifestação legal nos autos';
         const dataBaseStr = contextData.target_process?.data_disponibilizacao || contextData.data_disponibilizacao || new Date().toISOString();
         const primaryIsoDate = contextData.deadline_iso_date || contextData.target_process?.deadline_iso_date;
-        const gCalUrl = buildGoogleCalendarUrl(procNum, procAction, dataBaseStr, primaryIsoDate);
+        const calOpts = buildAgnosticCalendarUrls(procNum, procAction, dataBaseStr, primaryIsoDate);
 
         const calendarButtonHtml = `
-          <div style="margin: 20px 0; text-align: center;">
-            <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 12px 22px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
-              📅 Adicionar ao Google Agenda
-            </a>
+          <div style="margin: 20px 0; padding: 16px; background: #0f172a; border: 1px solid #334155; border-radius: 12px; text-align: center;">
+            <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-bottom: 12px;">
+              📅 Adicionar Prazo à sua Agenda (Agnóstico):
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+              <a href="${calOpts.icsDataUrl}" download="${calOpts.fileName}" style="background: #0284c7; color: #ffffff; padding: 8px 14px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 12px; display: inline-block;">
+                🍏 Apple / Outlook / iCal (.ics)
+              </a>
+              <a href="${calOpts.gCalUrl}" target="_blank" style="background: #2563eb; color: #ffffff; padding: 8px 14px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 12px; display: inline-block;">
+                🌐 Google Agenda
+              </a>
+              <a href="${calOpts.outlookWebUrl}" target="_blank" style="background: #0078d4; color: #ffffff; padding: 8px 14px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 12px; display: inline-block;">
+                💻 Outlook Web / O365
+              </a>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 8px;">
+              * O anexo <strong>prazo_processual.ics</strong> é reconhecido nativamente por qualquer leitor de e-mail (Apple Mail, Outlook, iOS, Android, Thunderbird).
+            </div>
           </div>
         `;
 
         let emailAttachments: any[] = [];
-        if (primaryIsoDate && !isNaN(new Date(primaryIsoDate).getTime())) {
-          const icsStr = generateICS(procNum, procAction, primaryIsoDate);
-          if (icsStr) {
-            emailAttachments.push({
-              filename: 'prazo_processual.ics',
-              content: btoa(unescape(encodeURIComponent(icsStr))),
-            });
-          }
+        if (calOpts.icsBase64) {
+          emailAttachments.push({
+            filename: 'prazo_processual.ics',
+            content: calOpts.icsBase64,
+          });
         }
 
         if (resendApiKey) {
@@ -1818,13 +1851,24 @@ Seja cirúrgico, direto e hiper-específico.`;
 
           const dataBaseStr = proc.data_disponibilizacao || proc.movement_date || new Date().toISOString();
           const procAction = proc.action_required || proc.movement_text || 'Manifestação legal nos autos';
-          const gCalUrl = buildGoogleCalendarUrl(proc.process_number || '', procAction, dataBaseStr, proc.deadline_iso_date || contextData.deadline_iso_date);
+          const calOpts = buildAgnosticCalendarUrls(proc.process_number || '', procAction, dataBaseStr, proc.deadline_iso_date || contextData.deadline_iso_date);
 
           const calendarButtonHtml = `
-            <div style="margin-top: 12px; margin-bottom: 16px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
-              <a href="${gCalUrl}" target="_blank" style="background: #3b82f6; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);">
-                📅 Adicionar ao Google Agenda
-              </a>
+            <div style="margin-top: 12px; margin-bottom: 16px; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;">
+              <div style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">
+                📅 Adicionar este Prazo à sua Agenda (Agnóstico):
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <a href="${calOpts.icsDataUrl}" download="${calOpts.fileName}" style="background: #0284c7; color: #ffffff; padding: 6px 12px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-block;">
+                  🍏 Apple / Outlook / iCal (.ics)
+                </a>
+                <a href="${calOpts.gCalUrl}" target="_blank" style="background: #2563eb; color: #ffffff; padding: 6px 12px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-block;">
+                  🌐 Google Agenda
+                </a>
+                <a href="${calOpts.outlookWebUrl}" target="_blank" style="background: #0078d4; color: #ffffff; padding: 6px 12px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-block;">
+                  💻 Outlook Web
+                </a>
+              </div>
             </div>
           `;
 
