@@ -52,8 +52,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     try {
       console.log(`📋 [ONBOARDING] Salvando perfil do advogado: ${fullName}, OAB/${oabUf} ${cleanOab}`);
 
-      // 1. Atualizar no Supabase (profiles)
-      const { error } = await supabase
+      // 1. Tentar atualizar a linha existente no Supabase (profiles)
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({
           full_name: fullName.trim(),
@@ -64,8 +64,28 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         })
         .eq('id', currentProfile.id);
 
-      if (error) {
-        console.warn('⚠️ Aviso ao atualizar perfil no Supabase:', error.message);
+      if (updateError) {
+        console.warn('⚠️ Perfil não encontrado para update, realizando upsert:', updateError.message);
+        // Se a linha ainda não existir no banco, faz o UPSERT com os dados completos
+        const { error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: currentProfile.id,
+            email: currentProfile.email,
+            full_name: fullName.trim(),
+            oab_number: cleanOab,
+            oab_uf: oabUf,
+            phone: phone.trim(),
+            role: currentProfile.role || 'Member',
+            subscription_status: currentProfile.subscription_status || 'active',
+            subscription_plan: currentProfile.subscription_plan || 'Pro',
+            created_at: currentProfile.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (upsertError) {
+          throw new Error(`Falha ao gravar credenciais no banco de dados: ${upsertError.message}`);
+        }
       }
 
       // 2. Persistir no localStorage
@@ -86,7 +106,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       onOnboardingComplete(updatedProfile);
     } catch (err: any) {
       console.error('❌ [ONBOARDING ERROR]', err);
-      setErrorMessage(err.message || 'Erro ao concluir o cadastro profissional.');
+      setErrorMessage(err.message || 'Erro ao concluir o cadastro profissional no banco de dados.');
     } finally {
       setIsLoading(false);
     }
