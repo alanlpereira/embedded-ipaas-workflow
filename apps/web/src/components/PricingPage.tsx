@@ -79,84 +79,80 @@ export const PricingPage: React.FC = () => {
     {
       id: 'light',
       name: 'Light',
-      price: 'R$ 49',
+      price: 'R$ 49,90',
       pricePeriod: '/mês',
       priceId: priceLight,
-      description: 'Ideal para advogados autônomos que desejam gerenciar processos e clientes manualmente.',
-      aiLimitText: '0 requisições de IA / mês',
+      description: 'Automação completa do fluxo do PJe e integração com calendário sem geração de peças.',
+      aiLimitText: '0 peças',
       aiLimitCount: 0,
       gradientBg: 'rgba(51, 65, 85, 0.4)',
       buttonBg: 'rgba(255, 255, 255, 0.1)',
       features: [
-        'Consulta e visualização de intimações PJe CNJ',
-        'Módulo completo de Gestão de Clientes (CRUD Banco Real)',
-        'Mural de movimentações processuais',
-        'Notificações de Prazos no iCalendar / Google / Outlook',
-        'Suporte por e-mail'
+        'Automação completa do fluxo do PJe CNJ',
+        'Integração agnóstica de calendário (Apple, Google, Outlook)',
+        'Mural de movimentações e intimações processuais',
+        'Módulo completo de Gestão de Clientes (CRUD)',
+        'Sem geração de peças por Inteligência Artificial'
       ]
     },
     {
       id: 'pro',
       name: 'Pro',
-      price: 'R$ 149',
+      price: 'R$ 79,90',
       pricePeriod: '/mês',
       priceId: pricePro,
-      badge: 'Melhor Custo-Benefício',
-      description: 'Perfeito para escritórios em crescimento que buscam a automação da IA Gemini nas intimações.',
-      aiLimitText: '10 requisições de IA / mês',
+      description: 'Fluxo PJe + integração com calendário + Geração de Peças com Inteligência Artificial.',
+      aiLimitText: '10 peças / mês',
       aiLimitCount: 10,
       gradientBg: 'rgba(59, 130, 246, 0.15)',
       buttonBg: 'var(--accent-blue)',
       features: [
         'Tudo do Plano Light +',
-        '🤖 10 Consultas e Análises da IA Gemini 1.5 Pro / mês',
-        'Síntese Defensiva e Análise de Riscos Processuais',
-        'Geração de Minutas de Petição Automáticas',
-        'Notificação no WhatsApp do Cliente com 1 clique',
-        'Suporte prioritário via WhatsApp'
+        '🤖 10 Gerações de Peças com IA / mês',
+        'Síntese Defensiva e Análise de Riscos da IA Gemini',
+        'Minutas automáticas de petição e manifestações',
+        'Notificação no WhatsApp do Cliente com 1 clique'
       ]
     },
     {
       id: 'master',
       name: 'Master',
-      price: 'R$ 299',
+      price: 'R$ 99,90',
       pricePeriod: '/mês',
       priceId: priceMaster,
       badge: '⭐ Mais Popular',
       popular: true,
-      description: 'Para bancas de advocacia de alta performance que exigem monitoramento 24/7 e alta capacidade de IA.',
-      aiLimitText: '50 requisições de IA / mês',
+      description: 'Ideal para a demanda da maioria dos advogados autônomos.',
+      aiLimitText: '50 peças / mês',
       aiLimitCount: 50,
       gradientBg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
       buttonBg: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)',
       features: [
         'Tudo do Plano Pro +',
-        '🤖 50 Consultas e Análises da IA Gemini 1.5 Pro / mês',
+        '🤖 50 Gerações de Peças com IA / mês',
         'Varredura Diária Automática no CNJ Comunica às 08h00 AM',
-        'Execução autônoma de Workflows com múltiplos nós',
-        'Relatórios executivos e auditoria pgcrypto',
-        'Gerente de conta dedicado'
+        'Ideal para a demanda contínua de advogados autônomos',
+        'Execução autônoma de Workflows automatizados'
       ]
     },
     {
       id: 'ultra',
       name: 'Ultra',
-      price: 'R$ 599',
+      price: 'R$ 109,90',
       pricePeriod: '/mês',
       priceId: priceUltra,
-      badge: '🚀 Escala Máxima',
-      description: 'Solução Enterprise completa para grandes escritórios e departamentos jurídicos corporativos.',
-      aiLimitText: '200 requisições de IA / mês',
+      badge: '🚀 Melhor Custo-Benefício',
+      description: 'Escala máxima e melhor custo-benefício.',
+      aiLimitText: '200 peças / mês',
       aiLimitCount: 200,
       gradientBg: 'rgba(168, 85, 247, 0.15)',
       buttonBg: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
       features: [
         'Tudo do Plano Master +',
-        '🤖 200 Consultas e Análises da IA Gemini 1.5 Pro / mês',
-        'Infraestrutura com Rate Limiting e Trilha de Auditoria Dedicada',
-        'Acesso multi-usuário para toda a equipe do escritório',
-        'SLA de atendimento de 99.9% com suporte 24/7',
-        'Treinamento e onboarding personalizado'
+        '🤖 200 Gerações de Peças com IA / mês',
+        'Escala máxima e menor custo por peça gerada',
+        'Rate Limiting e Trilha de Auditoria Dedicada',
+        'Suporte prioritário e máxima capacidade de automação'
       ]
     }
   ];
