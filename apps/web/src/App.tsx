@@ -1344,8 +1344,8 @@ function WorkflowAppContent() {
 
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const hash = typeof window !== 'undefined' ? window.location.hash : '';
-  const isJuridicoEntry = pathname.startsWith('/juridico') || hash.includes('juridico');
-  const isRootEntry = !isJuridicoEntry && (pathname === '/' || pathname === '' || pathname.startsWith('/editor') || pathname.startsWith('/builder'));
+  const isJuridicoEntry = pathname.startsWith('/juridico') || hash.includes('juridico') || pathname.startsWith('/portal') || pathname.startsWith('/oab/');
+  const isRootEntry = !isJuridicoEntry;
 
   const isAdminOrMaster = Boolean(
     currentProfile?.role === 'Master' ||
@@ -1404,13 +1404,10 @@ function WorkflowAppContent() {
             if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
             setCurrentProfile(profile);
 
-            const isUserAdmin = profile.role === 'Master' || profile.role === 'Admin' || profile.email === 'alanlpereira@hotmail.com' || (profile.email && profile.email.endsWith('@alp-nexus.com'));
             if (isJuridicoEntry) {
               setCurrentTab('dashboard'); // Módulo Jurídico -> Portal de Consultas PJe
-            } else if (isUserAdmin || isRootEntry) {
-              setCurrentTab('editor'); // Raiz IPaaS -> Construtor de Fluxos e Gestão da Plataforma
             } else {
-              window.location.href = '/juridico';
+              setCurrentTab('editor'); // Raiz IPaaS -> Construtor de Fluxos e Gestão da Plataforma
             }
 
             try {
@@ -1421,22 +1418,15 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🚀 FASE 2: FLUXO DO DOMÍNIO RAIZ (/) -> CONSTRUTOR DE FLUXOS
+    // 🚀 FASE 2: FLUXO DO DOMÍNIO RAIZ (synapse.alp-nexus.com/) -> CONSTRUTOR DE FLUXOS IPAAS
     if (isRootEntry && currentProfile) {
-      if (isAdminOrMaster) {
-        // IGNORE COMPLETAMENTE ONBOARDING E PAGAMENTO. FORCE A VIEW PARA O EDITOR DE FLUXOS!
-        if (currentTab !== 'editor' && currentTab !== 'dashboard_flows') {
-          setCurrentTab('editor');
-        }
-      } else {
-        // Usuário comum tentou acessar a raiz -> Redirect imediato para /juridico
-        console.warn('🛡️ [REDIRECT] Usuário comum acessou a raiz /. Redirecionando para /juridico...');
-        window.location.href = '/juridico';
-        return null;
+      // Ignora 100% Onboarding (OAB) e Pagamento (Stripe). Force a view para o Construtor de Fluxos!
+      if (currentTab === 'dashboard') {
+        setCurrentTab('editor');
       }
     }
 
-    // 🚀 FASE 3: FLUXO DO DOMÍNIO JURÍDICO (/juridico) -> PJe / ONBOARDING / STRIPE
+    // 🚀 FASE 3: FLUXO DO DOMÍNIO JURÍDICO (synapse.alp-nexus.com/juridico) -> PJe / ONBOARDING / STRIPE
     if (isJuridicoEntry && currentProfile && !isAdminOrMaster) {
       const isProfileComplete = Boolean(
         currentProfile.full_name?.trim() &&
