@@ -285,7 +285,13 @@ function WorkflowAppContent() {
   const embedFlowId = isEmbedPath ? window.location.pathname.replace('/embed/', '') : null;
   const approvalToken = isApprovePath ? window.location.pathname.replace('/approve/', '') : null;
 
-  const canEdit = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
+  const canEdit = Boolean(
+    currentProfile?.role === 'Master' ||
+    currentProfile?.role === 'Admin' ||
+    currentProfile?.email === 'alanlpereira@hotmail.com' ||
+    currentProfile?.email === 'alan.pereira@alp-nexus.com' ||
+    (currentProfile?.email && currentProfile.email.endsWith('@alp-nexus.com'))
+  );
 
   // ⚡ FASE 2: TRAVA DE CARREGAMENTO DO PERFIL (PREVINE RACE CONDITION NOS GUARDS)
   const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
@@ -304,17 +310,20 @@ function WorkflowAppContent() {
           .single();
 
         if (dbProfile && isMounted) {
+          const userEmail = email || dbProfile.email || '';
+          const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
+
           const fullProfile: Profile = {
             id: userId,
             organization_id: dbProfile.organization_id || 'org-alp-nexus',
-            email: email || dbProfile.email || '',
+            email: userEmail,
             full_name: dbProfile.full_name || '',
             oab_number: dbProfile.oab_number || '',
             oab_uf: dbProfile.oab_uf || 'MG',
             professional_id: dbProfile.professional_id || (dbProfile.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
-            role: dbProfile.role || 'Member',
-            subscription_status: dbProfile.subscription_status || 'active',
-            subscription_plan: dbProfile.subscription_plan || 'Pro',
+            role: isMasterEmail ? 'Master' : (dbProfile.role || 'Member'),
+            subscription_status: isMasterEmail ? 'active' : (dbProfile.subscription_status || 'active'),
+            subscription_plan: isMasterEmail ? 'Pro' : (dbProfile.subscription_plan || 'Pro'),
             avatar_url: dbProfile.avatar_url || '',
             phone: dbProfile.phone || '',
             created_at: dbProfile.created_at || new Date().toISOString(),

@@ -36,8 +36,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const isRodrigoOrLegalOps = currentProfile?.organization_id === 'org-legal-ops' || currentProfile?.email?.includes('rodrigo.moura');
   const currentEdition: PlanTier = isRodrigoOrLegalOps ? 'LegalOps' : 'Synapse';
 
-  const isMasterOrAdmin = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
-  const isMaster = currentProfile?.role === 'Master';
+  const isMasterOrAdmin = Boolean(
+    currentProfile?.role === 'Master' ||
+    currentProfile?.role === 'Admin' ||
+    currentProfile?.email === 'alanlpereira@hotmail.com' ||
+    currentProfile?.email === 'alan.pereira@alp-nexus.com' ||
+    (currentProfile?.email && currentProfile.email.endsWith('@alp-nexus.com'))
+  );
+  const isMaster = currentProfile?.role === 'Master' || currentProfile?.email === 'alanlpereira@hotmail.com' || currentProfile?.email === 'alan.pereira@alp-nexus.com';
 
   const navItems = [
     // Módulo Jurídico (Disponível para todos os perfis, inclusive advogados comuns)
