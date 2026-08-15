@@ -1330,28 +1330,28 @@ function WorkflowAppContent() {
   }, [currentProfile]);
 
   // ------------------------------------------------------------------------
-  // HIERARQUIA ESTRITA DE GUARDS (ABSOLUTE EARLY RETURNS PARA PREVENIR RACE CONDITION)
+  // HIERARQUIA ESTRITA DE GUARDS (AMBAS AS ROTAS / E /JURIDICO EXIGEM LOGIN)
   // ------------------------------------------------------------------------
 
-  // ⚡ FASE 1: LEITURA DE ROTA INICIAL (ENTRYPOINT SEGREGATION)
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const isStripeSuccessReturn = searchParams?.get('success') === 'true' || searchParams?.has('session_id') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/validando'));
   const hasPlanInUrl = Boolean(searchParams?.get('plan'));
-  const isJuridicoEntry = typeof window !== 'undefined' && (
-    window.location.pathname.startsWith('/juridico') ||
+  const isExplicitPricingView = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/pricing') ||
-    window.location.hash.includes('juridico') ||
     window.location.hash.includes('pricing')
   );
+  const isJuridicoEntry = typeof window !== 'undefined' && (
+    window.location.pathname.startsWith('/juridico') ||
+    window.location.hash.includes('juridico')
+  );
 
-  // 🚀 FASE 2: DEFINIÇÃO DE PASSE LIVRE (MASTER / ADMIN BYPASS)
   const isAdminOrMaster = Boolean(
     currentProfile?.role === 'Master' ||
     currentProfile?.role === 'Admin' ||
     currentProfile?.email === 'alanlpereira@hotmail.com'
   );
 
-  // Exceção de Rotas Públicas Externas Sem Autenticação
+  // Exceção de Rotas Públicas Externas Sem Autenticação (Demo, Decide, Embed, Approve)
   if (isDemoPath || isDecidePath || isEmbedPath || isApprovePath) {
     // Renderizar telas públicas diretamente
   } else {
@@ -1380,8 +1380,8 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🌐 FASE 1: Vitrine de Planos Pública (/juridico) para não autenticados
-    if (!currentProfile && isJuridicoEntry && !hasPlanInUrl) {
+    // 🌐 Vitrine de Planos Pública: Exibida SOMENTE se o usuário acessar explicitamente /pricing
+    if (!currentProfile && isExplicitPricingView && !hasPlanInUrl) {
       return (
         <PricingPage
           isPublicView={true}
@@ -1392,7 +1392,7 @@ function WorkflowAppContent() {
       );
     }
 
-    // PASSO 1 (Sessão): Não está autenticado no Supabase Auth? -> Exibe LoginPage
+    // 🔑 PASSO 1 (Sessão): NÃO AUTENTICADO EM / OU /JURIDICO -> EXIBE SEMPRE A TELA DE LOGIN!
     if (!currentProfile || hasPlanInUrl) {
       return (
         <LoginPage
@@ -1402,7 +1402,7 @@ function WorkflowAppContent() {
 
             // 🎯 SEGREGAÇÃO ESTRITA DE TAB NO LOGIN
             if (isJuridicoEntry) {
-              setCurrentTab('dashboard'); // Módulo Jurídico
+              setCurrentTab('dashboard'); // Módulo Jurídico -> Portal de Consultas PJe
             } else {
               setCurrentTab('editor'); // Raiz IPaaS -> Construtor de Fluxos e Gestão da Plataforma
             }
@@ -1415,13 +1415,13 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🚀 FASE 2: PASSE LIVRE NO GUARD DE ONBOARDING (ADMINS NÃO PREENCHEM OAB)
+    // 🚀 PASSO 2 (Onboarding - Lead Capture): Usuário comum com perfil incompleto (Sem OAB/Nome)?
+    // ADMINS NÃO PREENCHEM OAB / NÃO PASSAM PELO ONBOARDING!
     const isProfileComplete = Boolean(
       currentProfile?.full_name?.trim() &&
       currentProfile?.oab_number?.trim()
     );
 
-    // O usuário SÓ é redirecionado para <OnboardingPage/> se NÃO for Admin/Master E o perfil for incompleto
     if (!isAdminOrMaster && !isProfileComplete) {
       return (
         <OnboardingPage
@@ -1436,7 +1436,8 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🚀 FASE 2: PASSE LIVRE NO GUARD DE PAGAMENTO/ASSINATURA (ADMINS NÃO PAGAM)
+    // 🚀 PASSO 3 (Pagamento/Assinatura): Usuário comum com perfil completo, mas sem plano ativo?
+    // ADMINS NÃO PAGAM / NÃO PASSAM PELA TELA DE PRICING!
     const hasActiveSubscriptionOrTrial = (
       isAdminOrMaster ||
       currentProfile.subscription_status === 'active' ||
@@ -1444,7 +1445,6 @@ function WorkflowAppContent() {
       Boolean(currentProfile.subscription_plan)
     );
 
-    // O usuário SÓ é redirecionado para <PricingPage/> se NÃO for Admin/Master E NÃO tiver assinatura ativa
     if (!isAdminOrMaster && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
       return (
         <PricingPage
