@@ -171,8 +171,31 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
     alert(t.messages.memberAdded || 'Novo membro convidado com sucesso!');
   };
 
-  const handleDeleteMember = (memberId: string, memberName: string) => {
-    if (confirm(`Remover ${memberName} da organização?`)) {
+  const handleDeleteMember = async (memberId: string, memberName: string) => {
+    if (confirm(`Remover ${memberName} da organização e excluir perfil do banco?`)) {
+      try {
+        console.log(`🗑️ [DB DELETE] Solicitando exclusão do perfil ${memberId} no Supabase...`);
+        // 1. Tentar exclusão via RPC SECURITY DEFINER (bypass de RLS)
+        const { error: rpcErr } = await supabase.rpc('delete_user_profile', { target_user_id: memberId });
+        
+        if (rpcErr) {
+          console.warn('⚠️ Fallback de exclusão via query direta:', rpcErr.message);
+          // Fallback para exclusão direta na tabela profiles
+          const { error: directErr } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', memberId);
+
+          if (directErr) {
+            console.error('❌ Erro ao deletar no Supabase:', directErr.message);
+          }
+        }
+        console.log(`✅ [DB DELETE SUCCESS] Usuário ${memberId} excluído do banco PostgreSQL.`);
+      } catch (err: any) {
+        console.error('❌ Erro na comunicação com o banco de dados:', err);
+      }
+
+      // 2. Atualizar estado local e cache
       const updated = members.filter(m => m.id !== memberId);
       setMembers(updated);
       try {

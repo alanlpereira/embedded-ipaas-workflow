@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserPlus, Shield, User, X, Mail, Check, ShieldAlert, Trash2 } from 'lucide-react';
 import { Profile, UserRole } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { supabase } from '../lib/supabase';
 
 interface TeamPageProps {
   currentProfile: Profile;
@@ -96,8 +97,16 @@ export const TeamPage: React.FC<TeamPageProps> = ({ currentProfile }) => {
     alert(t.messages.memberAdded || 'Membro adicionado com sucesso!');
   };
 
-  const handleDeleteMember = (memberId: string, memberName: string) => {
-    if (confirm(`Tem certeza que deseja remover ${memberName} da equipe?`)) {
+  const handleDeleteMember = async (memberId: string, memberName: string) => {
+    if (confirm(`Tem certeza que deseja remover ${memberName} da equipe e excluir do banco?`)) {
+      try {
+        const { error: rpcErr } = await supabase.rpc('delete_user_profile', { target_user_id: memberId });
+        if (rpcErr) {
+          await supabase.from('profiles').delete().eq('id', memberId);
+        }
+      } catch (err) {
+        console.error('❌ Erro ao excluir usuário no Supabase:', err);
+      }
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
     }
   };
