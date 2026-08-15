@@ -11,10 +11,10 @@ interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { t } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
-  const [fullName, setFullName] = useState('Dr. Alan Pereira');
-  const [email, setEmail] = useState('alanlpereira@hotmail.com');
-  const [password, setPassword] = useState('Advocacia2026!');
-  const [confirmPassword, setConfirmPassword] = useState('Advocacia2026!');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -65,9 +65,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           const userProfile: Profile = profile || {
             id: session.user.id,
             organization_id: 'org-alp-nexus',
-            email: session.user.email || 'advogado@synapse.law',
-            full_name: session.user.user_metadata?.full_name || 'Dr. Alan Pereira',
-            role: (session.user.user_metadata?.role as any) || 'Master',
+            email: session.user.email || '',
+            full_name: session.user.user_metadata?.full_name || '',
+            role: (session.user.user_metadata?.role as any) || 'Member',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };

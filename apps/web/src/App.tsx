@@ -167,16 +167,7 @@ function WorkflowAppContent() {
   const { switchOrganization } = useTheme();
   const { isMobilePortrait } = useResponsiveLayout();
 
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(() => {
-    try {
-      const savedSession = localStorage.getItem('synapse_active_session');
-      if (savedSession) {
-        const parsed = JSON.parse(savedSession);
-        if (parsed && parsed.email) return parsed;
-      }
-    } catch (e) {}
-    return null; // Exigir login e senha para qualquer novo visitante/acesso!
-  });
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
 
   const [flowcharts, setFlowcharts] = useState<Flowchart[]>(() => {
     try {
@@ -1497,9 +1488,20 @@ function WorkflowAppContent() {
       currentTab={currentTab}
       onNavigate={(tab) => setCurrentTab(tab)}
       currentProfile={currentProfile}
-      onLogout={() => {
-        localStorage.removeItem('synapse_active_session');
+      onLogout={async () => {
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.warn('⚠️ Erro ao encerrar sessão no Supabase Auth:', e);
+        }
+        localStorage.clear();
         setCurrentProfile(null);
+        const path = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (path.startsWith('/juridico')) {
+          window.location.href = '/juridico';
+        } else {
+          window.location.href = '/';
+        }
       }}
     >
 
