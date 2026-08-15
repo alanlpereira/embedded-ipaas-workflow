@@ -197,7 +197,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   required
                   value={oabNumber}
                   onChange={(e) => setOabNumber(e.target.value)}
-                  placeholder="145105"
+                  placeholder="123456"
                   style={{
                     width: '100%',
                     padding: '12px 14px 12px 42px',

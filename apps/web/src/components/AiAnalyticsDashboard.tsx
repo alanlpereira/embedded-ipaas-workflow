@@ -85,7 +85,7 @@ export const AiAnalyticsDashboard: React.FC = () => {
     {
       email: 'alan.pereira@alp-nexus.com',
       name: 'Dr. Alan Pereira',
-      professionalId: 'OAB/MG 145105',
+      professionalId: 'OAB Habilitada',
       role: 'Master Admin',
       edition: '✨ Synapse Edition',
       requestsCount: 142,
@@ -96,7 +96,7 @@ export const AiAnalyticsDashboard: React.FC = () => {
     {
       email: 'rodrigo.moura@alp-nexus.com',
       name: 'Dr. Rodrigo Moura Rodrigues',
-      professionalId: 'OAB/MG 145105',
+      professionalId: 'OAB Habilitada',
       role: 'Advogado Titular',
       edition: '⚖️ Legal Ops Edition',
       requestsCount: 0,

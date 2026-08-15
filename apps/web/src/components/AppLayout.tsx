@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2 } from 'lucide-react';
+import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2, User } from 'lucide-react';
 import { ViewTab } from './Navbar';
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { EditionBadge } from './EditionBadge';
@@ -40,10 +40,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const isMaster = currentProfile?.role === 'Master';
 
   const navItems = [
-    // Módulo Jurídico (Disponível para todos os perfis)
+    // Módulo Jurídico (Disponível para todos os perfis, inclusive advogados comuns)
     { id: 'dashboard' as ViewTab, label: 'Portal de Processos', icon: <Scale size={18} />, badge: 'PJe Live', group: 'Módulo Jurídico' },
     { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Gemini 1.5', group: 'Módulo Jurídico' },
     { id: 'clients' as ViewTab, label: 'Clientes & Casos', icon: <Users size={18} />, group: 'Módulo Jurídico' },
+    { id: 'profile' as ViewTab, label: 'Meu Perfil', icon: <User size={18} />, group: 'Módulo Jurídico' },
 
     // Módulo de Automação / Engenharia de Fluxos (BLOQUEADO PARA USUÁRIOS COMUNS - EXIBIDO APENAS PARA ADMIN/MASTER)
     ...(isMasterOrAdmin ? [
@@ -252,6 +253,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               {currentTab === 'dashboard' && '🏛️ Portal de Intimações & Processos'}
               {currentTab === 'copilot' && '⚖️ Legal Copilot (IA)'}
               {currentTab === 'clients' && '👥 Gestão de Clientes'}
+              {currentTab === 'profile' && '👤 Meu Perfil Jurídico'}
               {currentTab === 'dashboard_flows' && '📊 Dashboard de Fluxos'}
               {currentTab === 'editor' && '🔄 Editor de Fluxos'}
               {currentTab === 'executions' && '⚡ Histórico de Execuções'}

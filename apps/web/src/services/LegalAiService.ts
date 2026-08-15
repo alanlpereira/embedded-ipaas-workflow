@@ -295,6 +295,6 @@ Pede e espera deferimento.
 
 ---
 **DR. RODRIGO MOURA RODRIGUES**  
-*Advogado - OAB/MG 145105*`;
+*Advogado Habilitado*`;
   }
 }

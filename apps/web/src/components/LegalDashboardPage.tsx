@@ -436,7 +436,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
               </span>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Varredura programada no PJe Comunica (CNJ) com OAB/MG 145105 e resumo individual por e-mail & WhatsApp.
+              Varredura programada no PJe Comunica (CNJ) com {lawyerOab ? `OAB/${lawyerUf} ${lawyerOab}` : 'sua OAB cadastrada'} e resumo individual por e-mail & WhatsApp.
             </p>
           </div>
         </div>

@@ -24,6 +24,7 @@ import { ZeroFrictionDecidePage } from './components/ZeroFrictionDecidePage';
 import { MagicDemoPage } from './components/MagicDemoPage';
 import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
 import { UserSettingsPage } from './components/UserSettingsPage';
+import { UserProfilePage } from './components/UserProfilePage';
 import { LegalDashboardPage } from './components/LegalDashboardPage';
 import { LegalCopilotChat } from './components/LegalCopilotChat';
 import { AppLayout } from './components/AppLayout';
@@ -1481,6 +1482,13 @@ function WorkflowAppContent() {
 
       {currentTab === 'integrations' && (
         <IntegrationsVaultPage currentProfile={currentProfile} />
+      )}
+
+      {currentTab === 'profile' && (
+        <UserProfilePage
+          currentProfile={currentProfile}
+          onUpdateProfile={handleUpdateProfile}
+        />
       )}
 
       {currentTab === 'settings' && (

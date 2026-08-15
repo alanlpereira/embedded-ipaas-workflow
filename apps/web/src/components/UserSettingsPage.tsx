@@ -19,7 +19,7 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
   const [fullName, setFullName] = useState(currentProfile?.full_name || 'Dr. Alan Pereira');
   const [email, setEmail] = useState(currentProfile?.email || 'alanlpereira@hotmail.com');
   const [phone, setPhone] = useState(currentProfile?.phone || '+55 37 9958-3402');
-  const [oabNumber, setOabNumber] = useState('145105');
+  const [oabNumber, setOabNumber] = useState(currentProfile?.oab_number || (typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') || '' : ''));
   const [oabUf, setOabUf] = useState('MG');
   const [invoicePassword, setInvoicePassword] = useState('123456');
   const [avatarUrl, setAvatarUrl] = useState(currentProfile?.avatar_url || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150');
@@ -384,7 +384,7 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
                   type="text"
                   value={oabNumber}
                   onChange={(e) => setOabNumber(e.target.value)}
-                  placeholder="145105"
+                  placeholder="123456"
                   style={{
                     width: '100%',
                     padding: '10px 12px 10px 38px',
