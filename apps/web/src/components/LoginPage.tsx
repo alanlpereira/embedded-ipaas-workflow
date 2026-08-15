@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Scale, Lock, Mail, ArrowRight, ShieldCheck, Loader2, User, Sparkles } from 'lucide-react';
+import { Scale, Lock, Mail, ArrowRight, ShieldCheck, Loader2, User, Sparkles, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Profile } from '@ipaas/shared-types';
@@ -17,10 +17,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [checkoutLoadingText, setCheckoutLoadingText] = useState<string | null>(null);
   const [selectedPlanPriceId, setSelectedPlanPriceId] = useState<string | null>(null);
   const [selectedPlanName, setSelectedPlanName] = useState<string | null>(null);
 
-  // Detectar se a URL contém parâmetros de plano ou hash #signup
+  // 1. Detectar se a URL contém parâmetros de plano ou hash #signup
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
@@ -37,12 +38,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   }, []);
 
-  // 🛡️ AUTH GUARD: Verificação imediata do estado de autenticação ao carregar a página
+  // 2. 🛡️ AUTH GUARD: Verificação imediata do estado de autenticação ao carregar a página
   useEffect(() => {
     let isMounted = true;
 
     async function checkExistingAuthSession() {
       try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const planFromUrl = searchParams.get('plan');
+
+        // Se houver um plano na URL, NÃO realizar login automático silencioso no dashboard
+        if (planFromUrl) {
+          if (isMounted) setIsCheckingAuth(false);
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user && isMounted) {
           const { data: profile } = await supabase
@@ -88,10 +98,47 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     };
   }, [onLoginSuccess]);
 
+  // Função dedicada para disparar a Stripe Checkout Session e redirecionar
+  const triggerStripeCheckout = async (userId: string, userEmail: string): Promise<boolean> => {
+    setCheckoutLoadingText('🔒 Redirecionando para o pagamento seguro na Stripe...');
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://auth.alp-nexus.com';
+      console.log(`💳 [CHECKOUT FLOW] Solicitando checkout para priceId: ${selectedPlanPriceId}, user: ${userId}`);
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          priceId: selectedPlanPriceId,
+          planName: selectedPlanName,
+          userId: userId,
+          userEmail: userEmail
+        })
+      });
+
+      const checkoutData = await res.json();
+
+      if (checkoutData?.url) {
+        console.log(`🚀 [CHECKOUT FLOW] Redirecionando para Stripe URL: ${checkoutData.url}`);
+        window.location.href = checkoutData.url;
+        return true;
+      } else {
+        throw new Error(checkoutData?.error || 'A API da Stripe não retornou uma URL válida.');
+      }
+    } catch (err: any) {
+      console.error('❌ [CHECKOUT FLOW ERROR]', err);
+      setErrorMessage(`⚠️ Erro ao iniciar checkout de pagamento: ${err.message || 'Verifique o serviço Stripe.'}`);
+      setCheckoutLoadingText(null);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
+    setCheckoutLoadingText(null);
 
     if (isSignUp) {
       // 🚀 FLUXO DE SIGN UP + CHECKOUT AUTOMÁTICO
@@ -113,36 +160,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         const registeredUser = data.user;
         const userId = registeredUser?.id || `usr-${Date.now()}`;
 
-        // Se houver plano pré-selecionado, disparar a criação da sessão de Checkout na Stripe
-        if (selectedPlanPriceId && registeredUser) {
-          try {
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://auth.alp-nexus.com';
-            const res = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                priceId: selectedPlanPriceId,
-                planName: selectedPlanName,
-                userId: userId,
-                userEmail: email
-              })
-            });
-            const checkoutData = await res.json();
-
-            if (checkoutData?.url) {
-              window.location.href = checkoutData.url;
-              return;
-            }
-          } catch (checkoutErr) {
-            console.warn('Aviso: Falha ao redirecionar para Checkout automático:', checkoutErr);
+        // SE HOUVER PLANO SELECIONADO: Bloquear redirecionamento padrão ao dashboard e abrir Stripe Checkout
+        if (selectedPlanPriceId) {
+          const checkoutSuccess = await triggerStripeCheckout(userId, email);
+          if (checkoutSuccess) {
+            // Retornar imediatamente e NÃO chamar onLoginSuccess
+            return;
+          } else {
+            // Checkout falhou -> Bloquear entrada gratuita!
+            return;
           }
         }
 
-        // Se não houver plano ou se checkout automático não redirecionar, entrar normalmente
+        // Se não houver plano selecionado na URL, entrar no sistema normalmente
         fallbackLocalLogin(email, fullName);
       } catch (err: any) {
         setErrorMessage(err.message || 'Erro ao realizar cadastro.');
-      } finally {
         setIsLoading(false);
       }
     } else {
@@ -155,11 +188,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         if (error) {
           console.warn('Supabase Auth error (fallback local):', error.message);
+          // Se tiver plano selecionado e login local falhou no Supabase, ainda assim verificar checkout
+          if (selectedPlanPriceId) {
+            const checkoutSuccess = await triggerStripeCheckout(`usr-${Date.now()}`, email);
+            if (checkoutSuccess) return;
+            return;
+          }
           fallbackLocalLogin(email, fullName);
           return;
         }
 
         if (data.user) {
+          // Se o usuário logou e havia um plano selecionado na URL, ir direto para a Stripe
+          if (selectedPlanPriceId) {
+            const checkoutSuccess = await triggerStripeCheckout(data.user.id, data.user.email || email);
+            if (checkoutSuccess) return;
+            return;
+          }
+
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
@@ -180,9 +226,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           onLoginSuccess(userProfile);
         }
       } catch (err: any) {
+        if (selectedPlanPriceId) {
+          const checkoutSuccess = await triggerStripeCheckout(`usr-${Date.now()}`, email);
+          if (checkoutSuccess) return;
+          return;
+        }
         fallbackLocalLogin(email, fullName);
       } finally {
-        setIsLoading(false);
+        if (!selectedPlanPriceId) {
+          setIsLoading(false);
+        }
       }
     }
   };
@@ -298,9 +351,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </p>
 
           {/* Badge Contextual de Plano Selecionado via URL */}
-          {selectedPlanName && isSignUp && (
+          {selectedPlanName && (
             <div style={{
-              marginTop: '12px',
+              marginTop: '14px',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
@@ -317,18 +370,44 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           )}
         </div>
 
+        {/* Mensagem de Estado de Carregamento do Checkout da Stripe */}
+        {checkoutLoadingText && (
+          <div style={{
+            background: 'rgba(59, 130, 246, 0.2)',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
+            color: '#38bdf8',
+            padding: '14px 18px',
+            borderRadius: '12px',
+            fontSize: '13px',
+            fontWeight: 700,
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px'
+          }}>
+            <Loader2 size={18} className="animate-spin" />
+            <span>{checkoutLoadingText}</span>
+          </div>
+        )}
+
+        {/* Mensagem de Erro */}
         {errorMessage && (
           <div style={{
             background: 'rgba(239, 68, 68, 0.15)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
             color: '#f87171',
-            padding: '12px 16px',
+            padding: '14px 18px',
             borderRadius: '12px',
             fontSize: '13px',
             fontWeight: 600,
-            textAlign: 'center'
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            lineHeight: '1.4'
           }}>
-            {errorMessage}
+            <AlertTriangle size={18} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
+            <span>{errorMessage}</span>
           </div>
         )}
 
@@ -441,11 +520,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             {isLoading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                <span>{isSignUp ? 'Criando Conta...' : 'Autenticando...'}</span>
+                <span>{selectedPlanPriceId ? 'Redirecionando para o Pagamento...' : (isSignUp ? 'Criando Conta...' : 'Autenticando...')}</span>
               </>
             ) : (
               <>
-                <span>{isSignUp ? 'Concluir Cadastro & Prosseguir' : 'Entrar no Sistema'}</span>
+                <span>{selectedPlanPriceId ? `Ir para o Pagamento (${selectedPlanName || 'Plano'})` : (isSignUp ? 'Concluir Cadastro & Prosseguir' : 'Entrar no Sistema')}</span>
                 <ArrowRight size={18} />
               </>
             )}
