@@ -1330,9 +1330,10 @@ function WorkflowAppContent() {
   }, [currentProfile]);
 
   // ------------------------------------------------------------------------
-  // HIERARQUIA ESTRITA DE GUARDS (AMBAS AS ROTAS / E /JURIDICO EXIGEM LOGIN)
+  // HIERARQUIA ESTRITA DE GUARDS POR ENTRYPOINT (/ vs /juridico)
   // ------------------------------------------------------------------------
 
+  // FASE 1: DETECÇÃO DO ENTRYPOINT
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const isStripeSuccessReturn = searchParams?.get('success') === 'true' || searchParams?.has('session_id') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/validando'));
   const hasPlanInUrl = Boolean(searchParams?.get('plan'));
@@ -1340,10 +1341,11 @@ function WorkflowAppContent() {
     window.location.pathname.startsWith('/pricing') ||
     window.location.hash.includes('pricing')
   );
-  const isJuridicoEntry = typeof window !== 'undefined' && (
-    window.location.pathname.startsWith('/juridico') ||
-    window.location.hash.includes('juridico')
-  );
+
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  const isJuridicoEntry = pathname.startsWith('/juridico') || hash.includes('juridico');
+  const isRootEntry = !isJuridicoEntry && (pathname === '/' || pathname === '' || pathname.startsWith('/editor') || pathname.startsWith('/builder'));
 
   const isAdminOrMaster = Boolean(
     currentProfile?.role === 'Master' ||
@@ -1357,7 +1359,7 @@ function WorkflowAppContent() {
   if (isDemoPath || isDecidePath || isEmbedPath || isApprovePath) {
     // Renderizar telas públicas diretamente
   } else {
-    // 🚨 EARLY RETURN ABSOLUTO 1: SE O PERFIL ESTIVER CARREGANDO DA REDE, NADA É AVALIADO!
+    // 🚨 TRAVA ABSOLUTA: SE O PERFIL ESTIVER CARREGANDO DA REDE, SEGURA A RENDERIZAÇÃO
     if (isLoadingProfile || isSyncingStripe || isStripeSuccessReturn) {
       if (isSyncingStripe || isStripeSuccessReturn) {
         return (
@@ -1382,7 +1384,7 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🌐 Vitrine de Planos Pública: Exibida SOMENTE se o usuário acessar explicitamente /pricing
+    // Vitrine de Planos Pública: Exibida SOMENTE se o usuário acessar explicitamente /pricing
     if (!currentProfile && isExplicitPricingView && !hasPlanInUrl) {
       return (
         <PricingPage
@@ -1394,7 +1396,7 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🔑 PASSO 1 (Sessão): NÃO AUTENTICADO EM / OU /JURIDICO -> EXIBE SEMPRE A TELA DE LOGIN!
+    // REGRAS GERAIS DE AUTENTICAÇÃO: SE NÃO HOUVER SESSÃO, EXIBIR OBRIGATORIAMENTE LOGIN/CADASTRO
     if (!currentProfile || hasPlanInUrl) {
       return (
         <LoginPage
@@ -1402,11 +1404,13 @@ function WorkflowAppContent() {
             if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
             setCurrentProfile(profile);
 
-            // 🎯 SEGREGAÇÃO ESTRITA DE TAB NO LOGIN
+            const isUserAdmin = profile.role === 'Master' || profile.role === 'Admin' || profile.email === 'alanlpereira@hotmail.com' || (profile.email && profile.email.endsWith('@alp-nexus.com'));
             if (isJuridicoEntry) {
               setCurrentTab('dashboard'); // Módulo Jurídico -> Portal de Consultas PJe
-            } else {
+            } else if (isUserAdmin || isRootEntry) {
               setCurrentTab('editor'); // Raiz IPaaS -> Construtor de Fluxos e Gestão da Plataforma
+            } else {
+              window.location.href = '/juridico';
             }
 
             try {
@@ -1417,53 +1421,73 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🚀 PASSO 2 (Onboarding - Lead Capture): Usuário comum com perfil incompleto (Sem OAB/Nome)?
-    // ADMINS NÃO PREENCHEM OAB / NÃO PASSAM PELO ONBOARDING!
-    const isProfileComplete = Boolean(
-      currentProfile?.full_name?.trim() &&
-      currentProfile?.oab_number?.trim()
-    );
-
-    if (!isAdminOrMaster && !isProfileComplete && isJuridicoEntry) {
-      return (
-        <OnboardingPage
-          currentProfile={currentProfile}
-          onOnboardingComplete={(updatedProfile) => {
-            setCurrentProfile(updatedProfile);
-            try {
-              localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
-            } catch (e) {}
-          }}
-        />
-      );
+    // 🚀 FASE 2: FLUXO DO DOMÍNIO RAIZ (/) -> CONSTRUTOR DE FLUXOS
+    if (isRootEntry && currentProfile) {
+      if (isAdminOrMaster) {
+        // IGNORE COMPLETAMENTE ONBOARDING E PAGAMENTO. FORCE A VIEW PARA O EDITOR DE FLUXOS!
+        if (currentTab !== 'editor' && currentTab !== 'dashboard_flows') {
+          setCurrentTab('editor');
+        }
+      } else {
+        // Usuário comum tentou acessar a raiz -> Redirect imediato para /juridico
+        console.warn('🛡️ [REDIRECT] Usuário comum acessou a raiz /. Redirecionando para /juridico...');
+        window.location.href = '/juridico';
+        return null;
+      }
     }
 
-    // 🚀 PASSO 3 (Pagamento/Assinatura): Usuário comum com perfil completo, mas sem plano ativo?
-    // ADMINS NÃO PAGAM / NÃO PASSAM PELA TELA DE PRICING!
-    const hasActiveSubscriptionOrTrial = (
-      isAdminOrMaster ||
-      currentProfile.subscription_status === 'active' ||
-      currentProfile.subscription_status === 'trialing' ||
-      Boolean(currentProfile.subscription_plan)
-    );
-
-    if (!isAdminOrMaster && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing' && isJuridicoEntry) {
-      return (
-        <PricingPage
-          currentUser={currentProfile}
-          isPublicView={false}
-          onNavigateToSignup={() => {}}
-        />
+    // 🚀 FASE 3: FLUXO DO DOMÍNIO JURÍDICO (/juridico) -> PJe / ONBOARDING / STRIPE
+    if (isJuridicoEntry && currentProfile && !isAdminOrMaster) {
+      const isProfileComplete = Boolean(
+        currentProfile.full_name?.trim() &&
+        currentProfile.oab_number?.trim()
       );
+
+      // PASSO A: Verificação de Novo Usuário (Onboarding)
+      if (!isProfileComplete) {
+        return (
+          <OnboardingPage
+            currentProfile={currentProfile}
+            onOnboardingComplete={(updatedProfile) => {
+              setCurrentProfile(updatedProfile);
+              try {
+                localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
+              } catch (e) {}
+            }}
+          />
+        );
+      }
+
+      // PASSO B: Verificação de Pagamento (Pricing)
+      const hasActiveSubscriptionOrTrial = (
+        currentProfile.subscription_status === 'active' ||
+        currentProfile.subscription_status === 'trialing' ||
+        Boolean(currentProfile.subscription_plan)
+      );
+
+      if (!hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
+        return (
+          <PricingPage
+            currentUser={currentProfile}
+            isPublicView={false}
+            onNavigateToSignup={() => {}}
+          />
+        );
+      }
+
+      // PASSO C: Sucesso (Usuário Antigo/Liberado) -> Force a view para o Portal PJe ('dashboard')
+      if (currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile') {
+        setCurrentTab('dashboard');
+      }
     }
 
-    // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect de Rotas)
+    // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect)
     const superAdminOnlyTabs: ViewTab[] = ['masterAdmin', 'tenantAdmin', 'agency', 'audit'];
 
     if (!isAdminOrMaster && superAdminOnlyTabs.includes(currentTab)) {
-      console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile.role || 'Member'}'. Redirecionando para 'editor'...`);
-      setCurrentTab('editor');
-      window.history.replaceState(null, '', '/');
+      console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile.role || 'Member'}'. Redirecionando para 'dashboard'...`);
+      setCurrentTab('dashboard');
+      window.history.replaceState(null, '', '/juridico');
     }
   }
 
