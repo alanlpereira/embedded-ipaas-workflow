@@ -189,10 +189,15 @@ export const PricingPage: React.FC<PricingPageProps> = ({ isPublicView = false, 
       });
 
       if (error || !sessionData?.url) {
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cmZydXhpZ21hamducXN5bGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjI0MzcsImV4cCI6MjEwMTUzODQzN30.zWo05gnMB4INe27AyGCiR2M2L9q-Yh5enUFecC8Fn10';
         // Fallback direto via fetch
         const res = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${supabaseAnonKey}`
+          },
           body: JSON.stringify({
             priceId: plan.priceId,
             planName: plan.name,
@@ -223,6 +228,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ isPublicView = false, 
     setLoadingPortal(true);
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://auth.alp-nexus.com';
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cmZydXhpZ21hamducXN5bGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjI0MzcsImV4cCI6MjEwMTUzODQzN30.zWo05gnMB4INe27AyGCiR2M2L9q-Yh5enUFecC8Fn10';
       const session = (await supabase.auth.getSession()).data.session;
 
       const { data: portalData, error } = await supabase.functions.invoke('create-portal-session', {
@@ -242,7 +248,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ isPublicView = false, 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${session?.access_token || supabaseAnonKey}`
         },
         body: JSON.stringify({
           userId: currentUser?.id,

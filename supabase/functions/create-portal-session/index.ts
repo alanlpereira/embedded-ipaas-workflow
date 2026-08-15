@@ -4,19 +4,21 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
 serve(async (req) => {
+  // Preflight OPTIONS interceptor com status 200 e cabeçalhos CORS explícitos
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { status: 200, headers: corsHeaders });
   }
 
   try {
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
+      console.error('❌ [STRIPE CONFIG ERROR] STRIPE_SECRET_KEY ausente.');
       return new Response(
-        JSON.stringify({ error: 'STRIPE_SECRET_KEY não configurada.' }),
+        JSON.stringify({ error: 'STRIPE_SECRET_KEY não configurada no ambiente Supabase.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -29,14 +31,18 @@ serve(async (req) => {
     let userId: string | null = null;
 
     const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        userId = user.id;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          userId = user.id;
+        }
+      } catch (authErr) {
+        console.warn('⚠️ [AUTH WARN] Não foi possível verificar token JWT no portal:', authErr);
       }
     }
 
@@ -63,14 +69,14 @@ serve(async (req) => {
 
     if (!customerId) {
       return new Response(
-        JSON.stringify({ error: 'Nenhum stripe_customer_id associado ao perfil deste usuário. Faça um checkout primeiro.' }),
+        JSON.stringify({ error: 'Nenhum stripe_customer_id associado ao perfil deste usuário. Conclua uma assinatura primeiro.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const appUrl = Deno.env.get('VITE_PUBLIC_APP_URL') || Deno.env.get('PUBLIC_APP_URL') || 'https://synapse.alp-nexus.com';
 
-    console.log(`🔑 [STRIPE PORTAL] Criando sessão de portal para Customer ID: ${customerId}`);
+    console.log(`🔑 [STRIPE PORTAL] Solicitando sessão de portal para Customer ID: ${customerId}`);
 
     const params = new URLSearchParams();
     params.append('customer', customerId);
@@ -100,9 +106,9 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err: any) {
-    console.error('❌ [CREATE PORTAL SESSION ERROR]', err);
+    console.error('❌ [CREATE PORTAL SESSION EXCEPTION]', err);
     return new Response(
-      JSON.stringify({ error: err.message || 'Erro interno no servidor' }),
+      JSON.stringify({ error: err.message || 'Erro interno na Edge Function create-portal-session' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
