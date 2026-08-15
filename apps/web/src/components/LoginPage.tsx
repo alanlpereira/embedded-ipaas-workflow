@@ -226,17 +226,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             .eq('id', data.user.id)
             .single();
 
+          const userEmail = data.user.email || email || '';
+          const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
+
           const fullProfile: Profile = {
             id: data.user.id,
             organization_id: dbProfile?.organization_id || 'org-alp-nexus',
-            email: data.user.email || email,
+            email: userEmail,
             full_name: dbProfile?.full_name || data.user.user_metadata?.full_name || fullName || '',
             oab_number: dbProfile?.oab_number || '',
             oab_uf: dbProfile?.oab_uf || 'MG',
             professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
-            role: dbProfile?.role || (data.user.user_metadata?.role as any) || 'Member',
-            subscription_status: dbProfile?.subscription_status || 'active',
-            subscription_plan: dbProfile?.subscription_plan || 'Pro',
+            role: isMasterEmail ? 'Master' : (dbProfile?.role || (data.user.user_metadata?.role as any) || 'Member'),
+            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
+            subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',
             created_at: dbProfile?.created_at || new Date().toISOString(),

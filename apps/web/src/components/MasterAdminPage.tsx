@@ -123,7 +123,15 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [copiedLink, setCopiedLink] = useState(false);
   const [isGeneratingDemo, setIsGeneratingDemo] = useState(false);
 
-  if (currentProfile?.role !== 'Master') {
+  const isMaster = Boolean(
+    currentProfile?.role === 'Master' ||
+    currentProfile?.role === 'Admin' ||
+    currentProfile?.email === 'alanlpereira@hotmail.com' ||
+    currentProfile?.email === 'alan.pereira@alp-nexus.com' ||
+    (currentProfile?.email && currentProfile.email.endsWith('@alp-nexus.com'))
+  );
+
+  if (!isMaster) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>
         <h2>Acesso Negado</h2>
