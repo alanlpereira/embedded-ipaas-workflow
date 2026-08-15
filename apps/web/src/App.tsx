@@ -200,12 +200,15 @@ function WorkflowAppContent() {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const hash = window.location.hash;
-      if (path.startsWith('/juridico') || path.startsWith('/pricing') || hash.includes('juridico') || hash.includes('pricing')) return 'pricing';
-      if (path.startsWith('/oab/') || path.startsWith('/portal') || path.startsWith('/legal')) return 'dashboard';
+      // 🏛️ Módulo Jurídico (/juridico, /portal, /oab/) -> Dashboard de Processos
+      if (path.startsWith('/juridico') || hash.includes('juridico') || path.startsWith('/portal') || path.startsWith('/oab/')) return 'dashboard';
+      if (path.startsWith('/pricing') || hash.includes('pricing')) return 'pricing';
       if (path.startsWith('/clientes')) return 'clients';
-      if (path.startsWith('/editor')) return 'editor';
+      if (path.startsWith('/editor') || path.startsWith('/builder')) return 'editor';
+      if (path.startsWith('/workflows') || path.startsWith('/dashboard_flows')) return 'dashboard_flows';
     }
-    return 'dashboard'; // Padrão: Portal do Advogado / Consultas PJe
+    // ⚡ RAIZ (synapse.alp-nexus.com/): CONSTRUTOR DE FLUXOS E GESTÃO DO IPAAS (EDITOR)
+    return 'editor';
   });
 
   // Processar parâmetros de OAB da URL (ex: /oab/145105 ou /oab/145105-mg)
@@ -320,14 +323,17 @@ function WorkflowAppContent() {
           setCurrentProfile(fullProfile);
           localStorage.setItem('synapse_active_session', JSON.stringify(fullProfile));
 
-          // 🎯 FASE 3: DIRECIONAMENTO AUTOMÁTICO DE TAB APÓS HIDRATAÇÃO DO PERFIL
-          const isUserAdmin = fullProfile.role === 'Master' || fullProfile.role === 'Admin' || fullProfile.email === 'alanlpereira@hotmail.com';
+          // 🎯 SEGREGAÇÃO ESTRITA DE DOMÍNIOS E ROTAS DE ENTRADA (/ vs /juridico)
           const path = typeof window !== 'undefined' ? window.location.pathname : '';
-          const isJuridicoPath = path.startsWith('/juridico') || path.startsWith('/pricing');
-          if (isUserAdmin && !isJuridicoPath && (path === '/' || path === '' || path.startsWith('/editor'))) {
-            setCurrentTab('editor');
-          } else if (!isUserAdmin) {
+          const hash = typeof window !== 'undefined' ? window.location.hash : '';
+          const isJuridicoPath = path.startsWith('/juridico') || hash.includes('juridico') || path.startsWith('/portal') || path.startsWith('/oab/');
+
+          if (isJuridicoPath) {
+            // Acessou explicitamente a rota do Módulo Jurídico (/juridico) -> Portal do Advogado / Consultas PJe
             setCurrentTab('dashboard');
+          } else {
+            // Acessou a raiz (synapse.alp-nexus.com/) ou rotas do IPaaS -> Construtor de Fluxos e Gestão da Plataforma
+            setCurrentTab('editor');
           }
         }
       } catch (err) {
@@ -1394,12 +1400,11 @@ function WorkflowAppContent() {
             if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
             setCurrentProfile(profile);
 
-            // 🎯 FASE 3: DIRECIONAMENTO AUTOMÁTICO DE TAB COM BASE NO PERFIL E ENTRYPOINT
-            const isUserAdmin = profile.role === 'Master' || profile.role === 'Admin' || profile.email === 'alanlpereira@hotmail.com';
-            if (isUserAdmin && !isJuridicoEntry) {
-              setCurrentTab('editor');
+            // 🎯 SEGREGAÇÃO ESTRITA DE TAB NO LOGIN
+            if (isJuridicoEntry) {
+              setCurrentTab('dashboard'); // Módulo Jurídico
             } else {
-              setCurrentTab('dashboard');
+              setCurrentTab('editor'); // Raiz IPaaS -> Construtor de Fluxos e Gestão da Plataforma
             }
 
             try {
