@@ -1295,13 +1295,14 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🛡️ PASSO 4: ISOLAMENTO RIGOROSO DE MÓDULOS DE ACORDO COM O PAPEL (RBAC BLINDADO)
+  // 🛡️ PASSO 4: ISOLAMENTO RIGOROSO DE MÓDULOS DE ACORDO COM O PAPEL (RBAC BLINDADO DE ROTAS)
   const isAdminOrMaster = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
-  const adminOnlyTabs: ViewTab[] = ['editor', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
+  const adminOnlyTabs: ViewTab[] = ['editor', 'dashboard_flows', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
 
   if (!isAdminOrMaster && adminOnlyTabs.includes(currentTab)) {
-    console.warn(`🛡️ [RBAC GUARD] Acesso negado à aba '${currentTab}' para a função '${currentProfile?.role || 'Member'}'. Redirecionando para 'dashboard'...`);
+    console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile?.role || 'Member'}'. Redirecionando para 'dashboard'...`);
     setCurrentTab('dashboard');
+    window.history.replaceState(null, '', '/');
   }
 
   // 🛡️ PASSO 5: LIBERAR /DASHBOARD E LAYOUT PRINCIPAL DO APP

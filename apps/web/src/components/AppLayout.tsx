@@ -36,16 +36,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const isRodrigoOrLegalOps = currentProfile?.organization_id === 'org-legal-ops' || currentProfile?.email?.includes('rodrigo.moura');
   const currentEdition: PlanTier = isRodrigoOrLegalOps ? 'LegalOps' : 'Synapse';
 
-  const isMasterOrAdmin = (currentProfile?.role === 'Master' || currentProfile?.role === 'Admin') && !isRodrigoOrLegalOps;
-  const isMaster = currentProfile?.role === 'Master' && !isRodrigoOrLegalOps;
+  const isMasterOrAdmin = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
+  const isMaster = currentProfile?.role === 'Master';
 
   const navItems = [
-    // Módulo Jurídico (Disponível para todos os perfis, inclusive Dr. Rodrigo Moura)
+    // Módulo Jurídico (Disponível para todos os perfis)
     { id: 'dashboard' as ViewTab, label: 'Portal de Processos', icon: <Scale size={18} />, badge: 'PJe Live', group: 'Módulo Jurídico' },
     { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Gemini 1.5', group: 'Módulo Jurídico' },
     { id: 'clients' as ViewTab, label: 'Clientes & Casos', icon: <Users size={18} />, group: 'Módulo Jurídico' },
 
-    // Módulo de Automação / Engenharia de Fluxos (Exibido para Admin/Master de edições completas)
+    // Módulo de Automação / Engenharia de Fluxos (BLOQUEADO PARA USUÁRIOS COMUNS - EXIBIDO APENAS PARA ADMIN/MASTER)
     ...(isMasterOrAdmin ? [
       { id: 'dashboard_flows' as ViewTab, label: 'Dashboard de Fluxos', icon: <LayoutDashboard size={18} />, group: 'Automações & IPaaS' },
       { id: 'editor' as ViewTab, label: 'Editor de Fluxos', icon: <Workflow size={18} />, group: 'Automações & IPaaS' },
@@ -53,20 +53,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       { id: 'audit' as ViewTab, label: 'Inspecionar com IA', icon: <Radio size={18} style={{ color: '#38bdf8' }} />, badge: 'IA Audit', group: 'Automações & IPaaS' },
       { id: 'templates' as ViewTab, label: 'Galeria de Modelos', icon: <LayoutTemplate size={18} />, group: 'Automações & IPaaS' },
       { id: 'integrations' as ViewTab, label: 'Cofre de Integrações', icon: <Lock size={18} />, group: 'Automações & IPaaS' },
+      { id: 'tenantAdmin' as ViewTab, label: 'Gestão da Organização', icon: <Building2 size={18} />, group: 'Administração' },
+      { id: 'settings' as ViewTab, label: 'Configurações', icon: <Settings size={18} />, group: 'Geral' },
     ] : []),
 
-    // Administração da Plataforma (Exibido para Master / Admin)
+    // Administração da Plataforma (Exibido APENAS para Master)
     ...(isMaster ? [
       { id: 'masterAdmin' as ViewTab, label: 'Admin Master Global', icon: <ShieldCheck size={18} color="#f59e0b" />, group: 'Administração' },
     ] : []),
-    { id: 'tenantAdmin' as ViewTab, label: 'Gestão da Organização', icon: <Building2 size={18} />, group: 'Administração' },
-
-    // Configurações Gerais
-    { id: 'settings' as ViewTab, label: 'Configurações', icon: <Settings size={18} />, group: 'Geral' },
   ];
 
-  const advocateName = currentProfile?.full_name || 'Dr. Rodrigo Moura Rodrigues';
-  const advocateOab = currentProfile?.professional_id || 'OAB/MG 145105';
+  const advocateName = currentProfile?.full_name || currentProfile?.email || 'Advogado Habilitado';
+  const advocateOab = currentProfile?.oab_number ? `OAB/${currentProfile.oab_uf || 'MG'} ${currentProfile.oab_number}` : '';
 
   const handleSelectNav = (tab: ViewTab) => {
     onNavigate(tab);

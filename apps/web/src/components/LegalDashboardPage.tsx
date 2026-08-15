@@ -29,11 +29,50 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   onRunNow,
   isRunningNow = false,
 }) => {
-  // Injeção Automática do Contexto Global do Advogado (Email Auth + Perfil OAB)
-  const lawyerEmail = currentProfile?.email || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('synapse_active_session') || '{}')?.email) : '') || '';
-  const lawyerName = currentProfile?.full_name || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('synapse_active_session') || '{}')?.full_name) : '') || 'Dr. Alan Pereira';
-  const lawyerOab = currentProfile?.oab_number || (typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') : null) || '145105';
-  const lawyerUf = currentProfile?.oab_uf || (typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_uf') : null) || 'MG';
+  // Injeção Real de Dados (Context Hydration do Supabase sem Fallbacks Falsos)
+  const [profileState, setProfileState] = useState<{
+    email: string;
+    fullName: string;
+    oabNumber: string;
+    oabUf: string;
+  }>({
+    email: currentProfile?.email || '',
+    fullName: currentProfile?.full_name || '',
+    oabNumber: currentProfile?.oab_number || (typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') || '' : ''),
+    oabUf: currentProfile?.oab_uf || (typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_uf') || 'MG' : 'MG'),
+  });
+
+  useEffect(() => {
+    async function loadRealProfileFromSupabase() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('full_name, oab_number, oab_uf, email')
+            .eq('id', user.id)
+            .single();
+
+          if (prof) {
+            setProfileState({
+              email: prof.email || user.email || '',
+              fullName: prof.full_name || '',
+              oabNumber: prof.oab_number || '',
+              oabUf: prof.oab_uf || 'MG',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Erro ao hidratar perfil do advogado no Supabase:', err);
+      }
+    }
+    loadRealProfileFromSupabase();
+  }, [currentProfile]);
+
+  const lawyerEmail = profileState.email || currentProfile?.email || '';
+  const lawyerName = profileState.fullName || currentProfile?.full_name || '';
+  const lawyerOab = profileState.oabNumber || currentProfile?.oab_number || '';
+  const lawyerUf = profileState.oabUf || currentProfile?.oab_uf || 'MG';
 
   // Datas padrão: Ontem até Hoje
   const today = new Date().toISOString().split('T')[0];

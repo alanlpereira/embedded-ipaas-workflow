@@ -137,7 +137,7 @@ serve(async (req) => {
 
   // Ação especial: Consulta avulsa síncrona para atualizar a tela do app (desktop/mobile)
   if (body.action === 'query_pje') {
-    const targetOab = String(body.oab_number || body.oab || '145105').trim();
+    const targetOab = String(body.oab_number || body.oab || '').trim();
     const targetUf = String(body.oab_uf || body.uf || 'MG').trim().toUpperCase();
     const startDate = body.start_date || new Date(Date.now() - 86400000 * 15).toISOString().split('T')[0];
     const endDate = body.end_date || new Date().toISOString().split('T')[0];
@@ -1529,7 +1529,7 @@ ${combinedEmailsText}`;
           }
         ];
 
-        const targetOab = String(contextData.oab_number || settings.oabNumber || settings.oab_number || '145105').trim();
+        const targetOab = String(contextData.oab_number || settings.oabNumber || settings.oab_number || '').trim();
         const targetUf = String(contextData.oab_uf || settings.oabUf || settings.oab_uf || 'MG').trim().toUpperCase();
         const startDate = contextData.start_date || settings.startDate || settings.start_date || new Date(Date.now() - 86400000 * 15).toISOString().split('T')[0];
         const endDate = contextData.end_date || settings.endDate || settings.end_date || new Date().toISOString().split('T')[0];
@@ -1897,7 +1897,7 @@ Seja cirúrgico, direto e hiper-específico.`;
           `);
         }
 
-        const mailSubject = settings.subject ? interpolateVars(settings.subject) : `⚖️ Intimações PJe (OAB 145105 MG) - Validação por Processo (${targetProcs.length} Processos)`;
+        const mailSubject = settings.subject ? interpolateVars(settings.subject) : `⚖️ Intimações PJe (OAB/${targetUf} ${targetOab || 'CNJ'}) - Validação por Processo (${targetProcs.length} Processos)`;
 
         const mailHtml = `
           <div style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; padding: 32px; color: #1e293b; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #090d16; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);">
