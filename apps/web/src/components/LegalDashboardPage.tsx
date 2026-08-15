@@ -19,14 +19,22 @@ export interface ProcessMovement {
 }
 
 interface LegalDashboardPageProps {
+  currentProfile?: any;
   onRunNow?: (customContext?: Record<string, any>) => Promise<any>;
   isRunningNow?: boolean;
 }
 
 export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
+  currentProfile,
   onRunNow,
   isRunningNow = false,
 }) => {
+  // Injeção Automática do Contexto Global do Advogado (Email Auth + Perfil OAB)
+  const lawyerEmail = currentProfile?.email || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('synapse_active_session') || '{}')?.email) : '') || '';
+  const lawyerName = currentProfile?.full_name || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('synapse_active_session') || '{}')?.full_name) : '') || 'Dr. Alan Pereira';
+  const lawyerOab = currentProfile?.oab_number || (typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') : null) || '145105';
+  const lawyerUf = currentProfile?.oab_uf || (typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_uf') : null) || 'MG';
+
   // Datas padrão: Ontem até Hoje
   const today = new Date().toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -47,8 +55,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const [procAiLoading, setProcAiLoading] = useState<Record<string, boolean>>({});
 
   // Chave de persistência individual por OAB no localStorage
-  const oabKey = localStorage.getItem('synapse_advocate_oab') || '145105';
-  const STORAGE_KEY = `synapse_pje_last_search_${oabKey}`;
+  const STORAGE_KEY = `synapse_pje_last_search_${lawyerOab}`;
 
   // Inicializar estado com a última pesquisa persistida no localStorage (padrão: array vazio)
   const [movements, setMovements] = useState<ProcessMovement[]>(() => {
@@ -80,24 +87,23 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     }
   };
 
-  // Função principal para carregar as movimentações em tempo real da API PJe CNJ
+  // Função principal para carregar as movimentações em tempo real da API PJe CNJ (com Injeção Automática de Dados)
   const fetchLiveMovements = async (sDate: string, eDate: string) => {
     setIsLoadingMovements(true);
     // Limpar o estado local imediatamente antes de buscar novos dados para evitar acumular itens antigos
     setMovements([]);
 
-    const oab = localStorage.getItem('synapse_advocate_oab') || '145105';
-    const uf = localStorage.getItem('synapse_advocate_uf') || 'MG';
-
     try {
-      console.log(`📡 [PJE CNJ CLIENT] Solicitando busca de movimentações OAB/${uf} ${oab} de ${sDate} a ${eDate}...`);
+      console.log(`📡 [PJE CNJ CLIENT] Solicitando busca para OAB/${lawyerUf} ${lawyerOab} (Email: ${lawyerEmail})...`);
       const { data: qData, error: qErr } = await supabase.functions.invoke('workflow-worker', {
         body: {
           action: 'query_pje',
           start_date: sDate,
           end_date: eDate,
-          oab_number: oab,
-          oab_uf: uf,
+          oab_number: lawyerOab,
+          oab_uf: lawyerUf,
+          lawyer_email: lawyerEmail,
+          lawyer_name: lawyerName
         }
       });
 
@@ -109,18 +115,18 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
 
       if (qData && Array.isArray(qData.items)) {
         // DEDUPLICAÇÃO NO FRONTEND: Filtrar itens repetidos por processo + data + trecho da movimentação
-        const seenKeys = new Set<string>();
-        const deduplicatedItems: ProcessMovement[] = qData.items.filter((m: ProcessMovement) => {
-          if (!m || !m.process_number) return false;
-          const key = `${m.process_number}_${m.movement_date || m.data_disponibilizacao}_${String(m.movement_text || '').slice(0, 40)}`;
-          if (seenKeys.has(key)) return false;
-          seenKeys.add(key);
+        const seen = new Set<string>();
+        const uniqueItems = qData.items.filter((item: ProcessMovement) => {
+          if (!item || !item.process_number) return false;
+          const key = `${item.process_number}_${item.movement_date || item.data_disponibilizacao}_${String(item.movement_text || '').slice(0, 40)}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
           return true;
         });
 
-        console.log(`✅ [PJE CNJ CLIENT SUCCESS] ${deduplicatedItems.length} movimentações únicas obtidas (após deduplicação).`);
-        saveMovementsToStorage(deduplicatedItems);
-        return deduplicatedItems;
+        console.log(`✅ [PJE CNJ CLIENT SUCCESS] ${uniqueItems.length} movimentações únicas obtidas (após deduplicação).`);
+        saveMovementsToStorage(uniqueItems);
+        return uniqueItems;
       }
     } catch (err: any) {
       console.error('❌ [PJE CNJ CLIENT EXCEPTION] Exceção na busca em tempo real:', err);
@@ -136,10 +142,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     setIsExecutingQuery(true);
     setMovements([]); // Limpar a tela imediatamente
 
-    const oab = localStorage.getItem('synapse_advocate_oab') || '145105';
-    const uf = localStorage.getItem('synapse_advocate_uf') || 'MG';
-
-    showToast(`⚡ AUTOMATIZAÇÃO: Buscando processos do PJe CNJ (OAB/${uf} ${oab}) de ${startDate} até ${endDate}...`);
+    showToast(`⚡ AUTOMATIZAÇÃO: Buscando processos do PJe CNJ (OAB/${lawyerUf} ${lawyerOab}) de ${startDate} até ${endDate}...`);
 
     try {
       // 1. Consultar a Edge Function para atualizar A TELA DO APP imediatamente
@@ -156,8 +159,10 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
         await onRunNow({
           start_date: startDate,
           end_date: endDate,
-          oab_number: oab,
-          oab_uf: uf,
+          oab_number: lawyerOab,
+          oab_uf: lawyerUf,
+          lawyer_email: lawyerEmail,
+          lawyer_name: lawyerName,
           processes: fetchedItems,
           custom_ai_prompt: aiPrompt,
         });
@@ -171,12 +176,51 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     }
   };
 
-  const handleSendWhatsAppNotification = (proc: ProcessMovement) => {
+  // 📱 CRUZAMENTO DINÂMICO DE DADOS DE CLIENTES PARA WHATSAPP
+  const handleSendWhatsAppNotification = async (proc: ProcessMovement) => {
+    let targetPhone = '';
+    let matchedClientName = '';
+
+    try {
+      // Buscar clientes cadastrados na tabela do PostgreSQL ou localStorage
+      const { data: dbClients } = await supabase.from('clients').select('*');
+      let clientList: any[] = dbClients || [];
+
+      if (clientList.length === 0 && typeof window !== 'undefined') {
+        const saved = localStorage.getItem('synapse_clients_data');
+        if (saved) {
+          try { clientList = JSON.parse(saved); } catch (e) {}
+        }
+      }
+
+      // Cruzamento de dados entre o nome das partes (proc.parties) e o nome do cliente cadastrado
+      const lowerParties = proc.parties.toLowerCase();
+      const matchedClient = clientList.find((c) => {
+        if (!c.name || c.name.trim().length < 3) return false;
+        return lowerParties.includes(c.name.toLowerCase().trim());
+      });
+
+      if (matchedClient && matchedClient.phone) {
+        targetPhone = matchedClient.phone.replace(/\D/g, '');
+        matchedClientName = matchedClient.name;
+        console.log(`🎯 [CLIENT MATCH WHATSAPP] Correspondência encontrada: ${matchedClient.name} (${matchedClient.phone})`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Erro ao efetuar cruzamento de clientes para WhatsApp:', err);
+    }
+
     const waText = encodeURIComponent(
-      `⚖️ *PROCESSO CNJ:* ${proc.process_number}\n🏛️ *ÓRGÃO:* ${proc.court}\n👥 *PARTES:* ${proc.parties}\n📜 *RESUMO DA MOVIMENTAÇÃO:* ${proc.movement_text}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required}\n📅 *PRAZO FATAL:* ${proc.deadline}`
+      `⚖️ *PROCESSO CNJ:* ${proc.process_number}\n🏛️ *ÓRGÃO:* ${proc.court}\n👥 *PARTES:* ${proc.parties}\n📜 *RESUMO DA MOVIMENTAÇÃO:* ${proc.movement_text}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required}\n📅 *PRAZO FATAL:* ${proc.deadline}\n\n👨‍💼 *ADVOGADO RESPONSÁVEL:* ${lawyerName} (OAB/${lawyerUf} ${lawyerOab})`
     );
-    window.open(`https://wa.me/?text=${waText}`, '_blank');
-    showToast(`📱 Resumo do processo ${proc.process_number} enviado para o WhatsApp!`);
+
+    const waUrl = targetPhone ? `https://wa.me/${targetPhone}?text=${waText}` : `https://wa.me/?text=${waText}`;
+    window.open(waUrl, '_blank');
+
+    if (matchedClientName) {
+      showToast(`📱 Resumo do processo enviado diretamente para o WhatsApp de ${matchedClientName} (${targetPhone})!`);
+    } else {
+      showToast(`📱 Resumo do processo ${proc.process_number} preparado para envio no WhatsApp!`);
+    }
   };
 
   const handleAskProcessAi = async (proc: ProcessMovement, customQuestion?: string) => {
@@ -191,7 +235,16 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     setProcAiQuestions(prev => ({ ...prev, [proc.id]: '' }));
 
     try {
-      const processContextPrompt = `[CONTEXTO DO PROCESSO CNJ ${proc.process_number}]:\n• Órgão Julgador: ${proc.court}\n• Partes: ${proc.parties}\n• Texto da Movimentação/Intimação: ${proc.movement_text}\n• Ação Necessária Prévia: ${proc.action_required}\n• Prazo Fatal: ${proc.deadline}\n\n[PERGUNTA/INSTRUÇÃO DO ADVOGADO]: ${qText}`;
+      const processContextPrompt = `[CONTEXTO DO PROCESSO CNJ ${proc.process_number}]:
+• Advogado Responsável: ${lawyerName} (OAB/${lawyerUf} ${lawyerOab})
+• E-mail do Advogado: ${lawyerEmail}
+• Órgão Julgador: ${proc.court}
+• Partes: ${proc.parties}
+• Texto da Movimentação/Intimação: ${proc.movement_text}
+• Ação Necessária Prévia: ${proc.action_required}
+• Prazo Fatal: ${proc.deadline}
+
+[PERGUNTA/INSTRUÇÃO DO ADVOGADO]: ${qText}`;
 
       const aiResponse = await LegalAiService.generateLegalContent({
         prompt: processContextPrompt,

@@ -1187,7 +1187,10 @@ function WorkflowAppContent() {
     }
   };
 
-  // 🛡️ PASSO 1: ESTÁ LOGADO?
+  // 🛡️ PASSO 1: LOGADO OU EM FLUXO DE CHECKOUT DE PLANO DA STRIPE?
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const hasPlanInUrl = Boolean(searchParams?.get('plan'));
+
   const isJuridicoPath = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/juridico') ||
     window.location.pathname.startsWith('/pricing') ||
@@ -1196,7 +1199,7 @@ function WorkflowAppContent() {
   );
 
   // 🌐 ROTA PÚBLICA /juridico: Exibir Vitrine de Planos (PricingPage) sem necessidade de login
-  if (!currentProfile && isJuridicoPath) {
+  if (!currentProfile && isJuridicoPath && !hasPlanInUrl) {
     return (
       <PricingPage
         isPublicView={true}
@@ -1207,11 +1210,13 @@ function WorkflowAppContent() {
     );
   }
 
-  // Se o usuário não estiver autenticado e a rota não for pública isolada, exibir a Tela de Login
-  if (!currentProfile && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
+  // 🚨 PRIORIDADE ABSOLUTA AO CHECKOUT DA STRIPE:
+  // Se houver plano na URL ou se o usuário não estiver autenticado, a tela de Login/Checkout assume a prioridade total
+  if ((!currentProfile || hasPlanInUrl) && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
     return (
       <LoginPage
         onLoginSuccess={(profile) => {
+          if (hasPlanInUrl) return; // Bloquear transição até que a Stripe processe a URL
           setCurrentProfile(profile);
           setCurrentTab('dashboard');
           try {
@@ -1240,7 +1245,7 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🛡️ PASSO 3: PERFIL (NOME E OAB) PREENCHIDO? (ONBOARDING OBRIGATÓRIO)
+  // 🛡️ PASSO 3: PERFIL (NOME E OAB) PREENCHIDO? (ONBOARDING OBRIGATÓRIO PÓS-STRIPE)
   const storedOab = typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') : null;
   const isProfileComplete = Boolean(
     currentProfile?.full_name?.trim() &&
