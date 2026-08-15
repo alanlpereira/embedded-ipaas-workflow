@@ -64,7 +64,7 @@ serve(async (req) => {
     params.append('line_items[0][price]', priceId);
     params.append('line_items[0][quantity]', '1');
     params.append('subscription_data[trial_period_days]', '14');
-    params.append('success_url', `${appUrl}/validando-assinatura?session_id={CHECKOUT_SESSION_ID}`);
+    params.append('success_url', `${appUrl}/validando-assinatura?session_id={CHECKOUT_SESSION_ID}&success=true`);
     params.append('cancel_url', `${appUrl}/pricing?canceled=true`);
 
     if (userEmail) {

@@ -1189,35 +1189,92 @@ function WorkflowAppContent() {
   };
 
   // ------------------------------------------------------------------------
-  // HIERARQUIA ESTRITA DE GUARDS DE AUTENTICAÇÃO E PAGAMENTO (ÁRVORE SEQUENCIAL DE DECISÃO)
+  // 🔄 FASE 2: POLLING AUTOMÁTICO APÓS RETORNO DA STRIPE (?success=true ou ?session_id=)
+  // ------------------------------------------------------------------------
+  const [isSyncingStripe, setIsSyncingStripe] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isStripeSuccessReturn = params.get('success') === 'true' || params.has('session_id') || window.location.pathname.startsWith('/validando');
+
+    if (isStripeSuccessReturn && currentProfile) {
+      setIsSyncingStripe(true);
+      let attempts = 0;
+
+      const interval = setInterval(async () => {
+        attempts += 1;
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const userId = user?.id || currentProfile?.id;
+
+          if (userId) {
+            const { data: updatedProf } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .single();
+
+            if (updatedProf) {
+              const hasActiveStatus =
+                updatedProf.subscription_status === 'active' ||
+                updatedProf.subscription_status === 'trialing' ||
+                Boolean(updatedProf.subscription_plan);
+
+              if (hasActiveStatus || attempts >= 5) {
+                clearInterval(interval);
+                setIsSyncingStripe(false);
+
+                const merged: Profile = {
+                  ...currentProfile,
+                  ...updatedProf,
+                  subscription_status: updatedProf.subscription_status || 'trialing',
+                  subscription_plan: updatedProf.subscription_plan || 'Pro'
+                };
+
+                setCurrentProfile(merged);
+                localStorage.setItem('synapse_active_session', JSON.stringify(merged));
+                window.history.replaceState({}, document.title, '/dashboard');
+                setCurrentTab('dashboard');
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('⚠️ Polling erro ao consultar perfil atualizado:', err);
+        }
+
+        if (attempts >= 5) {
+          clearInterval(interval);
+          setIsSyncingStripe(false);
+        }
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentProfile]);
+
+  // ------------------------------------------------------------------------
+  // HIERARQUIA ESTRITA DE GUARDS (INVERTIDA: ONBOARDING ANTES DO PAGAMENTO)
   // ------------------------------------------------------------------------
 
   // PASSO 0: Rota de Sincronização de Assinatura pós-Checkout (Polling do Webhook)
-  const isSyncPath = typeof window !== 'undefined' && (
-    window.location.pathname.startsWith('/validando') ||
-    window.location.search.includes('session_id=')
-  );
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isStripeSuccessReturn = searchParams?.get('success') === 'true' || searchParams?.has('session_id') || window.location.pathname.startsWith('/validando');
 
-  if (isSyncPath) {
+  if (isSyncingStripe || isStripeSuccessReturn) {
     return (
       <SubscriptionSyncPage
         currentProfile={currentProfile}
         onSyncComplete={(targetScreen, updatedProfile) => {
           setCurrentProfile(updatedProfile);
-          if (targetScreen === 'onboarding') {
-            window.history.replaceState({}, document.title, '/onboarding');
-          } else {
-            setCurrentTab('dashboard');
-            window.history.replaceState({}, document.title, '/dashboard');
-          }
+          setIsSyncingStripe(false);
+          window.history.replaceState({}, document.title, '/dashboard');
+          setCurrentTab('dashboard');
         }}
       />
     );
   }
 
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const hasPlanInUrl = Boolean(searchParams?.get('plan'));
-
   const isJuridicoPath = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/juridico') ||
     window.location.pathname.startsWith('/pricing') ||
@@ -1237,7 +1294,7 @@ function WorkflowAppContent() {
     );
   }
 
-  // PASSO 1: Autenticação do Usuário (Se não logado ou se tiver plano pendente na URL)
+  // PASSO 1 (Sessão): Está autenticado no Supabase Auth? (Se não, redireciona para login/vitrine)
   if ((!currentProfile || hasPlanInUrl) && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
     return (
       <LoginPage
@@ -1253,25 +1310,8 @@ function WorkflowAppContent() {
     );
   }
 
-  // PASSO 2: Validação de Pagamento / Assinatura Ativa ou Trial no Banco
-  const hasActiveSubscriptionOrTrial = currentProfile && (
-    currentProfile.role === 'Master' ||
-    currentProfile.subscription_status === 'active' ||
-    currentProfile.subscription_status === 'trialing' ||
-    Boolean(currentProfile.subscription_plan)
-  );
-
-  if (currentProfile && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
-    return (
-      <PricingPage
-        currentUser={currentProfile}
-        isPublicView={false}
-        onNavigateToSignup={() => {}}
-      />
-    );
-  }
-
-  // PASSO 3: Validação de Onboarding Obrigatório (OAB + Nome) - APENAS SE PASSO 2 PASSAR!
+  // PASSO 2 (Onboarding - Lead Capture): O perfil atual NÃO possui 'oab' ou 'full_name'?
+  // O usuário DEVE preencher isso ANTES de ver a tela de planos!
   const storedOab = typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') : null;
   const isProfileComplete = Boolean(
     currentProfile?.full_name?.trim() &&
@@ -1292,7 +1332,25 @@ function WorkflowAppContent() {
     );
   }
 
-  // PASSO 4: Isolamento de Módulos (RBAC Hard Redirect de Rotas)
+  // PASSO 3 (Pagamento/Assinatura): O usuário já preencheu a OAB, mas o 'subscription_status' NÃO é 'active' nem 'trialing'?
+  const hasActiveSubscriptionOrTrial = currentProfile && (
+    currentProfile.role === 'Master' ||
+    currentProfile.subscription_status === 'active' ||
+    currentProfile.subscription_status === 'trialing' ||
+    Boolean(currentProfile.subscription_plan)
+  );
+
+  if (currentProfile && isProfileComplete && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
+    return (
+      <PricingPage
+        currentUser={currentProfile}
+        isPublicView={false}
+        onNavigateToSignup={() => {}}
+      />
+    );
+  }
+
+  // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect de Rotas)
   const isAdminOrMaster = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
   const adminOnlyTabs: ViewTab[] = ['editor', 'dashboard_flows', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
 
