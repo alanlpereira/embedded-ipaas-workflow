@@ -57,12 +57,13 @@ serve(async (req) => {
 
     const appUrl = Deno.env.get('VITE_PUBLIC_APP_URL') || Deno.env.get('PUBLIC_APP_URL') || 'https://synapse.alp-nexus.com';
 
-    // Montar parâmetros para a API REST da Stripe
+    // Montar parâmetros para a API REST da Stripe (com Trial de 14 Dias Grátis)
     const params = new URLSearchParams();
     params.append('mode', 'subscription');
     params.append('payment_method_types[0]', 'card');
     params.append('line_items[0][price]', priceId);
     params.append('line_items[0][quantity]', '1');
+    params.append('subscription_data[trial_period_days]', '14');
     params.append('success_url', `${appUrl}/pricing?success=true&session_id={CHECKOUT_SESSION_ID}`);
     params.append('cancel_url', `${appUrl}/pricing?canceled=true`);
 

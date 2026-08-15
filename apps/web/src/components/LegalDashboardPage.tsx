@@ -50,41 +50,20 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const oabKey = localStorage.getItem('synapse_advocate_oab') || '145105';
   const STORAGE_KEY = `synapse_pje_last_search_${oabKey}`;
 
-  // Inicializar estado com a última pesquisa persistida no localStorage
+  // Inicializar estado com a última pesquisa persistida no localStorage (padrão: array vazio)
   const [movements, setMovements] = useState<ProcessMovement[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+        if (Array.isArray(parsed.items)) {
           return parsed.items;
         }
       }
     } catch (err) {
       console.warn('⚠️ Falha ao restaurar última pesquisa do localStorage:', err);
     }
-    return [
-      {
-        id: 'm-1',
-        process_number: '5001234-88.2026.8.13.0145',
-        court: '2ª Vara Cível da Comarca de Juiz de Fora (TJMG)',
-        parties: 'Carlos Alberto Souza (Autor) vs. EBL Logística S.A. (Réu)',
-        movement_text: 'Despacho/Intimação: Compulsando os autos, verifica-se que a petição inicial preenche os requisitos do art. 319 do CPC. Fica o patrono cadastrado na OAB/MG nº 145105 intimado para CITAR e INTIMAR a parte ré EBL Logística S.A. para apresentar contestação no prazo legal de 15 (quinze) dias úteis (art. 335, CPC), sob pena de revelia.',
-        action_required: 'Apresentar Contestação com Documentos de Defesa',
-        deadline: '15 dias úteis (Vencimento: 02/09/2026)',
-        updated_at: '2026-08-12T08:00:00Z',
-      },
-      {
-        id: 'm-2',
-        process_number: '5009876-12.2026.8.13.0024',
-        court: '1ª Vara de Família de Belo Horizonte (TJMG)',
-        parties: 'Mariana Oliveira Ramos vs. Roberto Carlos Ramos',
-        movement_text: 'Decisão Interlocutória: Intime-se o patrono sob a OAB/MG nº 145105 para especificação de provas no prazo legal.',
-        action_required: 'Especificar Provas Documentais',
-        deadline: '5 dias úteis (Vencimento: 19/08/2026)',
-        updated_at: '2026-08-12T08:00:00Z',
-      }
-    ];
+    return [];
   });
 
   const saveMovementsToStorage = (items: ProcessMovement[]) => {
@@ -535,7 +514,42 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
 
       {/* Lista de Movimentações (Tela de Rolagem) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {filteredMovements.map((proc) => (
+        {filteredMovements.length === 0 ? (
+          <div style={{
+            background: 'var(--bg-glass)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '48px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            boxShadow: '0 4px 18px rgba(0,0,0,0.2)'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '20px',
+              background: 'rgba(59, 130, 246, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid rgba(59, 130, 246, 0.3)'
+            }}>
+              <Scale size={32} style={{ color: 'var(--accent-blue)' }} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                Nenhuma intimação ou processo localizado
+              </h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '6px', maxWidth: '460px', margin: '6px auto 0' }}>
+                Digite o período inicial e final no painel acima e clique em <strong>Executar Consulta Avulsa Agora</strong> para varrer o PJe CNJ da sua OAB.
+              </p>
+            </div>
+          </div>
+        ) : (
+          filteredMovements.map((proc) => (
           <div key={proc.id} style={{
             background: 'var(--bg-glass)',
             border: '1px solid var(--border-color)',
@@ -835,7 +849,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
               </div>
             )}
           </div>
-        ))}
+        )))}
 
         {(isQuerying || isLoadingMovements) && (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--accent-blue)', fontWeight: 700, fontSize: '15px' }}>

@@ -29,6 +29,7 @@ import { LegalCopilotChat } from './components/LegalCopilotChat';
 import { AppLayout } from './components/AppLayout';
 import { ClientsPage } from './components/ClientsPage';
 import { PricingPage } from './components/PricingPage';
+import { OnboardingPage } from './components/OnboardingPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
@@ -1186,6 +1187,7 @@ function WorkflowAppContent() {
     }
   };
 
+  // 🛡️ PASSO 1: ESTÁ LOGADO?
   const isJuridicoPath = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/juridico') ||
     window.location.pathname.startsWith('/pricing') ||
@@ -1205,7 +1207,7 @@ function WorkflowAppContent() {
     );
   }
 
-  // Se o usuário não estiver autenticado e a rota não for pública isolada, exibir a Tela de Login e Senha Sóbria do Advogado
+  // Se o usuário não estiver autenticado e a rota não for pública isolada, exibir a Tela de Login
   if (!currentProfile && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
     return (
       <LoginPage
@@ -1219,6 +1221,47 @@ function WorkflowAppContent() {
       />
     );
   }
+
+  // 🛡️ PASSO 2: ASSINATURA ATIVA OU TRIAL NO BANCO?
+  const hasActiveSubscriptionOrTrial = currentProfile && (
+    currentProfile.role === 'Master' ||
+    currentProfile.subscription_status === 'active' ||
+    currentProfile.subscription_status === 'trialing' ||
+    Boolean(currentProfile.subscription_plan)
+  );
+
+  if (currentProfile && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing' && currentProfile.role !== 'Master') {
+    return (
+      <PricingPage
+        currentUser={currentProfile}
+        isPublicView={false}
+        onNavigateToSignup={() => {}}
+      />
+    );
+  }
+
+  // 🛡️ PASSO 3: PERFIL (NOME E OAB) PREENCHIDO? (ONBOARDING OBRIGATÓRIO)
+  const storedOab = typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') : null;
+  const isProfileComplete = Boolean(
+    currentProfile?.full_name?.trim() &&
+    (currentProfile?.oab_number?.trim() || (storedOab && storedOab.trim() !== ''))
+  );
+
+  if (currentProfile && !isProfileComplete && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
+    return (
+      <OnboardingPage
+        currentProfile={currentProfile}
+        onOnboardingComplete={(updatedProfile) => {
+          setCurrentProfile(updatedProfile);
+          try {
+            localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
+          } catch (e) {}
+        }}
+      />
+    );
+  }
+
+  // 🛡️ PASSO 4: LIBERAR /DASHBOARD E LAYOUT PRINCIPAL DO APP
 
   return (
     <AppLayout

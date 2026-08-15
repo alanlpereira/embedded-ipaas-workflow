@@ -21,6 +21,14 @@ export interface Profile {
   avatar_url?: string;
   phone?: string;
   professional_id?: string; // Ex: OAB, CREA, CRM
+  oab_number?: string;
+  oab_uf?: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  subscription_plan?: string;
+  subscription_status?: string;
+  ai_monthly_limit?: number;
+  ai_monthly_usage?: number;
   role: UserRole;
   created_at: string;
   updated_at: string;

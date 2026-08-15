@@ -19,11 +19,12 @@ interface PlanTier {
 }
 
 interface PricingPageProps {
+  currentUser?: any;
   isPublicView?: boolean;
   onNavigateToSignup?: (planId: string, planName?: string) => void;
 }
 
-export const PricingPage: React.FC<PricingPageProps> = ({ isPublicView = false, onNavigateToSignup }) => {
+export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurrentUser, isPublicView = false, onNavigateToSignup }) => {
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null);
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -34,7 +35,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ isPublicView = false, 
     ai_monthly_usage: number;
     stripe_customer_id?: string;
   } | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(propCurrentUser || null);
 
   const priceLight = import.meta.env.VITE_STRIPE_PRICE_ID_LIGHT || 'price_1U4hdiKZ8AtVWlGqV8zSzau5';
   const pricePro = import.meta.env.VITE_STRIPE_PRICE_ID_PRO || 'price_1U4hdiKZ8AtVWlGqlA6cEzrM';
