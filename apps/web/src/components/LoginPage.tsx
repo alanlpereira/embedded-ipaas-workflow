@@ -219,15 +219,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             return;
           }
 
-          // ⚡ FASE 1: FETCH COMPLETO E SÍNCRONO DA TABELA profiles
-          const { data: dbProfile } = await supabase
+          // ⚡ FASE 1: FETCH E GARANTIA DE REGISTRO NA TABELA profiles DO SUPABASE
+          const userEmail = data.user.email || email || '';
+          const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
+
+          let { data: dbProfile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
-          const userEmail = data.user.email || email || '';
-          const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
+          // Se a linha ainda não existir no banco, faz o UPSERT inicial para garantir a existência do perfil
+          if (!dbProfile) {
+            const { data: createdProfile } = await supabase
+              .from('profiles')
+              .upsert({
+                id: data.user.id,
+                email: userEmail,
+                full_name: data.user.user_metadata?.full_name || fullName || '',
+                role: isMasterEmail ? 'Master' : 'Member',
+                subscription_status: isMasterEmail ? 'active' : 'active',
+                subscription_plan: 'Pro',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .select()
+              .single();
+            dbProfile = createdProfile;
+          }
 
           const fullProfile: Profile = {
             id: data.user.id,

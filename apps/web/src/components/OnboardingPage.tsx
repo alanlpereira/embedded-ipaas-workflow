@@ -50,43 +50,36 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     }
 
     try {
-      console.log(`📋 [ONBOARDING] Salvando perfil do advogado: ${fullName}, OAB/${oabUf} ${cleanOab}`);
+      console.log(`📋 [ONBOARDING] Salvando perfil do advogado no Supabase: ${fullName}, OAB/${oabUf} ${cleanOab}`);
 
-      // 1. Tentar atualizar a linha existente no Supabase (profiles)
-      const { error: updateError } = await supabase
+      // 1. Gravar incondicionalmente via UPSERT com verificação de linha retornada (.select().single())
+      const { data: savedProfile, error: dbError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: currentProfile.id,
+          email: currentProfile.email,
           full_name: fullName.trim(),
           oab_number: cleanOab,
           oab_uf: oabUf,
           phone: phone.trim(),
+          role: currentProfile.role || 'Member',
+          subscription_status: currentProfile.subscription_status || 'active',
+          subscription_plan: currentProfile.subscription_plan || 'Pro',
           updated_at: new Date().toISOString()
         })
-        .eq('id', currentProfile.id);
+        .select()
+        .single();
 
-      if (updateError) {
-        console.warn('⚠️ Perfil não encontrado para update, realizando upsert:', updateError.message);
-        // Se a linha ainda não existir no banco, faz o UPSERT com os dados completos
-        const { error: upsertError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: currentProfile.id,
-            email: currentProfile.email,
-            full_name: fullName.trim(),
-            oab_number: cleanOab,
-            oab_uf: oabUf,
-            phone: phone.trim(),
-            role: currentProfile.role || 'Member',
-            subscription_status: currentProfile.subscription_status || 'active',
-            subscription_plan: currentProfile.subscription_plan || 'Pro',
-            created_at: currentProfile.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-
-        if (upsertError) {
-          throw new Error(`Falha ao gravar credenciais no banco de dados: ${upsertError.message}`);
-        }
+      if (dbError) {
+        console.error('❌ Erro no upsert do Supabase:', dbError.message);
+        throw new Error(`Falha ao gravar credenciais no banco PostgreSQL: ${dbError.message}`);
       }
+
+      if (!savedProfile || !savedProfile.oab_number) {
+        throw new Error('O banco de dados do Supabase não confirmou a gravação do número da OAB.');
+      }
+
+      console.log(`✅ [ONBOARDING SUCCESS] OAB/${savedProfile.oab_uf} ${savedProfile.oab_number} confirmada no PostgreSQL.`);
 
       // 2. Persistir no localStorage
       localStorage.setItem('synapse_advocate_oab', cleanOab);

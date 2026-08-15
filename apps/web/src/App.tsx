@@ -294,30 +294,49 @@ function WorkflowAppContent() {
     async function hydrateProfile(userId: string, email: string) {
       try {
         setIsLoadingProfile(true);
-        const { data: dbProfile } = await supabase
+        let { data: dbProfile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .single();
 
-        if (dbProfile && isMounted) {
-          const userEmail = email || dbProfile.email || '';
-          const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
+        const userEmail = email || dbProfile?.email || '';
+        const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
 
+        // Self-healing: Se a linha ainda não existir na tabela public.profiles, grava via UPSERT
+        if (!dbProfile && userId) {
+          const { data: createdProf } = await supabase
+            .from('profiles')
+            .upsert({
+              id: userId,
+              email: userEmail,
+              full_name: userEmail.split('@')[0] || '',
+              role: isMasterEmail ? 'Master' : 'Member',
+              subscription_status: isMasterEmail ? 'active' : 'active',
+              subscription_plan: 'Pro',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+          dbProfile = createdProf;
+        }
+
+        if (isMounted) {
           const fullProfile: Profile = {
             id: userId,
-            organization_id: dbProfile.organization_id || 'org-alp-nexus',
+            organization_id: dbProfile?.organization_id || 'org-alp-nexus',
             email: userEmail,
-            full_name: dbProfile.full_name || '',
-            oab_number: dbProfile.oab_number || '',
-            oab_uf: dbProfile.oab_uf || 'MG',
-            professional_id: dbProfile.professional_id || (dbProfile.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
-            role: isMasterEmail ? 'Master' : (dbProfile.role || 'Member'),
-            subscription_status: isMasterEmail ? 'active' : (dbProfile.subscription_status || 'active'),
-            subscription_plan: isMasterEmail ? 'Pro' : (dbProfile.subscription_plan || 'Pro'),
-            avatar_url: dbProfile.avatar_url || '',
-            phone: dbProfile.phone || '',
-            created_at: dbProfile.created_at || new Date().toISOString(),
+            full_name: dbProfile?.full_name || '',
+            oab_number: dbProfile?.oab_number || '',
+            oab_uf: dbProfile?.oab_uf || 'MG',
+            professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
+            role: isMasterEmail ? 'Master' : (dbProfile?.role || 'Member'),
+            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
+            subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
+            avatar_url: dbProfile?.avatar_url || '',
+            phone: dbProfile?.phone || '',
+            created_at: dbProfile?.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
           setCurrentProfile(fullProfile);
