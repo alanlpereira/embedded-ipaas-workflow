@@ -133,8 +133,10 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onMouseMove={handleMouseMove}
+      className="w-full max-w-full overflow-x-hidden min-w-0"
       style={{
         width: '100%',
+        maxWidth: '100%',
         height: '100%',
         position: 'relative',
         background: 'var(--bg-primary)',
