@@ -72,26 +72,15 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      // 1. Executar UPDATE limpo na tabela profiles filtrado rigorosamente pelo ID (UUID)
+      // 1. Executar APENAS UPDATE limpo na tabela profiles filtrado rigorosamente pelo ID (UUID)
       const { error: updateError } = await supabase
         .from('profiles')
         .update(cleanPayload)
         .eq('id', userId);
 
       if (updateError) {
-        console.warn('⚠️ Update direto retornou aviso, realizando upsert limpo:', updateError.message);
-        // Fallback: se o perfil ainda não existir no banco, insere registro com id + email + payload limpo
-        const { error: upsertError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: userId,
-            email: String(currentProfile.email || '').trim(),
-            ...cleanPayload
-          });
-
-        if (upsertError) {
-          throw new Error(`Falha ao gravar no PostgreSQL: ${upsertError.message}`);
-        }
+        console.error('❌ [ONBOARDING UPDATE FAILED]', updateError.message);
+        throw new Error(`Falha ao atualizar perfil no banco PostgreSQL: ${updateError.message}`);
       }
 
       console.log(`✅ [ONBOARDING SUCCESS] OAB/${cleanUf} ${cleanOab} salva com sucesso no PostgreSQL.`);

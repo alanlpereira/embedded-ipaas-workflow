@@ -1467,11 +1467,10 @@ function WorkflowAppContent() {
         );
       }
 
-      // PASSO B: Verificação de Pagamento (Pricing)
+      // PASSO B: Verificação de Pagamento (Pricing) - Regra Estrita
       const hasActiveSubscriptionOrTrial = (
         currentProfile.subscription_status === 'active' ||
-        currentProfile.subscription_status === 'trialing' ||
-        Boolean(currentProfile.subscription_plan)
+        currentProfile.subscription_status === 'trialing'
       );
 
       if (!hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
