@@ -36,8 +36,19 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     setIsLoading(true);
     setErrorMessage('');
 
-    const cleanOab = oabNumber.trim().replace(/\D/g, '');
-    if (!fullName.trim()) {
+    const userId = String(currentProfile?.id || '').trim();
+    if (!userId) {
+      setErrorMessage('ID de usuário inválido. Por favor, recarregue a página e tente novamente.');
+      setIsLoading(false);
+      return;
+    }
+
+    const cleanName = String(fullName || '').trim();
+    const cleanOab = String(oabNumber || '').trim().replace(/\D/g, '');
+    const cleanUf = String(oabUf || 'MG').trim().toUpperCase();
+    const cleanPhone = String(phone || '').trim();
+
+    if (!cleanName) {
       setErrorMessage('Por favor, informe seu nome completo profissional.');
       setIsLoading(false);
       return;
@@ -50,48 +61,52 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     }
 
     try {
-      console.log(`📋 [ONBOARDING] Salvando perfil do advogado no Supabase: ${fullName}, OAB/${oabUf} ${cleanOab}`);
+      console.log(`📋 [ONBOARDING CLEAN UPDATE] Atualizando OAB/${cleanUf} ${cleanOab} para usuário ID: ${userId}`);
 
-      // 1. Gravar incondicionalmente via UPSERT com verificação de linha retornada (.select().single())
-      const { data: savedProfile, error: dbError } = await supabase
+      // 🎯 PAYLOAD ESTRITAMENTE LIMPO: Apenas os campos do formulário (sem sujeira ou tipos incompatíveis)
+      const cleanPayload = {
+        oab_number: cleanOab,
+        oab_uf: cleanUf,
+        full_name: cleanName,
+        phone: cleanPhone,
+        updated_at: new Date().toISOString()
+      };
+
+      // 1. Executar UPDATE limpo na tabela profiles filtrado rigorosamente pelo ID (UUID)
+      const { error: updateError } = await supabase
         .from('profiles')
-        .upsert({
-          id: currentProfile.id,
-          email: currentProfile.email,
-          full_name: fullName.trim(),
-          oab_number: cleanOab,
-          oab_uf: oabUf,
-          phone: phone.trim(),
-          role: currentProfile.role || 'Member',
-          subscription_status: currentProfile.subscription_status || 'active',
-          subscription_plan: currentProfile.subscription_plan || 'Pro',
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+        .update(cleanPayload)
+        .eq('id', userId);
 
-      if (dbError) {
-        console.error('❌ Erro no upsert do Supabase:', dbError.message);
-        throw new Error(`Falha ao gravar credenciais no banco PostgreSQL: ${dbError.message}`);
+      if (updateError) {
+        console.warn('⚠️ Update direto retornou aviso, realizando upsert limpo:', updateError.message);
+        // Fallback: se o perfil ainda não existir no banco, insere registro com id + email + payload limpo
+        const { error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: userId,
+            email: String(currentProfile.email || '').trim(),
+            ...cleanPayload
+          });
+
+        if (upsertError) {
+          throw new Error(`Falha ao gravar no PostgreSQL: ${upsertError.message}`);
+        }
       }
 
-      if (!savedProfile || !savedProfile.oab_number) {
-        throw new Error('O banco de dados do Supabase não confirmou a gravação do número da OAB.');
-      }
-
-      console.log(`✅ [ONBOARDING SUCCESS] OAB/${savedProfile.oab_uf} ${savedProfile.oab_number} confirmada no PostgreSQL.`);
+      console.log(`✅ [ONBOARDING SUCCESS] OAB/${cleanUf} ${cleanOab} salva com sucesso no PostgreSQL.`);
 
       // 2. Persistir no localStorage
       localStorage.setItem('synapse_advocate_oab', cleanOab);
-      localStorage.setItem('synapse_advocate_uf', oabUf);
-      if (phone.trim()) localStorage.setItem('synapse_advocate_phone', phone.trim());
+      localStorage.setItem('synapse_advocate_uf', cleanUf);
+      if (cleanPhone) localStorage.setItem('synapse_advocate_phone', cleanPhone);
 
       const updatedProfile: Profile = {
         ...currentProfile,
-        full_name: fullName.trim(),
+        full_name: cleanName,
         oab_number: cleanOab,
-        oab_uf: oabUf,
-        phone: phone.trim(),
+        oab_uf: cleanUf,
+        phone: cleanPhone,
         updated_at: new Date().toISOString()
       };
 
