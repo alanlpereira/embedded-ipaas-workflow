@@ -14,6 +14,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [fullName, setFullName] = useState('Dr. Alan Pereira');
   const [email, setEmail] = useState('alanlpereira@hotmail.com');
   const [password, setPassword] = useState('Advocacia2026!');
+  const [confirmPassword, setConfirmPassword] = useState('Advocacia2026!');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -141,6 +142,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setCheckoutLoadingText(null);
 
     if (isSignUp) {
+      // 🛡️ VALIDAÇÃO DE COINCIDÊNCIA DE SENHAS
+      if (password !== confirmPassword) {
+        setErrorMessage('As senhas não coincidem. Por favor, digite a mesma senha nos dois campos.');
+        setIsLoading(false);
+        return;
+      }
+
       // 🚀 FLUXO DE SIGN UP + CHECKOUT AUTOMÁTICO
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -164,10 +172,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         if (selectedPlanPriceId) {
           const checkoutSuccess = await triggerStripeCheckout(userId, email);
           if (checkoutSuccess) {
-            // Retornar imediatamente e NÃO chamar onLoginSuccess
             return;
           } else {
-            // Checkout falhou -> Bloquear entrada gratuita!
             return;
           }
         }
@@ -188,7 +194,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         if (error) {
           console.warn('Supabase Auth error (fallback local):', error.message);
-          // Se tiver plano selecionado e login local falhou no Supabase, ainda assim verificar checkout
           if (selectedPlanPriceId) {
             const checkoutSuccess = await triggerStripeCheckout(`usr-${Date.now()}`, email);
             if (checkoutSuccess) return;
@@ -199,7 +204,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         }
 
         if (data.user) {
-          // Se o usuário logou e havia um plano selecionado na URL, ir direto para a Stripe
           if (selectedPlanPriceId) {
             const checkoutSuccess = await triggerStripeCheckout(data.user.id, data.user.email || email);
             if (checkoutSuccess) return;
@@ -451,6 +455,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <input
                 type="email"
                 required
+                autoComplete={isSignUp ? "off" : "email"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="advogado@escritorio.com.br"
@@ -478,6 +483,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <input
                 type="password"
                 required
+                autoComplete={isSignUp ? "new-password" : "current-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -495,6 +501,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               />
             </div>
           </div>
+
+          {/* Campo Confirmar Senha (Apenas no Modo Cadastro) */}
+          {isSignUp && (
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                Confirmar Senha
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                <input
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita sua senha de acesso"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px 12px 42px',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '12px',
+                    color: '#ffffff',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
