@@ -88,10 +88,10 @@ html, body {
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   
-  /* Desabilita pull-to-refresh e overscrelling no iOS/Android */
-  overscroll-behavior-y: none;
+  /* Permite gestos verticais de toque e Pull-to-Refresh suave */
+  overscroll-behavior-y: contain;
   overscroll-behavior-x: none;
-  touch-action: manipulation;
+  touch-action: pan-y;
 
   /* Desabilita seleção acidental de texto ao arrastar nós no canvas */
   -webkit-user-select: none;

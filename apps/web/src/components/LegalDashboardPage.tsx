@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Scale, Calendar, Play, Clock, Search, Send, FileText, AlertCircle, CheckCircle, ShieldCheck, ChevronRight, RefreshCw, MessageSquare, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { LegalAiService } from '../services/LegalAiService';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from './PullToRefreshIndicator';
 
 export interface ProcessMovement {
   id: string;
@@ -273,8 +275,20 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
     return pNum.includes(query) || pParties.includes(query) || pCourt.includes(query);
   });
 
+  const handlePullRefresh = async () => {
+    setIsExecutingQuery(true);
+    await fetchLiveMovements(startDate, endDate);
+    showToast('✨ Dados e movimentações do CNJ recarregados com sucesso!');
+    setIsExecutingQuery(false);
+  };
+
+  const { containerRef, pullDistance, isRefreshing } = usePullToRefresh({
+    onRefresh: handlePullRefresh,
+  });
+
   return (
-    <div className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
+    <div ref={containerRef} className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
       {/* Toast */}
       {toastMessage && (
         <div style={{

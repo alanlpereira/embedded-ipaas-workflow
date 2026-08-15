@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Search, Phone, FileText, Trash2, Edit3, Send, CheckCircle, ShieldAlert, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from './PullToRefreshIndicator';
 
 export interface ClientRecord {
   id: string;
@@ -176,8 +178,19 @@ export const ClientsPage: React.FC = () => {
     c.phone.includes(searchTerm)
   );
 
+  const handlePullRefresh = async () => {
+    setIsLoading(true);
+    await fetchClientsFromSupabase();
+    showToast('✨ Cadastro de clientes recarregado com sucesso do banco de dados!');
+  };
+
+  const { containerRef, pullDistance, isRefreshing } = usePullToRefresh({
+    onRefresh: handlePullRefresh,
+  });
+
   return (
-    <div className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '28px 24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
+    <div ref={containerRef} className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '28px 24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
       {/* Toast */}
       {toastMessage && (
         <div style={{
