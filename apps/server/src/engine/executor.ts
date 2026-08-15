@@ -38,7 +38,7 @@ export interface ExecutionContext {
 
 export async function processWorkflowJob(data: ExecutionJobData): Promise<ExecutionResult> {
   console.log(`⚡ [DEPRECATED EXECUTOR] Redirecionando execução Express para a Edge Function unificada 'workflow-worker'...`);
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://wurfruxigmajgnqsyleq.supabase.co';
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://auth.alp-nexus.com';
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
   try {

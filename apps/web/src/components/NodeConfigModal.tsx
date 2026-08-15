@@ -125,7 +125,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({ node, onSave, 
   const [testResult, setTestResult] = useState<any | null>(null);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
 
-  const supabaseBaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://wurfruxigmajgnqsyleq.supabase.co';
+  const supabaseBaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://auth.alp-nexus.com';
   const exclusiveWebhookUrl = `${supabaseBaseUrl}/functions/v1/webhook-handler?nodeId=${node.id}`;
 
   const handleCopyWebhookUrl = () => {

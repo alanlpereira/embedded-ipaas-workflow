@@ -57,7 +57,7 @@ serve(async (req) => {
     }
 
     // Instanciar cliente Supabase com Service Role Key para RLS e gestão de Rate Limits
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://auth.alp-nexus.com';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 

@@ -38,7 +38,7 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
   const [isTestingTrigger, setIsTestingTrigger] = useState(false);
   const [triggerTestResult, setTriggerTestResult] = useState<any>(null);
 
-  const supabaseBaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://wurfruxigmajgnqsyleq.supabase.co';
+  const supabaseBaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://auth.alp-nexus.com';
   const exclusiveWebhookUrl = `${supabaseBaseUrl}/functions/v1/webhook-handler?nodeId=${node.id}`;
 
   const handleCopyWebhookUrl = () => {
