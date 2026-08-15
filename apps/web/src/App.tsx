@@ -1348,7 +1348,9 @@ function WorkflowAppContent() {
   const isAdminOrMaster = Boolean(
     currentProfile?.role === 'Master' ||
     currentProfile?.role === 'Admin' ||
-    currentProfile?.email === 'alanlpereira@hotmail.com'
+    currentProfile?.email === 'alanlpereira@hotmail.com' ||
+    currentProfile?.email === 'alan.pereira@alp-nexus.com' ||
+    (currentProfile?.email && currentProfile.email.endsWith('@alp-nexus.com'))
   );
 
   // Exceção de Rotas Públicas Externas Sem Autenticação (Demo, Decide, Embed, Approve)
@@ -1422,7 +1424,7 @@ function WorkflowAppContent() {
       currentProfile?.oab_number?.trim()
     );
 
-    if (!isAdminOrMaster && !isProfileComplete) {
+    if (!isAdminOrMaster && !isProfileComplete && isJuridicoEntry) {
       return (
         <OnboardingPage
           currentProfile={currentProfile}
@@ -1445,7 +1447,7 @@ function WorkflowAppContent() {
       Boolean(currentProfile.subscription_plan)
     );
 
-    if (!isAdminOrMaster && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
+    if (!isAdminOrMaster && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing' && isJuridicoEntry) {
       return (
         <PricingPage
           currentUser={currentProfile}
@@ -1456,11 +1458,11 @@ function WorkflowAppContent() {
     }
 
     // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect de Rotas)
-    const adminOnlyTabs: ViewTab[] = ['editor', 'dashboard_flows', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
+    const superAdminOnlyTabs: ViewTab[] = ['masterAdmin', 'tenantAdmin', 'agency', 'audit'];
 
-    if (!isAdminOrMaster && adminOnlyTabs.includes(currentTab)) {
-      console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile.role || 'Member'}'. Redirecionando para 'dashboard'...`);
-      setCurrentTab('dashboard');
+    if (!isAdminOrMaster && superAdminOnlyTabs.includes(currentTab)) {
+      console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile.role || 'Member'}'. Redirecionando para 'editor'...`);
+      setCurrentTab('editor');
       window.history.replaceState(null, '', '/');
     }
   }
