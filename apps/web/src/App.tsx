@@ -287,40 +287,38 @@ function WorkflowAppContent() {
   // ⚡ FASE 2: TRAVA DE CARREGAMENTO DO PERFIL (PREVINE RACE CONDITION NOS GUARDS)
   const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
 
-  // Verificar e hidratar perfil síncronamente do Supabase na inicialização
+  // ⚡ FASE 2: RESOLUÇÃO DA PROMISE ANTES DE LIBERAR (Auth Listener & Initial Fetch)
   useEffect(() => {
     let isMounted = true;
-    async function initAuthProfile() {
+
+    async function hydrateProfile(userId: string, email: string) {
       try {
         setIsLoadingProfile(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const { data: dbProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+        const { data: dbProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-          if (dbProfile && isMounted) {
-            const fullProfile: Profile = {
-              id: session.user.id,
-              organization_id: dbProfile.organization_id || 'org-alp-nexus',
-              email: session.user.email || dbProfile.email || '',
-              full_name: dbProfile.full_name || '',
-              oab_number: dbProfile.oab_number || '',
-              oab_uf: dbProfile.oab_uf || 'MG',
-              professional_id: dbProfile.professional_id || (dbProfile.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
-              role: dbProfile.role || 'Member',
-              subscription_status: dbProfile.subscription_status || 'active',
-              subscription_plan: dbProfile.subscription_plan || 'Pro',
-              avatar_url: dbProfile.avatar_url || '',
-              phone: dbProfile.phone || '',
-              created_at: dbProfile.created_at || new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-            setCurrentProfile(fullProfile);
-            localStorage.setItem('synapse_active_session', JSON.stringify(fullProfile));
-          }
+        if (dbProfile && isMounted) {
+          const fullProfile: Profile = {
+            id: userId,
+            organization_id: dbProfile.organization_id || 'org-alp-nexus',
+            email: email || dbProfile.email || '',
+            full_name: dbProfile.full_name || '',
+            oab_number: dbProfile.oab_number || '',
+            oab_uf: dbProfile.oab_uf || 'MG',
+            professional_id: dbProfile.professional_id || (dbProfile.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
+            role: dbProfile.role || 'Member',
+            subscription_status: dbProfile.subscription_status || 'active',
+            subscription_plan: dbProfile.subscription_plan || 'Pro',
+            avatar_url: dbProfile.avatar_url || '',
+            phone: dbProfile.phone || '',
+            created_at: dbProfile.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          setCurrentProfile(fullProfile);
+          localStorage.setItem('synapse_active_session', JSON.stringify(fullProfile));
         }
       } catch (err) {
         console.warn('⚠️ Erro ao carregar perfil inicial no Supabase:', err);
@@ -330,8 +328,34 @@ function WorkflowAppContent() {
         }
       }
     }
-    initAuthProfile();
-    return () => { isMounted = false; };
+
+    // Listener para mudanças de sessão no Supabase Auth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        await hydrateProfile(session.user.id, session.user.email || '');
+      } else {
+        if (isMounted) {
+          setCurrentProfile(null);
+          setIsLoadingProfile(false);
+        }
+      }
+    });
+
+    // Verificação inicial no mount da aplicação
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        await hydrateProfile(session.user.id, session.user.email || '');
+      } else {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // Recuperação e sincronização automática de fluxogramas salvos no Supabase
@@ -1290,27 +1314,11 @@ function WorkflowAppContent() {
   }, [currentProfile]);
 
   // ------------------------------------------------------------------------
-  // HIERARQUIA ESTRITA DE GUARDS (INVERTIDA: ONBOARDING ANTES DO PAGAMENTO)
+  // HIERARQUIA ESTRITA DE GUARDS (ABSOLUTE EARLY RETURNS PARA PREVENIR RACE CONDITION)
   // ------------------------------------------------------------------------
 
-  // PASSO 0: Rota de Sincronização de Assinatura pós-Checkout (Polling do Webhook)
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const isStripeSuccessReturn = searchParams?.get('success') === 'true' || searchParams?.has('session_id') || window.location.pathname.startsWith('/validando');
-
-  if (isSyncingStripe || isStripeSuccessReturn) {
-    return (
-      <SubscriptionSyncPage
-        currentProfile={currentProfile}
-        onSyncComplete={(targetScreen, updatedProfile) => {
-          setCurrentProfile(updatedProfile);
-          setIsSyncingStripe(false);
-          window.history.replaceState({}, document.title, '/dashboard');
-          setCurrentTab('dashboard');
-        }}
-      />
-    );
-  }
-
   const hasPlanInUrl = Boolean(searchParams?.get('plan'));
   const isJuridicoPath = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/juridico') ||
@@ -1319,93 +1327,111 @@ function WorkflowAppContent() {
     window.location.hash.includes('pricing')
   );
 
-  // 🌐 Vitrine de Planos Pública (/juridico) sem plano pendente
-  if (!currentProfile && isJuridicoPath && !hasPlanInUrl) {
-    return (
-      <PricingPage
-        isPublicView={true}
-        onNavigateToSignup={(planId, planName) => {
-          window.location.href = `/?plan=${encodeURIComponent(planId)}&planName=${encodeURIComponent(planName || '')}#signup`;
-        }}
-      />
+  // Exceção de Rotas Públicas Externas Sem Autenticação
+  if (isDemoPath || isDecidePath || isEmbedPath || isApprovePath) {
+    // Renderizar telas públicas diretamente
+  } else {
+    // 🚨 EARLY RETURN ABSOLUTO 1: SE O PERFIL ESTIVER CARREGANDO DA REDE, O REACT NUNCA LÊ AS LINHAS DE BAIXO!
+    if (isLoadingProfile || isSyncingStripe || isStripeSuccessReturn) {
+      if (isSyncingStripe || isStripeSuccessReturn) {
+        return (
+          <SubscriptionSyncPage
+            currentProfile={currentProfile}
+            onSyncComplete={(targetScreen, updatedProfile) => {
+              setCurrentProfile(updatedProfile);
+              setIsSyncingStripe(false);
+              window.history.replaceState({}, document.title, '/dashboard');
+              setCurrentTab('dashboard');
+            }}
+          />
+        );
+      }
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: '#080c14', color: '#38bdf8', fontFamily: 'Inter, sans-serif' }}>
+          <Loader2 size={36} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+          <h2 style={{ fontSize: '16px', fontWeight: 800, marginTop: '16px', color: '#ffffff' }}>⚡ Carregando seu perfil...</h2>
+          <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Buscando credenciais jurídicas e permissões no Supabase.</p>
+        </div>
+      );
+    }
+
+    // 🌐 Vitrine de Planos Pública (/juridico) sem plano pendente
+    if (!currentProfile && isJuridicoPath && !hasPlanInUrl) {
+      return (
+        <PricingPage
+          isPublicView={true}
+          onNavigateToSignup={(planId, planName) => {
+            window.location.href = `/?plan=${encodeURIComponent(planId)}&planName=${encodeURIComponent(planName || '')}#signup`;
+          }}
+        />
+      );
+    }
+
+    // PASSO 1 (Sessão): Não está autenticado no Supabase Auth? -> Exibe LoginPage
+    if (!currentProfile || hasPlanInUrl) {
+      return (
+        <LoginPage
+          onLoginSuccess={(profile) => {
+            if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
+            setCurrentProfile(profile);
+            setCurrentTab('dashboard');
+            try {
+              localStorage.setItem('synapse_active_session', JSON.stringify(profile));
+            } catch (e) {}
+          }}
+        />
+      );
+    }
+
+    // PASSO 2 (Onboarding - Lead Capture): O perfil atual NÃO possui 'oab' ou 'full_name'?
+    // Avaliado SOMENTE quando isLoadingProfile === false E os dados vieram do Supabase!
+    const isProfileComplete = Boolean(
+      currentProfile?.full_name?.trim() &&
+      currentProfile?.oab_number?.trim()
     );
-  }
 
-  // PASSO 1 (Sessão): Está autenticado no Supabase Auth? (Se não, redireciona para login/vitrine)
-  if ((!currentProfile || hasPlanInUrl) && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath && !isLoadingProfile) {
-    return (
-      <LoginPage
-        onLoginSuccess={(profile) => {
-          if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
-          setCurrentProfile(profile);
-          setCurrentTab('dashboard');
-          try {
-            localStorage.setItem('synapse_active_session', JSON.stringify(profile));
-          } catch (e) {}
-        }}
-      />
+    if (!isProfileComplete) {
+      return (
+        <OnboardingPage
+          currentProfile={currentProfile}
+          onOnboardingComplete={(updatedProfile) => {
+            setCurrentProfile(updatedProfile);
+            try {
+              localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
+            } catch (e) {}
+          }}
+        />
+      );
+    }
+
+    // PASSO 3 (Pagamento/Assinatura): O perfil está completo, mas subscription_status NÃO é 'active' nem 'trialing'?
+    const hasActiveSubscriptionOrTrial = (
+      currentProfile.role === 'Master' ||
+      currentProfile.subscription_status === 'active' ||
+      currentProfile.subscription_status === 'trialing' ||
+      Boolean(currentProfile.subscription_plan)
     );
-  }
 
-  // ⏳ FASE 2: TRAVA DE CARREGAMENTO DO PERFIL (PREVINE RACE CONDITION NO LOGIN)
-  // Se a sessão Auth existe mas os dados do banco ainda estão sendo buscados, segura os early returns!
-  if (isLoadingProfile && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath && !isJuridicoPath) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: '#080c14', color: '#38bdf8', fontFamily: 'Inter, sans-serif' }}>
-        <Loader2 size={36} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
-        <h2 style={{ fontSize: '16px', fontWeight: 800, marginTop: '16px', color: '#ffffff' }}>⚡ Sincronizando credenciais jurídicas...</h2>
-        <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Buscando perfil completo e permissões diretamente do Supabase.</p>
-      </div>
-    );
-  }
+    if (!hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
+      return (
+        <PricingPage
+          currentUser={currentProfile}
+          isPublicView={false}
+          onNavigateToSignup={() => {}}
+        />
+      );
+    }
 
-  // PASSO 2 (Onboarding - Lead Capture): O perfil atual NÃO possui 'oab' ou 'full_name'?
-  // Avalia APENAS se o perfil já terminou de carregar do Supabase (isLoadingProfile === false)
-  const isProfileComplete = Boolean(
-    currentProfile?.full_name?.trim() &&
-    currentProfile?.oab_number?.trim()
-  );
+    // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect de Rotas)
+    const isAdminOrMaster = currentProfile.role === 'Master' || currentProfile.role === 'Admin';
+    const adminOnlyTabs: ViewTab[] = ['editor', 'dashboard_flows', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
 
-  if (currentProfile && !isProfileComplete && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
-    return (
-      <OnboardingPage
-        currentProfile={currentProfile}
-        onOnboardingComplete={(updatedProfile) => {
-          setCurrentProfile(updatedProfile);
-          try {
-            localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
-          } catch (e) {}
-        }}
-      />
-    );
-  }
-
-  // PASSO 3 (Pagamento/Assinatura): O usuário já preencheu a OAB, mas o 'subscription_status' NÃO é 'active' nem 'trialing'?
-  const hasActiveSubscriptionOrTrial = currentProfile && (
-    currentProfile.role === 'Master' ||
-    currentProfile.subscription_status === 'active' ||
-    currentProfile.subscription_status === 'trialing' ||
-    Boolean(currentProfile.subscription_plan)
-  );
-
-  if (currentProfile && isProfileComplete && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
-    return (
-      <PricingPage
-        currentUser={currentProfile}
-        isPublicView={false}
-        onNavigateToSignup={() => {}}
-      />
-    );
-  }
-
-  // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect de Rotas)
-  const isAdminOrMaster = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
-  const adminOnlyTabs: ViewTab[] = ['editor', 'dashboard_flows', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
-
-  if (!isAdminOrMaster && adminOnlyTabs.includes(currentTab)) {
-    console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile?.role || 'Member'}'. Redirecionando para 'dashboard'...`);
-    setCurrentTab('dashboard');
-    window.history.replaceState(null, '', '/');
+    if (!isAdminOrMaster && adminOnlyTabs.includes(currentTab)) {
+      console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile.role || 'Member'}'. Redirecionando para 'dashboard'...`);
+      setCurrentTab('dashboard');
+      window.history.replaceState(null, '', '/');
+    }
   }
 
   // 🛡️ PASSO 5: LIBERAR /DASHBOARD E LAYOUT PRINCIPAL DO APP
