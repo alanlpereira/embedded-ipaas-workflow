@@ -234,115 +234,97 @@ export const Navbar: React.FC<NavbarProps> = ({
           Planos & Assinaturas
         </button>
 
-        <button
-          onClick={() => onNavigate('templates')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            background: currentTab === 'templates' ? 'var(--bg-tertiary)' : 'transparent',
-            color: currentTab === 'templates' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: currentTab === 'templates' ? '1px solid var(--border-color)' : '1px solid transparent',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <LayoutTemplate size={15} />
-          {t.nav.templates}
-        </button>
+        {isAdminOrMaster && (
+          <>
+            <button
+              onClick={() => onNavigate('templates')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: currentTab === 'templates' ? 'var(--bg-tertiary)' : 'transparent',
+                color: currentTab === 'templates' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                border: currentTab === 'templates' ? '1px solid var(--border-color)' : '1px solid transparent',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <LayoutTemplate size={15} />
+              {t.nav.templates}
+            </button>
 
-        <button
-          onClick={() => onNavigate('executions')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            background: currentTab === 'executions' ? 'var(--bg-tertiary)' : 'transparent',
-            color: currentTab === 'executions' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: currentTab === 'executions' ? '1px solid var(--border-color)' : '1px solid transparent',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <History size={15} />
-          Execuções
-        </button>
+            <button
+              onClick={() => onNavigate('audit')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: currentTab === 'audit' ? 'var(--bg-tertiary)' : 'transparent',
+                color: currentTab === 'audit' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                border: currentTab === 'audit' ? '1px solid var(--border-color)' : '1px solid transparent',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Activity size={15} />
+              {t.nav.audit}
+            </button>
 
-        <button
-          onClick={() => onNavigate('audit')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            background: currentTab === 'audit' ? 'var(--bg-tertiary)' : 'transparent',
-            color: currentTab === 'audit' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: currentTab === 'audit' ? '1px solid var(--border-color)' : '1px solid transparent',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Activity size={15} />
-          {t.nav.audit}
-        </button>
+            <button
+              onClick={() => onNavigate('integrations')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: currentTab === 'integrations' ? 'var(--bg-tertiary)' : 'transparent',
+                color: currentTab === 'integrations' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                border: currentTab === 'integrations' ? '1px solid var(--border-color)' : '1px solid transparent',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Lock size={15} />
+              Integrações
+            </button>
 
-        <button
-          onClick={() => onNavigate('integrations')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            background: currentTab === 'integrations' ? 'var(--bg-tertiary)' : 'transparent',
-            color: currentTab === 'integrations' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: currentTab === 'integrations' ? '1px solid var(--border-color)' : '1px solid transparent',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Lock size={15} />
-          Integrações
-        </button>
-
-        <button
-          onClick={() => onNavigate('settings')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            background: currentTab === 'settings' ? 'var(--bg-tertiary)' : 'transparent',
-            color: currentTab === 'settings' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-            border: currentTab === 'settings' ? '1px solid var(--border-color)' : '1px solid transparent',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Settings size={15} />
-          Configurações
-        </button>
+            <button
+              onClick={() => onNavigate('settings')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: currentTab === 'settings' ? 'var(--bg-tertiary)' : 'transparent',
+                color: currentTab === 'settings' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                border: currentTab === 'settings' ? '1px solid var(--border-color)' : '1px solid transparent',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Settings size={15} />
+              Configurações
+            </button>
+          </>
+        )}
 
         {isAdminOrMaster && (
           <button

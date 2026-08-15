@@ -1290,7 +1290,16 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🛡️ PASSO 4: LIBERAR /DASHBOARD E LAYOUT PRINCIPAL DO APP
+  // 🛡️ PASSO 4: ISOLAMENTO RIGOROSO DE MÓDULOS DE ACORDO COM O PAPEL (RBAC BLINDADO)
+  const isAdminOrMaster = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
+  const adminOnlyTabs: ViewTab[] = ['editor', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
+
+  if (!isAdminOrMaster && adminOnlyTabs.includes(currentTab)) {
+    console.warn(`🛡️ [RBAC GUARD] Acesso negado à aba '${currentTab}' para a função '${currentProfile?.role || 'Member'}'. Redirecionando para 'dashboard'...`);
+    setCurrentTab('dashboard');
+  }
+
+  // 🛡️ PASSO 5: LIBERAR /DASHBOARD E LAYOUT PRINCIPAL DO APP
 
   return (
     <AppLayout

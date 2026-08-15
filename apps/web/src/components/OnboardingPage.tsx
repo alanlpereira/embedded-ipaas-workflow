@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scale, User, FileBadge, MapPin, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
+import { Scale, User, FileBadge, MapPin, ArrowRight, ShieldCheck, Loader2, Phone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Profile } from '@ipaas/shared-types';
 
@@ -25,6 +25,9 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [oabUf, setOabUf] = useState(
     localStorage.getItem('synapse_advocate_uf') || 'MG'
   );
+  const [phone, setPhone] = useState(
+    currentProfile.phone || localStorage.getItem('synapse_advocate_phone') || ''
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -49,13 +52,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     try {
       console.log(`📋 [ONBOARDING] Salvando perfil do advogado: ${fullName}, OAB/${oabUf} ${cleanOab}`);
 
-      // 1. Atualizar no Supabase
+      // 1. Atualizar no Supabase (profiles)
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: fullName.trim(),
           oab_number: cleanOab,
           oab_uf: oabUf,
+          phone: phone.trim(),
           updated_at: new Date().toISOString()
         })
         .eq('id', currentProfile.id);
@@ -67,12 +71,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       // 2. Persistir no localStorage
       localStorage.setItem('synapse_advocate_oab', cleanOab);
       localStorage.setItem('synapse_advocate_uf', oabUf);
+      if (phone.trim()) localStorage.setItem('synapse_advocate_phone', phone.trim());
 
       const updatedProfile: Profile = {
         ...currentProfile,
         full_name: fullName.trim(),
         oab_number: cleanOab,
         oab_uf: oabUf,
+        phone: phone.trim(),
         updated_at: new Date().toISOString()
       };
 
@@ -236,6 +242,33 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   ))}
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Telefone / WhatsApp do Advogado */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+              Telefone / WhatsApp do Escritório (Opcional)
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Phone size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="(31) 98888-7777"
+                style={{
+                  width: '100%',
+                  padding: '12px 14px 12px 42px',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '12px',
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
           </div>
 
