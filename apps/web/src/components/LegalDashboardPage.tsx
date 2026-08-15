@@ -201,7 +201,10 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
           oab_number: lawyerOab,
           oab_uf: lawyerUf,
           lawyer_email: lawyerEmail,
+          user_email: lawyerEmail,
+          email_to: lawyerEmail,
           lawyer_name: lawyerName,
+          user_id: currentProfile?.id,
           processes: fetchedItems,
           custom_ai_prompt: aiPrompt,
         });

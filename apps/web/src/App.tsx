@@ -1127,6 +1127,8 @@ function WorkflowAppContent() {
           email_to: currentProfile?.email,
           lawyer_name: currentProfile?.full_name || 'Dr(a). Advogado(a)',
           lawyer_oab: currentProfile?.oab_number,
+          lawyer_uf: currentProfile?.oab_uf || 'MG',
+          user_id: currentProfile?.id,
           triggered_at: new Date().toISOString(),
           ...(customContext || {})
         },

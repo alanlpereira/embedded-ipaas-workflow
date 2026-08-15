@@ -1790,15 +1790,15 @@ Seja cirúrgico, direto e hiper-específico.`;
           });
         };
 
-        const rawRecipient = contextData.lawyer_email || contextData.user_email || settings.recipientEmail || settings.approvalConfig?.recipientEmail || settings.approvalConfig?.to || settings.to || settings.recipients || settings.recipient || contextData.email?.from || 'corporativo@alp-nexus.com';
-        const interpolatedRecipient = interpolateVars(rawRecipient);
+        const rawRecipient = contextData.lawyer_email || contextData.user_email || contextData.email_to || settings.recipientEmail || settings.approvalConfig?.recipientEmail || settings.approvalConfig?.to || settings.to || settings.recipients || settings.recipient || contextData.email?.from;
+        const interpolatedRecipient = rawRecipient ? interpolateVars(rawRecipient) : '';
         const recipientList = Array.from(new Set(
           interpolatedRecipient
             .split(',')
             .map(s => s.trim())
             .filter(s => s.length > 0 && s.includes('@'))
         ));
-        const finalRecipientArray = recipientList.length > 0 ? recipientList : ['alanlpereira@hotmail.com'];
+        const finalRecipientArray = recipientList.length > 0 ? recipientList : [contextData.lawyer_email || 'contato@synapse.com'];
         const recipientStr = finalRecipientArray.join(', ');
 
         // Verificar se existem múltiplos processos para aprovação individual por processo
@@ -1813,6 +1813,25 @@ Seja cirúrgico, direto e hiper-específico.`;
 
         console.log(`✉️ [PER-PROCESS APPROVAL] Gerando cartões e tokens individuais de aprovação para ${targetProcs.length} processo(s)...`);
 
+        // ⚡ FASE 3: Server-side Client Match (Cruzamento de Clientes no Banco de Dados Supabase)
+        let dbClients: any[] = [];
+        try {
+          const clientQuery = supabase.from('clients').select('*');
+          if (contextData.user_id) {
+            clientQuery.eq('user_id', contextData.user_id);
+          }
+          const { data: clientsData, error: clientErr } = await clientQuery;
+          if (!clientErr && Array.isArray(clientsData)) {
+            dbClients = clientsData;
+            console.log(`🎯 [SERVER-SIDE CLIENT MATCH] ${dbClients.length} cliente(s) carregado(s) para cruzamento de telefone.`);
+          } else {
+            const { data: fallbackClients } = await supabase.from('clients').select('*');
+            if (Array.isArray(fallbackClients)) dbClients = fallbackClients;
+          }
+        } catch (cErr) {
+          console.warn('⚠️ Erro ao consultar tabela clients no servidor:', cErr);
+        }
+
         const processCardsHtmlList: string[] = [];
         let primaryApprovalToken = '';
 
@@ -1824,6 +1843,37 @@ Seja cirúrgico, direto e hiper-específico.`;
           const procApproveUrl = `${supabaseUrl}/functions/v1/approve-step?token=${procToken}&decision=APPROVED`;
           const procRejectUrl = `${supabaseUrl}/functions/v1/approve-step?token=${procToken}&decision=REJECTED`;
           const procPortalUrl = `https://synapse.alp-nexus.com/approval?token=${procToken}`;
+
+          // FASE 3 & 4: Cruzamento Server-side do Telefone do Cliente
+          let matchedPhone = '';
+          let matchedClientName = '';
+          const partiesText = (proc.parties || proc.polo_ativo || proc.polo_passivo || '').toLowerCase();
+
+          if (partiesText && dbClients.length > 0) {
+            const matched = dbClients.find((c: any) => {
+              if (!c.name || c.name.trim().length < 3) return false;
+              return partiesText.includes(c.name.toLowerCase().trim());
+            });
+
+            if (matched && matched.phone) {
+              matchedPhone = String(matched.phone).replace(/\D/g, '');
+              matchedClientName = matched.name;
+              console.log(`🎯 [CLIENT MATCH MATCHED] Processo #${proc.process_number} matched com Cliente: ${matchedClientName} (${matchedPhone})`);
+            }
+          }
+
+          // FASE 4: Montagem da URL de WhatsApp do Cliente
+          const waMessageText = encodeURIComponent(
+            `⚖️ *PROCESSO CNJ:* ${proc.process_number || ''}\n🏛️ *ÓRGÃO:* ${proc.court || 'TJ'}\n👥 *PARTES:* ${proc.parties || ''}\n📜 *RESUMO:* ${proc.summary || proc.movement_text || 'Movimentação atualizada'}\n⚠️ *AÇÃO NECESSÁRIA:* ${proc.action_required || 'Ciência nos autos'}\n📅 *PRAZO FATAL:* ${proc.deadline || 'Verificar nos autos'}\n\n👨‍💼 *ADVOGADO RESPONSÁVEL:* ${contextData.lawyer_name || 'Advogado Habilitado'} (OAB/${targetUf} ${targetOab})`
+          );
+
+          const clientWaUrl = matchedPhone
+            ? `https://wa.me/${matchedPhone}?text=${waMessageText}`
+            : `https://wa.me/?text=${waMessageText}`;
+
+          const clientWaButtonHtml = matchedPhone
+            ? `<a href="${clientWaUrl}" target="_blank" style="background: #25D366; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; margin-top: 10px; box-shadow: 0 2px 8px rgba(37,211,102,0.4);">📱 Notificar Cliente via WhatsApp (${matchedClientName}: ${matchedPhone})</a>`
+            : `<a href="${clientWaUrl}" target="_blank" style="background: #475569; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; margin-top: 10px;">📱 Encaminhar via WhatsApp (Cliente não cadastrado)</a>`;
 
           // Inserir token na tabela approval_tokens associado a este processo específico
           try {
@@ -1840,6 +1890,8 @@ Seja cirúrgico, direto e hiper-específico.`;
                   execution_id: executionId,
                   process_number: proc.process_number,
                   process_summary: proc.summary || proc.notice,
+                  matched_client_phone: matchedPhone,
+                  matched_client_name: matchedClientName,
                   target_process: proc
                 }
               }]);
@@ -1882,15 +1934,19 @@ Seja cirúrgico, direto e hiper-específico.`;
               ${calendarButtonHtml}
 
               <div style="font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">
-                ❓ Enviar a intimação deste processo ao cliente via WhatsApp?
+                ❓ Notificação no WhatsApp do Cliente:
               </div>
               
+              <div style="margin-bottom: 12px;">
+                ${clientWaButtonHtml}
+              </div>
+
               <div>
                 <a href="${procApproveUrl}" target="_blank" style="background: #10b981; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; margin-right: 10px; display: inline-block; box-shadow: 0 2px 8px rgba(16,185,129,0.3);">
-                  🟢 SIM (Enviar para o Cliente)
+                  🟢 SIM (Aprovar e Registrar)
                 </a>
                 <a href="${procRejectUrl}" target="_blank" style="background: #ef4444; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 2px 8px rgba(239,68,68,0.3);">
-                  🔴 NÃO (Não Enviar)
+                  🔴 NÃO (Recusar)
                 </a>
               </div>
             </div>
