@@ -52,16 +52,8 @@ const defaultTeamMembers: Profile[] = [
 export const TeamPage: React.FC<TeamPageProps> = ({ currentProfile }) => {
   const { t } = useLanguage();
 
-  const [members, setMembers] = useState<Profile[]>(() => {
-    try {
-      const saved = localStorage.getItem('synapse_team_members');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return defaultTeamMembers;
-  });
+  const [members, setMembers] = useState<Profile[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newFullName, setNewFullName] = useState('');
@@ -69,10 +61,26 @@ export const TeamPage: React.FC<TeamPageProps> = ({ currentProfile }) => {
   const [newRole, setNewRole] = useState<UserRole>('Admin');
 
   useEffect(() => {
-    try {
-      localStorage.setItem('synapse_team_members', JSON.stringify(members));
-    } catch (e) {}
-  }, [members]);
+    async function loadRealTeamFromDb() {
+      setIsLoadingMembers(true);
+      try {
+        const { data: rpcProfiles, error } = await supabase.rpc('get_all_profiles');
+        const dbList = (!error && rpcProfiles)
+          ? rpcProfiles
+          : (await supabase.from('profiles').select('*')).data;
+
+        if (dbList) {
+          setMembers(dbList);
+        }
+      } catch (err) {
+        console.warn('⚠️ Erro ao carregar membros da equipe do Supabase:', err);
+      } finally {
+        setIsLoadingMembers(false);
+      }
+    }
+
+    loadRealTeamFromDb();
+  }, []);
 
   const canManageTeam = currentProfile.role === 'Master' || currentProfile.role === 'Admin';
 

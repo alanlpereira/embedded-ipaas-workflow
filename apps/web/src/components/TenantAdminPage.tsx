@@ -65,42 +65,23 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
   const { currentOrg } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'team' | 'activity' | 'usage'>('team');
-  const [members, setMembers] = useState<TeamMemberItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('synapse_team_members');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((m: any) => ({
-            id: m.id,
-            name: m.full_name || m.name || m.email,
-            email: m.email,
-            role: m.role || 'Member',
-            status: 'ACTIVE',
-            joined_at: m.created_at ? m.created_at.split('T')[0] : '2026-08-10',
-            edition: m.organization_id === 'org-legal-ops' || m.email?.includes('rodrigo.moura') ? 'LegalOps' : 'Synapse',
-          }));
-        }
-      }
-    } catch (e) {}
-    return defaultTenantMembers;
-  });
+  const [members, setMembers] = useState<TeamMemberItem[]>([]);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<'Admin' | 'Member' | 'Viewer' | 'Master'>('Member');
 
-  // 🚀 FASE 1 (OPÇÃO A): Invocação da Stored Procedure RPC get_all_profiles (SECURITY DEFINER)
+  // 🚀 Carregamento Exclusivo de Perfis do Banco Supabase PostgreSQL via RPC get_all_profiles
   useEffect(() => {
     async function loadTenantProfilesFromRpc() {
       try {
         const { data: rpcProfiles, error } = await supabase.rpc('get_all_profiles');
-        const list = (!error && rpcProfiles && rpcProfiles.length > 0)
+        const list = (!error && rpcProfiles)
           ? rpcProfiles
           : (await supabase.from('profiles').select('*')).data;
 
-        if (list && list.length > 0) {
+        if (list) {
           const mapped: TeamMemberItem[] = list.map((m: any) => ({
             id: m.id,
             name: m.full_name || m.name || m.email?.split('@')[0] || 'Membro Synapse',

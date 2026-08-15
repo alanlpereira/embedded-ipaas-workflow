@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale } from 'lucide-react';
+import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2 } from 'lucide-react';
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
@@ -113,27 +113,44 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [newAdminName, setNewAdminName] = useState('');
   const [newPlanTier, setNewPlanTier] = useState<PlanTier>('LegalOps');
 
-  // 🚀 FASE 1 (OPÇÃO A): Carregamento de Perfis Globais via RPC get_all_profiles (SECURITY DEFINER)
-  useEffect(() => {
-    async function fetchMasterProfilesFromRpc() {
-      try {
-        const { data: rpcProfiles, error } = await supabase.rpc('get_all_profiles');
-        if (error) {
-          console.warn('⚠️ RPC get_all_profiles pendente no SQL Editor, executando fallback direto:', error.message);
-          const { data: directProfiles } = await supabase.from('profiles').select('*');
-          if (directProfiles && directProfiles.length > 0) {
-            console.log(`📊 Perfis recuperados via fallback direto: ${directProfiles.length}`);
-          }
-        } else if (rpcProfiles && rpcProfiles.length > 0) {
-          console.log(`⚡ [RPC MASTER DEFINER] ${rpcProfiles.length} perfis recuperados via RPC get_all_profiles().`);
-        }
-      } catch (err) {
-        console.warn('⚠️ Erro ao invocar RPC get_all_profiles:', err);
-      }
-    }
+  const [dbUsers, setDbUsers] = useState<Profile[]>([]);
 
+  // 🚀 Carregamento de Perfis Globais via RPC get_all_profiles (SECURITY DEFINER)
+  const fetchMasterProfilesFromRpc = async () => {
+    try {
+      const { data: rpcProfiles, error } = await supabase.rpc('get_all_profiles');
+      const list = (!error && rpcProfiles)
+        ? rpcProfiles
+        : (await supabase.from('profiles').select('*')).data;
+
+      if (list) {
+        setDbUsers(list);
+        console.log(`⚡ [RPC MASTER DEFINER] ${list.length} perfis recuperados via RPC get_all_profiles().`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Erro ao invocar RPC get_all_profiles:', err);
+    }
+  };
+
+  useEffect(() => {
     fetchMasterProfilesFromRpc();
   }, []);
+
+  const handleDeleteDbUser = async (userId: string, userEmail: string) => {
+    if (confirm(`ATENÇÃO MASTER: Excluir definitivamente o usuário ${userEmail} (${userId}) do banco PostgreSQL?`)) {
+      try {
+        console.log(`🗑️ [MASTER DB DELETE] Deletando perfil ${userId} do banco...`);
+        const { error: rpcErr } = await supabase.rpc('delete_user_profile', { target_user_id: userId });
+        if (rpcErr) {
+          await supabase.from('profiles').delete().eq('id', userId);
+        }
+        setDbUsers((prev) => prev.filter((u) => u.id !== userId));
+        alert(`Usuário ${userEmail} deletado com sucesso do PostgreSQL!`);
+      } catch (err: any) {
+        alert(`Erro ao deletar usuário do banco: ${err.message}`);
+      }
+    }
+  };
 
   // Estado de Edição de Override
   const [editingOrg, setEditingOrg] = useState<ClientOrganizationItem | null>(null);
@@ -509,6 +526,84 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Seção 3: Usuários Cadastrados no Banco de Dados PostgreSQL */}
+      <div style={{ ...cardStyle, marginBottom: '28px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Users size={18} color="#10b981" />
+          Usuários Registrados no PostgreSQL (`public.profiles`) — ({dbUsers.length} cadastrados)
+        </h3>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>ID / Usuário</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>E-mail</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Role</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>OAB / Profissional</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>Ação de Deleção</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dbUsers.map((user) => (
+                <tr key={user.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
+                    {user.full_name || 'Sem nome'}
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{user.id}</div>
+                  </td>
+                  <td style={{ padding: '14px 16px', color: '#38bdf8', fontSize: '13px', fontWeight: 600 }}>
+                    {user.email}
+                  </td>
+                  <td style={{ padding: '14px 16px' }}>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      background: user.role === 'Master' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(59, 130, 246, 0.15)',
+                      color: user.role === 'Master' ? '#f59e0b' : '#3b82f6',
+                      border: user.role === 'Master' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)'
+                    }}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                    {user.oab_number ? `OAB/${user.oab_uf || 'MG'} ${user.oab_number}` : 'N/A'}
+                  </td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleDeleteDbUser(user.id, user.email)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#f87171',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Trash2 size={14} /> Excluir do Banco
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {dbUsers.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    Nenhum usuário cadastrado no banco de dados.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
