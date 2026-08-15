@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { EditionBadge } from './EditionBadge';
 import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
+import { supabase } from '../lib/supabase';
 
 interface TenantAdminPageProps {
   currentProfile: Profile | null;
@@ -89,6 +90,35 @@ export const TenantAdminPage: React.FC<TenantAdminPageProps> = ({ currentProfile
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<'Admin' | 'Member' | 'Viewer' | 'Master'>('Member');
+
+  // 🚀 FASE 1 (OPÇÃO A): Invocação da Stored Procedure RPC get_all_profiles (SECURITY DEFINER)
+  useEffect(() => {
+    async function loadTenantProfilesFromRpc() {
+      try {
+        const { data: rpcProfiles, error } = await supabase.rpc('get_all_profiles');
+        const list = (!error && rpcProfiles && rpcProfiles.length > 0)
+          ? rpcProfiles
+          : (await supabase.from('profiles').select('*')).data;
+
+        if (list && list.length > 0) {
+          const mapped: TeamMemberItem[] = list.map((m: any) => ({
+            id: m.id,
+            name: m.full_name || m.name || m.email?.split('@')[0] || 'Membro Synapse',
+            email: m.email,
+            role: m.role || 'Member',
+            status: 'ACTIVE',
+            joined_at: m.created_at ? m.created_at.split('T')[0] : '2026-08-10',
+            edition: m.organization_id === 'org-legal-ops' || m.email?.includes('rodrigo.moura') ? 'LegalOps' : 'Synapse',
+          }));
+          setMembers(mapped);
+        }
+      } catch (err) {
+        console.warn('⚠️ Erro ao carregar membros do tenant via RPC:', err);
+      }
+    }
+
+    loadTenantProfilesFromRpc();
+  }, []);
 
   const edition: PlanTier = (currentProfile?.organization_id === 'org-legal-ops' || currentProfile?.email === 'rodrigo.moura@alp-nexus.com')
     ? 'LegalOps'

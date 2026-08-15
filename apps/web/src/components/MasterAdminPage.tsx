@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
 import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
 import { getApiUrl } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 interface MasterAdminPageProps {
   currentProfile: Profile | null;
@@ -111,6 +112,28 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
   const [newPlanTier, setNewPlanTier] = useState<PlanTier>('LegalOps');
+
+  // 🚀 FASE 1 (OPÇÃO A): Carregamento de Perfis Globais via RPC get_all_profiles (SECURITY DEFINER)
+  useEffect(() => {
+    async function fetchMasterProfilesFromRpc() {
+      try {
+        const { data: rpcProfiles, error } = await supabase.rpc('get_all_profiles');
+        if (error) {
+          console.warn('⚠️ RPC get_all_profiles pendente no SQL Editor, executando fallback direto:', error.message);
+          const { data: directProfiles } = await supabase.from('profiles').select('*');
+          if (directProfiles && directProfiles.length > 0) {
+            console.log(`📊 Perfis recuperados via fallback direto: ${directProfiles.length}`);
+          }
+        } else if (rpcProfiles && rpcProfiles.length > 0) {
+          console.log(`⚡ [RPC MASTER DEFINER] ${rpcProfiles.length} perfis recuperados via RPC get_all_profiles().`);
+        }
+      } catch (err) {
+        console.warn('⚠️ Erro ao invocar RPC get_all_profiles:', err);
+      }
+    }
+
+    fetchMasterProfilesFromRpc();
+  }, []);
 
   // Estado de Edição de Override
   const [editingOrg, setEditingOrg] = useState<ClientOrganizationItem | null>(null);
