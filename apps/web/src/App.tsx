@@ -196,6 +196,8 @@ function WorkflowAppContent() {
   const [currentTab, setCurrentTab] = useState<ViewTab>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path.startsWith('/juridico') || path.startsWith('/pricing') || hash.includes('juridico') || hash.includes('pricing')) return 'pricing';
       if (path.startsWith('/oab/') || path.startsWith('/portal') || path.startsWith('/legal')) return 'dashboard';
       if (path.startsWith('/clientes')) return 'clients';
       if (path.startsWith('/editor')) return 'editor';
@@ -1183,6 +1185,25 @@ function WorkflowAppContent() {
       window.location.reload();
     }
   };
+
+  const isJuridicoPath = typeof window !== 'undefined' && (
+    window.location.pathname.startsWith('/juridico') ||
+    window.location.pathname.startsWith('/pricing') ||
+    window.location.hash.includes('juridico') ||
+    window.location.hash.includes('pricing')
+  );
+
+  // 🌐 ROTA PÚBLICA /juridico: Exibir Vitrine de Planos (PricingPage) sem necessidade de login
+  if (!currentProfile && isJuridicoPath) {
+    return (
+      <PricingPage
+        isPublicView={true}
+        onNavigateToSignup={(planId, planName) => {
+          window.location.href = `/?plan=${encodeURIComponent(planId)}&planName=${encodeURIComponent(planName || '')}#signup`;
+        }}
+      />
+    );
+  }
 
   // Se o usuário não estiver autenticado e a rota não for pública isolada, exibir a Tela de Login e Senha Sóbria do Advogado
   if (!currentProfile && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
