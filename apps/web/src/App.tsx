@@ -1189,6 +1189,7 @@ function WorkflowAppContent() {
       <LoginPage
         onLoginSuccess={(profile) => {
           setCurrentProfile(profile);
+          setCurrentTab('dashboard');
           try {
             localStorage.setItem('synapse_active_session', JSON.stringify(profile));
           } catch (e) {}
