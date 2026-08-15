@@ -319,6 +319,16 @@ function WorkflowAppContent() {
           };
           setCurrentProfile(fullProfile);
           localStorage.setItem('synapse_active_session', JSON.stringify(fullProfile));
+
+          // 🎯 FASE 3: DIRECIONAMENTO AUTOMÁTICO DE TAB APÓS HIDRATAÇÃO DO PERFIL
+          const isUserAdmin = fullProfile.role === 'Master' || fullProfile.role === 'Admin' || fullProfile.email === 'alanlpereira@hotmail.com';
+          const path = typeof window !== 'undefined' ? window.location.pathname : '';
+          const isJuridicoPath = path.startsWith('/juridico') || path.startsWith('/pricing');
+          if (isUserAdmin && !isJuridicoPath && (path === '/' || path === '' || path.startsWith('/editor'))) {
+            setCurrentTab('editor');
+          } else if (!isUserAdmin) {
+            setCurrentTab('dashboard');
+          }
         }
       } catch (err) {
         console.warn('⚠️ Erro ao carregar perfil inicial no Supabase:', err);
@@ -1317,21 +1327,29 @@ function WorkflowAppContent() {
   // HIERARQUIA ESTRITA DE GUARDS (ABSOLUTE EARLY RETURNS PARA PREVENIR RACE CONDITION)
   // ------------------------------------------------------------------------
 
+  // ⚡ FASE 1: LEITURA DE ROTA INICIAL (ENTRYPOINT SEGREGATION)
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const isStripeSuccessReturn = searchParams?.get('success') === 'true' || searchParams?.has('session_id') || window.location.pathname.startsWith('/validando');
+  const isStripeSuccessReturn = searchParams?.get('success') === 'true' || searchParams?.has('session_id') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/validando'));
   const hasPlanInUrl = Boolean(searchParams?.get('plan'));
-  const isJuridicoPath = typeof window !== 'undefined' && (
+  const isJuridicoEntry = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/juridico') ||
     window.location.pathname.startsWith('/pricing') ||
     window.location.hash.includes('juridico') ||
     window.location.hash.includes('pricing')
   );
 
+  // 🚀 FASE 2: DEFINIÇÃO DE PASSE LIVRE (MASTER / ADMIN BYPASS)
+  const isAdminOrMaster = Boolean(
+    currentProfile?.role === 'Master' ||
+    currentProfile?.role === 'Admin' ||
+    currentProfile?.email === 'alanlpereira@hotmail.com'
+  );
+
   // Exceção de Rotas Públicas Externas Sem Autenticação
   if (isDemoPath || isDecidePath || isEmbedPath || isApprovePath) {
     // Renderizar telas públicas diretamente
   } else {
-    // 🚨 EARLY RETURN ABSOLUTO 1: SE O PERFIL ESTIVER CARREGANDO DA REDE, O REACT NUNCA LÊ AS LINHAS DE BAIXO!
+    // 🚨 EARLY RETURN ABSOLUTO 1: SE O PERFIL ESTIVER CARREGANDO DA REDE, NADA É AVALIADO!
     if (isLoadingProfile || isSyncingStripe || isStripeSuccessReturn) {
       if (isSyncingStripe || isStripeSuccessReturn) {
         return (
@@ -1356,8 +1374,8 @@ function WorkflowAppContent() {
       );
     }
 
-    // 🌐 Vitrine de Planos Pública (/juridico) sem plano pendente
-    if (!currentProfile && isJuridicoPath && !hasPlanInUrl) {
+    // 🌐 FASE 1: Vitrine de Planos Pública (/juridico) para não autenticados
+    if (!currentProfile && isJuridicoEntry && !hasPlanInUrl) {
       return (
         <PricingPage
           isPublicView={true}
@@ -1375,7 +1393,15 @@ function WorkflowAppContent() {
           onLoginSuccess={(profile) => {
             if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
             setCurrentProfile(profile);
-            setCurrentTab('dashboard');
+
+            // 🎯 FASE 3: DIRECIONAMENTO AUTOMÁTICO DE TAB COM BASE NO PERFIL E ENTRYPOINT
+            const isUserAdmin = profile.role === 'Master' || profile.role === 'Admin' || profile.email === 'alanlpereira@hotmail.com';
+            if (isUserAdmin && !isJuridicoEntry) {
+              setCurrentTab('editor');
+            } else {
+              setCurrentTab('dashboard');
+            }
+
             try {
               localStorage.setItem('synapse_active_session', JSON.stringify(profile));
             } catch (e) {}
@@ -1384,14 +1410,14 @@ function WorkflowAppContent() {
       );
     }
 
-    // PASSO 2 (Onboarding - Lead Capture): O perfil atual NÃO possui 'oab' ou 'full_name'?
-    // Avaliado SOMENTE quando isLoadingProfile === false E os dados vieram do Supabase!
+    // 🚀 FASE 2: PASSE LIVRE NO GUARD DE ONBOARDING (ADMINS NÃO PREENCHEM OAB)
     const isProfileComplete = Boolean(
       currentProfile?.full_name?.trim() &&
       currentProfile?.oab_number?.trim()
     );
 
-    if (!isProfileComplete) {
+    // O usuário SÓ é redirecionado para <OnboardingPage/> se NÃO for Admin/Master E o perfil for incompleto
+    if (!isAdminOrMaster && !isProfileComplete) {
       return (
         <OnboardingPage
           currentProfile={currentProfile}
@@ -1405,15 +1431,16 @@ function WorkflowAppContent() {
       );
     }
 
-    // PASSO 3 (Pagamento/Assinatura): O perfil está completo, mas subscription_status NÃO é 'active' nem 'trialing'?
+    // 🚀 FASE 2: PASSE LIVRE NO GUARD DE PAGAMENTO/ASSINATURA (ADMINS NÃO PAGAM)
     const hasActiveSubscriptionOrTrial = (
-      currentProfile.role === 'Master' ||
+      isAdminOrMaster ||
       currentProfile.subscription_status === 'active' ||
       currentProfile.subscription_status === 'trialing' ||
       Boolean(currentProfile.subscription_plan)
     );
 
-    if (!hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
+    // O usuário SÓ é redirecionado para <PricingPage/> se NÃO for Admin/Master E NÃO tiver assinatura ativa
+    if (!isAdminOrMaster && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
       return (
         <PricingPage
           currentUser={currentProfile}
@@ -1424,7 +1451,6 @@ function WorkflowAppContent() {
     }
 
     // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect de Rotas)
-    const isAdminOrMaster = currentProfile.role === 'Master' || currentProfile.role === 'Admin';
     const adminOnlyTabs: ViewTab[] = ['editor', 'dashboard_flows', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
 
     if (!isAdminOrMaster && adminOnlyTabs.includes(currentTab)) {
