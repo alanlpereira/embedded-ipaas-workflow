@@ -1176,11 +1176,6 @@ function WorkflowAppContent() {
     return <EmbedCanvasView nodes={(targetFlow.nodes as any) || []} edges={(targetFlow.edges as any) || []} />;
   }
 
-  // Se não estiver logado, exibe a página de Login
-  if (!currentProfile) {
-    return <LoginPage onLoginSuccess={(profile) => setCurrentProfile(profile)} />;
-  }
-
   // Determinar se deve renderizar a Visão Linear Mobile em vez do Canvas do React Flow
   const shouldRenderMobileLinearView = isMobilePortrait && !forceMobileCanvasView;
 
@@ -1193,7 +1188,11 @@ function WorkflowAppContent() {
     }
   };
 
-  // 🌐 ROTA DE SINCRONIZAÇÃO DE ASSINATURA DA STRIPE (POLLING AMIGÁVEL DO WEBHOOK)
+  // ------------------------------------------------------------------------
+  // HIERARQUIA ESTRITA DE GUARDS DE AUTENTICAÇÃO E PAGAMENTO (ÁRVORE SEQUENCIAL DE DECISÃO)
+  // ------------------------------------------------------------------------
+
+  // PASSO 0: Rota de Sincronização de Assinatura pós-Checkout (Polling do Webhook)
   const isSyncPath = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/validando') ||
     window.location.search.includes('session_id=')
@@ -1216,7 +1215,6 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🛡️ PASSO 1: LOGADO OU EM FLUXO DE CHECKOUT DE PLANO DA STRIPE?
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const hasPlanInUrl = Boolean(searchParams?.get('plan'));
 
@@ -1227,7 +1225,7 @@ function WorkflowAppContent() {
     window.location.hash.includes('pricing')
   );
 
-  // 🌐 ROTA PÚBLICA /juridico: Exibir Vitrine de Planos (PricingPage) sem necessidade de login
+  // 🌐 Vitrine de Planos Pública (/juridico) sem plano pendente
   if (!currentProfile && isJuridicoPath && !hasPlanInUrl) {
     return (
       <PricingPage
@@ -1239,13 +1237,12 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🚨 PRIORIDADE ABSOLUTA AO CHECKOUT DA STRIPE:
-  // Se houver plano na URL ou se o usuário não estiver autenticado, a tela de Login/Checkout assume a prioridade total
+  // PASSO 1: Autenticação do Usuário (Se não logado ou se tiver plano pendente na URL)
   if ((!currentProfile || hasPlanInUrl) && !isDemoPath && !isDecidePath && !isEmbedPath && !isApprovePath) {
     return (
       <LoginPage
         onLoginSuccess={(profile) => {
-          if (hasPlanInUrl) return; // Bloquear transição até que a Stripe processe a URL
+          if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
           setCurrentProfile(profile);
           setCurrentTab('dashboard');
           try {
@@ -1256,7 +1253,7 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🛡️ PASSO 2: ASSINATURA ATIVA OU TRIAL NO BANCO?
+  // PASSO 2: Validação de Pagamento / Assinatura Ativa ou Trial no Banco
   const hasActiveSubscriptionOrTrial = currentProfile && (
     currentProfile.role === 'Master' ||
     currentProfile.subscription_status === 'active' ||
@@ -1264,7 +1261,7 @@ function WorkflowAppContent() {
     Boolean(currentProfile.subscription_plan)
   );
 
-  if (currentProfile && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing' && currentProfile.role !== 'Master') {
+  if (currentProfile && !hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
     return (
       <PricingPage
         currentUser={currentProfile}
@@ -1274,7 +1271,7 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🛡️ PASSO 3: PERFIL (NOME E OAB) PREENCHIDO? (ONBOARDING OBRIGATÓRIO PÓS-STRIPE)
+  // PASSO 3: Validação de Onboarding Obrigatório (OAB + Nome) - APENAS SE PASSO 2 PASSAR!
   const storedOab = typeof window !== 'undefined' ? localStorage.getItem('synapse_advocate_oab') : null;
   const isProfileComplete = Boolean(
     currentProfile?.full_name?.trim() &&
@@ -1295,7 +1292,7 @@ function WorkflowAppContent() {
     );
   }
 
-  // 🛡️ PASSO 4: ISOLAMENTO RIGOROSO DE MÓDULOS DE ACORDO COM O PAPEL (RBAC BLINDADO DE ROTAS)
+  // PASSO 4: Isolamento de Módulos (RBAC Hard Redirect de Rotas)
   const isAdminOrMaster = currentProfile?.role === 'Master' || currentProfile?.role === 'Admin';
   const adminOnlyTabs: ViewTab[] = ['editor', 'dashboard_flows', 'masterAdmin', 'tenantAdmin', 'agency', 'settings', 'integrations', 'audit', 'templates'];
 
@@ -1420,7 +1417,7 @@ function WorkflowAppContent() {
         />
       )}
 
-      {currentTab === 'team' && (
+      {currentTab === 'team' && currentProfile && (
         <TeamPage currentProfile={currentProfile} />
       )}
 

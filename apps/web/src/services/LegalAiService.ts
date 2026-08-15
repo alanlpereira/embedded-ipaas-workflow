@@ -195,14 +195,16 @@ export class LegalAiService {
    */
   private static logAiUsage(prompt: string, reply: string, modelUsed: string, providerUsed: string) {
     try {
-      let userEmail = 'rodrigo.moura@alp-nexus.com';
-      let userName = 'Dr. Rodrigo Moura Rodrigues';
+      let userEmail = '';
+      let userName = '';
 
       const activeSession = localStorage.getItem('synapse_active_session');
       if (activeSession) {
-        const parsed = JSON.parse(activeSession);
-        if (parsed.email) userEmail = parsed.email;
-        if (parsed.full_name) userName = parsed.full_name;
+        try {
+          const parsed = JSON.parse(activeSession);
+          if (parsed.email) userEmail = parsed.email;
+          if (parsed.full_name) userName = parsed.full_name;
+        } catch (e) {}
       }
 
       const promptTokens = Math.ceil((prompt || '').length / 4);

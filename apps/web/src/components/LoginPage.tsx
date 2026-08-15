@@ -254,23 +254,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   const fallbackLocalLogin = (targetEmail: string, nameInput: string) => {
-    const isRodrigo = targetEmail.toLowerCase().includes('rodrigo');
-    const isViewer = !isRodrigo && targetEmail.includes('viewer');
-
-    if (isRodrigo) {
-      if (password) {
-        localStorage.setItem('synapse_user_rodrigo_moura_password', password);
-      }
-      localStorage.setItem('synapse_advocate_oab', '145105');
-      localStorage.setItem('synapse_advocate_uf', 'MG');
-    }
-
     const localProfile: Profile = {
-      id: isRodrigo ? 'usr-rodrigo-moura' : (isViewer ? 'usr-viewer-law' : 'usr-alan-pereira'),
+      id: `usr-${Date.now()}`,
       organization_id: 'org-alp-nexus',
       email: targetEmail,
-      full_name: isRodrigo ? 'Dr. Rodrigo Moura' : (isViewer ? 'Leitor Jurídico' : nameInput || 'Dr. Alan Pereira'),
-      role: isViewer ? 'Viewer' : 'Master',
+      full_name: nameInput || '',
+      role: 'Member',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
