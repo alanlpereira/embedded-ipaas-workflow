@@ -509,6 +509,23 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
                 )}
 
                 <div>
+                  {/* Badge de Trial de 14 Dias */}
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    color: '#10b981',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <Sparkles size={13} /> 14 Dias Grátis • Sem Cobrança Inicial
+                  </div>
+
                   {/* Nome & Preço */}
                   <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px', color: 'var(--text-primary)' }}>
                     {plan.name}
@@ -589,12 +606,12 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
                     <span>✓ Seu Plano Atual</span>
                   ) : !currentUser ? (
                     <>
-                      <span>Cadastrar e Assinar</span>
+                      <span>Iniciar 14 Dias Grátis</span>
                       <ArrowRight size={16} />
                     </>
                   ) : (
                     <>
-                      <span>Assinar Plano {plan.name}</span>
+                      <span>Iniciar 14 Dias Grátis ({plan.name})</span>
                       <ArrowRight size={16} />
                     </>
                   )}
@@ -604,7 +621,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
           })}
         </div>
 
-        {/* Footer de Segurança Stripe */}
+        {/* Footer de Segurança Stripe & Reasseguramento de Trial */}
         <div style={{
           marginTop: '48px',
           textAlign: 'center',
@@ -618,12 +635,12 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
           flexWrap: 'wrap',
           gap: '16px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#10b981', fontWeight: 700 }}>
             <Shield size={18} style={{ color: '#10b981' }} />
-            <span>Pagamento 100% Seguro via <strong>Stripe Billing</strong> (Ambiente de Teste)</span>
+            <span>🔒 Teste sem risco: Cancele a qualquer momento antes do 15º dia no portal e nada será cobrado.</span>
           </div>
           <span style={{ color: 'var(--border-color)' }}>•</span>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Cancele a qualquer momento sem fidelidade</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Pagamento 100% Seguro via Stripe Billing</span>
         </div>
       </div>
     </div>

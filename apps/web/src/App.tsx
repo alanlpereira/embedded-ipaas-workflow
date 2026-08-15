@@ -30,6 +30,7 @@ import { AppLayout } from './components/AppLayout';
 import { ClientsPage } from './components/ClientsPage';
 import { PricingPage } from './components/PricingPage';
 import { OnboardingPage } from './components/OnboardingPage';
+import { SubscriptionSyncPage } from './components/SubscriptionSyncPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
@@ -1186,6 +1187,29 @@ function WorkflowAppContent() {
       window.location.reload();
     }
   };
+
+  // 🌐 ROTA DE SINCRONIZAÇÃO DE ASSINATURA DA STRIPE (POLLING AMIGÁVEL DO WEBHOOK)
+  const isSyncPath = typeof window !== 'undefined' && (
+    window.location.pathname.startsWith('/validando') ||
+    window.location.search.includes('session_id=')
+  );
+
+  if (isSyncPath) {
+    return (
+      <SubscriptionSyncPage
+        currentProfile={currentProfile}
+        onSyncComplete={(targetScreen, updatedProfile) => {
+          setCurrentProfile(updatedProfile);
+          if (targetScreen === 'onboarding') {
+            window.history.replaceState({}, document.title, '/onboarding');
+          } else {
+            setCurrentTab('dashboard');
+            window.history.replaceState({}, document.title, '/dashboard');
+          }
+        }}
+      />
+    );
+  }
 
   // 🛡️ PASSO 1: LOGADO OU EM FLUXO DE CHECKOUT DE PLANO DA STRIPE?
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
