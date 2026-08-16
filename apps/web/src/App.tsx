@@ -1395,125 +1395,96 @@ function WorkflowAppContent() {
           />
         );
       }
+    }
+  }
 
+  // 🛡️ MÁQUINA DE ESTADOS UNIFICADA DE ROTEAMENTO (SINGLE SOURCE OF TRUTH BASEADO EM PUBLIC.PROFILES)
+  const isMasterRole = currentProfile?.role === 'Master' ||
+    currentProfile?.email === 'alanlpereira@hotmail.com' ||
+    currentProfile?.email === 'alan.pereira@alp-nexus.com' ||
+    currentProfile?.email?.endsWith('@alp-nexus.com');
+
+  const hasOab = Boolean(currentProfile?.oab_number && String(currentProfile.oab_number).trim().length > 0);
+  const isSubscriptionActive = currentProfile?.subscription_status === 'active' || currentProfile?.subscription_status === 'trialing' || isMasterRole;
+
+  // PASSO 1 & PASSO 2: Sessão no Supabase e Carregamento do Perfil
+  if (isLoadingProfile) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: '#080c14', color: '#38bdf8', fontFamily: 'Inter, sans-serif' }}>
+        <Loader2 size={36} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+        <h2 style={{ fontSize: '16px', fontWeight: 800, marginTop: '16px', color: '#ffffff' }}>⚡ Sincronizando perfil e permissões...</h2>
+        <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Consultando a tabela public.profiles no PostgreSQL.</p>
+      </div>
+    );
+  }
+
+  // Vitrine de Planos Pública: Exibida SOMENTE se o usuário acessar explicitamente /pricing deslogado
+  if (!currentProfile && isExplicitPricingView && !hasPlanInUrl) {
+    return (
+      <PricingPage
+        isPublicView={true}
+        onNavigateToSignup={(planId, planName) => {
+          window.location.href = `/?plan=${encodeURIComponent(planId)}&planName=${encodeURIComponent(planName || '')}#signup`;
+        }}
+      />
+    );
+  }
+
+  // PASSO 1 FALLBACK: Se não tem sessão no Supabase ou perfil -> Tela de Login
+  if (!currentProfile || hasPlanInUrl) {
+    return (
+      <LoginPage
+        onLoginSuccess={(profile) => {
+          if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
+          setCurrentProfile(profile);
+        }}
+      />
+    );
+  }
+
+  // PASSO 3: O role é Master? (Direciona para / - Painel Admin Global / Construtor de Fluxos / PJe Master. Fim da linha)
+  if (isMasterRole) {
+    if (isRootEntry && currentTab === 'dashboard') {
+      setCurrentTab('editor');
+    }
+  } else {
+    // É Member (Usuário Advogado Padrão)
+
+    // PASSO 4: O role é Member e falta oab_number? (Direciona para /onboarding)
+    if (!hasOab) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', background: '#080c14', color: '#38bdf8', fontFamily: 'Inter, sans-serif' }}>
-          <Loader2 size={36} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
-          <h2 style={{ fontSize: '16px', fontWeight: 800, marginTop: '16px', color: '#ffffff' }}>⚡ Carregando seu perfil...</h2>
-          <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Buscando credenciais jurídicas e permissões no Supabase.</p>
-        </div>
+        <OnboardingPage
+          currentProfile={currentProfile}
+          onOnboardingComplete={(updatedProfile) => {
+            setCurrentProfile(updatedProfile);
+          }}
+        />
       );
     }
 
-    // Vitrine de Planos Pública: Exibida SOMENTE se o usuário acessar explicitamente /pricing
-    if (!currentProfile && isExplicitPricingView && !hasPlanInUrl) {
+    // PASSO 5: O role é Member, tem OAB, mas subscription_status é inactive? (Direciona para escolha de plano / Stripe)
+    if (!isSubscriptionActive) {
       return (
         <PricingPage
-          isPublicView={true}
-          onNavigateToSignup={(planId, planName) => {
-            window.location.href = `/?plan=${encodeURIComponent(planId)}&planName=${encodeURIComponent(planName || '')}#signup`;
-          }}
+          currentUser={currentProfile}
+          isPublicView={false}
+          onNavigateToSignup={() => {}}
         />
       );
     }
 
-    // REGRAS GERAIS DE AUTENTICAÇÃO: SE NÃO HOUVER SESSÃO, EXIBIR OBRIGATORIAMENTE LOGIN/CADASTRO
-    if (!currentProfile || hasPlanInUrl) {
-      return (
-        <LoginPage
-          onLoginSuccess={(profile) => {
-            if (hasPlanInUrl) return; // Aguardar o redirecionamento automático da Stripe
-            setCurrentProfile(profile);
-
-            if (isJuridicoEntry) {
-              setCurrentTab('dashboard'); // Módulo Jurídico -> Portal de Consultas PJe
-            } else {
-              setCurrentTab('editor'); // Raiz IPaaS -> Construtor de Fluxos e Gestão da Plataforma
-            }
-
-            try {
-              localStorage.setItem('synapse_active_session', JSON.stringify(profile));
-            } catch (e) {}
-          }}
-        />
-      );
-    }
-
-    // 🚀 FASE 2: FLUXO DO DOMÍNIO RAIZ (synapse.alp-nexus.com/) -> CONSTRUTOR DE FLUXOS IPAAS
-    if (isRootEntry && currentProfile) {
-      // Ignora 100% Onboarding (OAB) e Pagamento (Stripe). Force a view para o Construtor de Fluxos!
-      if (currentTab === 'dashboard') {
-        setCurrentTab('editor');
-      }
-    }
-
-    // 🚀 FASE 3: FLUXO DO DOMÍNIO JURÍDICO (synapse.alp-nexus.com/juridico) -> PJe / ONBOARDING / STRIPE
-    if (isJuridicoEntry && currentProfile && !isAdminOrMaster) {
-      const isProfileComplete = Boolean(
-        currentProfile.full_name?.trim() &&
-        currentProfile.oab_number?.trim()
-      );
-
-      // PASSO A: Verificação de Novo Usuário (Onboarding)
-      if (!isProfileComplete) {
-        return (
-          <OnboardingPage
-            currentProfile={currentProfile}
-            onOnboardingComplete={(updatedProfile) => {
-              const activeTrialProfile: Profile = {
-                ...updatedProfile,
-                subscription_status: 'active',
-                subscription_plan: updatedProfile.subscription_plan || 'Pro'
-              };
-              setCurrentProfile(activeTrialProfile);
-              setCurrentTab('dashboard');
-              try {
-                localStorage.setItem('synapse_active_session', JSON.stringify(activeTrialProfile));
-              } catch (e) {}
-
-              // Atualizar no PostgreSQL em segundo plano
-              supabase
-                .from('profiles')
-                .update({ subscription_status: 'active', subscription_plan: 'Pro' })
-                .eq('id', activeTrialProfile.id)
-                .then(({ error }) => {
-                  if (error) console.warn('⚠️ Erro ao ativar trial do novo usuário:', error.message);
-                });
-            }}
-          />
-        );
-      }
-
-      // PASSO B: Verificação de Pagamento (Pricing & Stripe) - Regra Estrita
-      const hasActiveSubscriptionOrTrial = (
-        currentProfile.subscription_status === 'active' ||
-        currentProfile.subscription_status === 'trialing'
-      );
-
-      if (!hasActiveSubscriptionOrTrial) {
-        return (
-          <PricingPage
-            currentUser={currentProfile}
-            isPublicView={false}
-            onNavigateToSignup={() => {}}
-          />
-        );
-      }
-
-      // PASSO C: Sucesso (Usuário Antigo/Liberado) -> Force a view para o Portal PJe ('dashboard')
-      if (currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile') {
-        setCurrentTab('dashboard');
-      }
-    }
-
-    // PASSO 4 (Isolamento de Módulos - RBAC Hard Redirect)
-    const superAdminOnlyTabs: ViewTab[] = ['masterAdmin', 'tenantAdmin', 'agency', 'audit'];
-
-    if (!isAdminOrMaster && superAdminOnlyTabs.includes(currentTab)) {
-      console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para a função '${currentProfile.role || 'Member'}'. Redirecionando para 'dashboard'...`);
+    // PASSO 6: O role é Member, tem OAB, e a assinatura está ativa? (Direciona para /juridico - Portal PJe)
+    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile') {
       setCurrentTab('dashboard');
-      window.history.replaceState(null, '', '/juridico');
     }
+  }
+
+  // RBAC Hard Redirect para abas exclusivas do SuperAdmin
+  const superAdminOnlyTabs: ViewTab[] = ['masterAdmin', 'tenantAdmin', 'agency', 'audit'];
+  if (!isMasterRole && superAdminOnlyTabs.includes(currentTab)) {
+    console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para o Member. Redirecionando para 'dashboard'...`);
+    setCurrentTab('dashboard');
+    window.history.replaceState(null, '', '/juridico');
   }
 
   // 🛡️ PASSO 5: LIBERAR /DASHBOARD E LAYOUT PRINCIPAL DO APP
