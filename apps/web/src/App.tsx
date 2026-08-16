@@ -333,8 +333,8 @@ function WorkflowAppContent() {
             oab_uf: dbProfile?.oab_uf || 'MG',
             professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
             role: isMasterEmail ? 'Master' : (dbProfile?.role || 'Member'),
-            // Usuários já cadastrados com OAB ou Master sempre possuem acesso direto liberado
-            subscription_status: (isMasterEmail || isCompleteProfile) ? 'active' : (dbProfile?.subscription_status || 'active'),
+            // Respeita estritamente o subscription_status vindo da tabela public.profiles do PostgreSQL
+            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'inactive'),
             subscription_plan: dbProfile?.subscription_plan || 'Pro',
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',
