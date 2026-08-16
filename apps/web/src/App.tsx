@@ -1468,13 +1468,13 @@ function WorkflowAppContent() {
         );
       }
 
-      // PASSO B: Verificação de Pagamento (Pricing) - Regra Estrita
+      // PASSO B: Verificação de Pagamento (Pricing & Stripe) - Regra Estrita
       const hasActiveSubscriptionOrTrial = (
         currentProfile.subscription_status === 'active' ||
         currentProfile.subscription_status === 'trialing'
       );
 
-      if (!hasActiveSubscriptionOrTrial && currentTab !== 'pricing') {
+      if (!hasActiveSubscriptionOrTrial) {
         return (
           <PricingPage
             currentUser={currentProfile}

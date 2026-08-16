@@ -158,23 +158,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       try {
         const cleanEmail = email.trim().toLowerCase();
         
-        // Verificar se a conta já existe na tabela profiles
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id, email')
-          .eq('email', cleanEmail)
-          .maybeSingle();
-
-        if (existingProfile) {
-          console.warn(`⚠️ [DUPLICATE SIGNUP ATTEMPT] E-mail ${cleanEmail} já cadastrado no banco.`);
-          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada no Synapse. Por favor, digite sua senha para entrar.');
-          setIsSignUp(false); // Retorna para a tela de login inicial
-          setPassword('');
-          setConfirmPassword('');
-          setIsLoading(false);
-          return;
-        }
-
+        // 🚀 Tentar cadastrar novo usuário via Supabase Auth
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
@@ -187,12 +171,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         });
 
-        // 🛑 Se o Supabase Auth retornar erro de usuário já cadastrado ou identidades vazias
-        if (error || (data?.user && data.user.identities && data.user.identities.length === 0)) {
-          const errMsg = error ? error.message : 'Este e-mail já está cadastrado no sistema.';
-          console.warn(`⚠️ [DUPLICATE AUTH SIGNUP] ${errMsg}`);
-          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada. Por favor, informe sua senha de acesso.');
-          setIsSignUp(false); // Retorna para a tela de login inicial
+        // 🛑 Detectar se o usuário já possui conta criada anteriormente
+        const isUserAlreadyRegistered = Boolean(
+          error?.message?.toLowerCase().includes('already registered') ||
+          error?.message?.toLowerCase().includes('already exists') ||
+          error?.code === 'user_already_exists' ||
+          (data?.user && (!data.user.identities || data.user.identities.length === 0)) ||
+          (data?.user && data.user.created_at && (Date.now() - new Date(data.user.created_at).getTime() > 10000))
+        );
+
+        if (isUserAlreadyRegistered) {
+          console.warn(`⚠️ [DUPLICATE AUTH SIGNUP] O e-mail ${cleanEmail} já está cadastrado.`);
+          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada no Synapse. Por favor, informe sua senha para entrar.');
+          setIsSignUp(false); // Retorna imediatamente para a tela de Login inicial
           setPassword('');
           setConfirmPassword('');
           setIsLoading(false);
