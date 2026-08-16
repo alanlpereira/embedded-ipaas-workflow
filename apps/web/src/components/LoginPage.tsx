@@ -154,10 +154,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         return;
       }
 
-      // 🚀 FLUXO DE SIGN UP + CHECKOUT AUTOMÁTICO
+      // 🚀 FLUXO DE SIGN UP: 1. Checagem Prévia de Usuário Existente no Banco
       try {
+        const cleanEmail = email.trim().toLowerCase();
+        
+        // Verificar se a conta já existe na tabela profiles
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (existingProfile) {
+          console.warn(`⚠️ [DUPLICATE SIGNUP ATTEMPT] E-mail ${cleanEmail} já cadastrado no banco.`);
+          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada no Synapse. Por favor, digite sua senha para entrar.');
+          setIsSignUp(false); // Retorna para a tela de login inicial
+          setPassword('');
+          setConfirmPassword('');
+          setIsLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: cleanEmail,
           password,
           options: {
             data: {
@@ -168,8 +187,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         });
 
-        if (error) {
-          setErrorMessage(`Erro ao cadastrar conta: ${error.message}`);
+        // 🛑 Se o Supabase Auth retornar erro de usuário já cadastrado ou identidades vazias
+        if (error || (data?.user && data.user.identities && data.user.identities.length === 0)) {
+          const errMsg = error ? error.message : 'Este e-mail já está cadastrado no sistema.';
+          console.warn(`⚠️ [DUPLICATE AUTH SIGNUP] ${errMsg}`);
+          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada. Por favor, informe sua senha de acesso.');
+          setIsSignUp(false); // Retorna para a tela de login inicial
+          setPassword('');
+          setConfirmPassword('');
           setIsLoading(false);
           return;
         }
@@ -177,7 +202,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         const registeredUser = data.user;
         const userId = registeredUser?.id && registeredUser.id.length === 36 ? registeredUser.id : crypto.randomUUID();
 
-        // SE HOUVER PLANO SELECIONADO: Bloquear redirecionamento padrão ao dashboard e abrir Stripe Checkout
+        // SE HOUVER PLANO SELECIONADO: Bloquear redirecionamento padrão e abrir Stripe Checkout
         if (selectedPlanPriceId) {
           const checkoutSuccess = await triggerStripeCheckout(userId, email);
           if (checkoutSuccess) {
@@ -187,7 +212,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         }
 
-        // Se não houver plano selecionado na URL, entrar no sistema normalmente
+        // Se for um novo usuário sem plano na URL, prosseguir para a tela de Onboarding/Planos
         fallbackLocalLogin(email, fullName, userId);
       } catch (err: any) {
         setErrorMessage(err.message || 'Erro ao realizar cadastro.');

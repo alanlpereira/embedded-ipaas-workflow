@@ -1459,6 +1459,7 @@ function WorkflowAppContent() {
             currentProfile={currentProfile}
             onOnboardingComplete={(updatedProfile) => {
               setCurrentProfile(updatedProfile);
+              setCurrentTab('pricing');
               try {
                 localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
               } catch (e) {}
