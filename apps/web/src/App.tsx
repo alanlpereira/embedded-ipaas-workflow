@@ -323,6 +323,7 @@ function WorkflowAppContent() {
         }
 
         if (isMounted) {
+          const isCompleteProfile = Boolean(dbProfile?.oab_number?.trim() && dbProfile?.full_name?.trim());
           const fullProfile: Profile = {
             id: userId,
             organization_id: dbProfile?.organization_id || 'org-alp-nexus',
@@ -332,8 +333,9 @@ function WorkflowAppContent() {
             oab_uf: dbProfile?.oab_uf || 'MG',
             professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
             role: isMasterEmail ? 'Master' : (dbProfile?.role || 'Member'),
-            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
-            subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
+            // Usuários já cadastrados com OAB ou Master sempre possuem acesso direto liberado
+            subscription_status: (isMasterEmail || isCompleteProfile) ? 'active' : (dbProfile?.subscription_status || 'active'),
+            subscription_plan: dbProfile?.subscription_plan || 'Pro',
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',
             created_at: dbProfile?.created_at || new Date().toISOString(),
