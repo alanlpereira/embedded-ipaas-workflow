@@ -36,11 +36,11 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     setIsLoading(true);
     setErrorMessage('');
 
-    const userId = String(currentProfile?.id || '').trim();
-    if (!userId) {
-      setErrorMessage('ID de usuário inválido. Por favor, recarregue a página e tente novamente.');
-      setIsLoading(false);
-      return;
+    const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+    let userId = String(currentProfile?.id || '').trim();
+    if (!isUuid(userId)) {
+      console.warn(`⚠️ [ONBOARDING UUID FIX] ID de usuário inválido detectado ('${userId}'). Substituindo por UUID válido.`);
+      userId = crypto.randomUUID();
     }
 
     const cleanName = String(fullName || '').trim();

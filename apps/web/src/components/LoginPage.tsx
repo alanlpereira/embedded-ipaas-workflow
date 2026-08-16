@@ -175,7 +175,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         }
 
         const registeredUser = data.user;
-        const userId = registeredUser?.id || `usr-${Date.now()}`;
+        const userId = registeredUser?.id && registeredUser.id.length === 36 ? registeredUser.id : crypto.randomUUID();
 
         // SE HOUVER PLANO SELECIONADO: Bloquear redirecionamento padrão ao dashboard e abrir Stripe Checkout
         if (selectedPlanPriceId) {
@@ -188,7 +188,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         }
 
         // Se não houver plano selecionado na URL, entrar no sistema normalmente
-        fallbackLocalLogin(email, fullName, registeredUser?.id);
+        fallbackLocalLogin(email, fullName, userId);
       } catch (err: any) {
         setErrorMessage(err.message || 'Erro ao realizar cadastro.');
         setIsLoading(false);
