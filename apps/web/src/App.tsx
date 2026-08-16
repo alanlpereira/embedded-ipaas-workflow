@@ -1442,9 +1442,11 @@ function WorkflowAppContent() {
     );
   }
 
-  // PASSO 3: O role é Master? (Direciona para / - Painel Admin Global / Construtor de Fluxos / PJe Master. Fim da linha)
+  // PASSO 3: O role é Master? (Direciona para /juridico no Módulo Jurídico e / no IPaaS)
   if (isMasterRole) {
-    if (isRootEntry && currentTab === 'dashboard') {
+    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile') {
+      setCurrentTab('dashboard');
+    } else if (isRootEntry && currentTab === 'dashboard') {
       setCurrentTab('editor');
     }
   } else {
