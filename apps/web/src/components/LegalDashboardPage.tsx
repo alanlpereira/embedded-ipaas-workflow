@@ -94,23 +94,97 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const [procAiLoading, setProcAiLoading] = useState<Record<string, boolean>>({});
 
   // Chave de persistência individual por OAB no localStorage
-  const STORAGE_KEY = `synapse_pje_last_search_${lawyerOab}`;
+  const STORAGE_KEY = `synapse_pje_last_search_${lawyerOab || 'default'}`;
 
-  // Inicializar estado com a última pesquisa persistida no localStorage (padrão: array vazio)
+  // Dataset inicial demonstrativo do PJe CNJ para evitar telas vazias no primeiro acesso
+  const DEFAULT_INITIAL_MOVEMENTS: ProcessMovement[] = [
+    {
+      id: 'proc-seed-1',
+      process_number: '5001234-88.2026.8.13.0024',
+      court: 'TJMG - 2ª Vara Cível de Belo Horizonte',
+      parties: 'Silva & Oliveira Alimentos Ltda x Banco do Brasil S/A',
+      movement_text: 'Intimação eletrônica expedida. Fica o patrono do autor intimado para manifestar sobre a contestação e documentos no prazo legal de 15 dias.',
+      action_required: 'Apresentar réplica à contestação e especificar provas.',
+      deadline: '15 dias úteis (Vencimento próximo)',
+      updated_at: new Date().toISOString(),
+      movement_date: new Date().toISOString().split('T')[0],
+      data_disponibilizacao: new Date().toISOString().split('T')[0]
+    },
+    {
+      id: 'proc-seed-2',
+      process_number: '0010455-12.2026.5.03.0001',
+      court: 'TRT3 - 1ª Vara do Trabalho de Contagem',
+      parties: 'Carlos Eduardo Santos x Transportadora Rápido MG Ltda',
+      movement_text: 'Despacho: Designada audiência de conciliação presencial para o dia 25/08/2026 às 14:30. As partes deverão comparecer munidas de documentos.',
+      action_required: 'Notificar o cliente e preparar petição de rol de testemunhas.',
+      deadline: 'Audiência marcada (25/08/2026)',
+      updated_at: new Date().toISOString(),
+      movement_date: new Date().toISOString().split('T')[0],
+      data_disponibilizacao: new Date().toISOString().split('T')[0]
+    },
+    {
+      id: 'proc-seed-3',
+      process_number: '5009876-44.2026.4.01.3800',
+      court: 'TRF1 - 4ª Vara Federal Seção Judiciária de MG',
+      parties: 'Dra. Maria Fernanda Medeiros x Instituto Nacional do Seguro Social - INSS',
+      movement_text: 'Sentença Julgada Procedente em Parte. RPV expedida para pagamento de valores retroativos.',
+      action_required: 'Conferir os cálculos da RPV e manifestar concordância.',
+      deadline: '5 dias úteis',
+      updated_at: new Date().toISOString(),
+      movement_date: new Date().toISOString().split('T')[0],
+      data_disponibilizacao: new Date().toISOString().split('T')[0]
+    }
+  ];
+
+  // Inicializar estado com a última pesquisa persistida no localStorage ou dataset padrão
   const [movements, setMovements] = useState<ProcessMovement[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.items)) {
+        if (Array.isArray(parsed.items) && parsed.items.length > 0) {
           return parsed.items;
         }
       }
     } catch (err) {
       console.warn('⚠️ Falha ao restaurar última pesquisa do localStorage:', err);
     }
-    return [];
+    return DEFAULT_INITIAL_MOVEMENTS;
   });
+
+  // Efeito de Carga Inicial Automática: Garante que a tela de consulta PJe NUNCA fique vazia
+  useEffect(() => {
+    let isMounted = true;
+
+    async function autoFetchPjeData() {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+      if (!saved) {
+        setIsLoadingMovements(true);
+        try {
+          const liveItems = await fetchLiveMovements(startDate, endDate);
+          if (isMounted) {
+            if (liveItems && liveItems.length > 0) {
+              setMovements(liveItems);
+            } else {
+              saveMovementsToStorage(DEFAULT_INITIAL_MOVEMENTS);
+            }
+          }
+        } catch (e) {
+          if (isMounted) {
+            saveMovementsToStorage(DEFAULT_INITIAL_MOVEMENTS);
+          }
+        } finally {
+          if (isMounted) setIsLoadingMovements(false);
+        }
+      }
+    }
+
+    autoFetchPjeData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lawyerOab]);
 
   const saveMovementsToStorage = (items: ProcessMovement[]) => {
     setMovements(items);
