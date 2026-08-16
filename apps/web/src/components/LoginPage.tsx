@@ -238,7 +238,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 email: userEmail,
                 full_name: data.user.user_metadata?.full_name || fullName || '',
                 role: isMasterEmail ? 'Master' : 'Member',
-                subscription_status: isMasterEmail ? 'active' : 'active',
+                subscription_status: isMasterEmail ? 'active' : 'inactive',
                 subscription_plan: 'Pro',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -257,7 +257,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             oab_uf: dbProfile?.oab_uf || 'MG',
             professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
             role: isMasterEmail ? 'Master' : (dbProfile?.role || (data.user.user_metadata?.role as any) || 'Member'),
-            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
+            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'inactive'),
             subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',

@@ -332,7 +332,7 @@ function WorkflowAppContent() {
             oab_uf: dbProfile?.oab_uf || 'MG',
             professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
             role: isMasterEmail ? 'Master' : (dbProfile?.role || 'Member'),
-            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
+            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'inactive'),
             subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',

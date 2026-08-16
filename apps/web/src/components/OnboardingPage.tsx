@@ -63,13 +63,13 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     try {
       console.log(`📋 [ONBOARDING CLEAN UPDATE] Atualizando OAB/${cleanUf} ${cleanOab} para usuário ID: ${userId}`);
 
-      // 🎯 PAYLOAD ESTRITAMENTE LIMPO: Apenas os campos do formulário + ativação de trial
+      // 🎯 PAYLOAD ESTRITAMENTE LIMPO: Apenas os campos do formulário de Onboarding da OAB
       const cleanPayload = {
         oab_number: cleanOab,
         oab_uf: cleanUf,
         full_name: cleanName,
         phone: cleanPhone,
-        subscription_status: 'trialing',
+        subscription_status: currentProfile.subscription_status || 'inactive',
         updated_at: new Date().toISOString()
       };
 
@@ -97,7 +97,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         oab_number: cleanOab,
         oab_uf: cleanUf,
         phone: cleanPhone,
-        subscription_status: 'trialing',
+        subscription_status: currentProfile.subscription_status || 'inactive',
         updated_at: new Date().toISOString()
       };
 
