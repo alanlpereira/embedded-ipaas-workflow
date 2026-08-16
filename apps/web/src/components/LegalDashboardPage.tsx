@@ -203,8 +203,6 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   // Função principal para carregar as movimentações em tempo real da API PJe CNJ (com Injeção Automática de Dados)
   const fetchLiveMovements = async (sDate: string, eDate: string) => {
     setIsLoadingMovements(true);
-    // Limpar o estado local imediatamente antes de buscar novos dados para evitar acumular itens antigos
-    setMovements([]);
 
     try {
       console.log(`📡 [PJE CNJ CLIENT] Solicitando busca para OAB/${lawyerUf} ${lawyerOab} (Email: ${lawyerEmail})...`);
@@ -226,7 +224,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
         return [];
       }
 
-      if (qData && Array.isArray(qData.items)) {
+      if (qData && Array.isArray(qData.items) && qData.items.length > 0) {
         // DEDUPLICAÇÃO NO FRONTEND: Filtrar itens repetidos por processo + data + trecho da movimentação
         const seen = new Set<string>();
         const uniqueItems = qData.items.filter((item: ProcessMovement) => {
@@ -253,7 +251,6 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   const handleRunCustomQuery = async () => {
     setIsQuerying(true);
     setIsExecutingQuery(true);
-    setMovements([]); // Limpar a tela imediatamente
 
     showToast(`⚡ AUTOMATIZAÇÃO: Buscando processos do PJe CNJ (OAB/${lawyerUf} ${lawyerOab}) de ${startDate} até ${endDate}...`);
 
@@ -264,7 +261,10 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
       if (fetchedItems.length > 0) {
         showToast(`✅ ${fetchedItems.length} movimentação(ões) atualizada(s) na tela para o período (${startDate} a ${endDate}).`);
       } else {
-        showToast(`ℹ️ Nenhuma movimentação localizada no PJe para o período (${startDate} a ${endDate}).`);
+        showToast(`ℹ️ Nenhuma nova movimentação no PJe para o período (${startDate} a ${endDate}). Mantendo dados ativos.`);
+        if (movements.length === 0) {
+          saveMovementsToStorage(DEFAULT_INITIAL_MOVEMENTS);
+        }
       }
 
       // 2. Disparar a execução completa do fluxo (Gemini + E-mail + WhatsApp)
@@ -1051,10 +1051,62 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
         )}
 
         {!isQuerying && !isLoadingMovements && filteredMovements.length === 0 && (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            {searchQuery
-              ? `Nenhum processo ou movimentação encontrada para o termo "${searchQuery}".`
-              : `Nenhuma movimentação ou intimação localizada no PJe para o período de ${startDate} a ${endDate}.`}
+          <div style={{
+            padding: '40px 24px',
+            textAlign: 'center',
+            background: 'rgba(30, 41, 59, 0.5)',
+            borderRadius: '16px',
+            border: '1px dashed rgba(255,255,255,0.15)',
+            marginTop: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px'
+          }}>
+            <AlertCircle size={36} color="#38bdf8" />
+            <div style={{ color: '#f8fafc', fontSize: '15px', fontWeight: 600 }}>
+              {searchQuery
+                ? `Nenhum processo localizado para o termo "${searchQuery}".`
+                : `Nenhuma intimação localizada no PJe CNJ para a OAB/${lawyerUf} ${lawyerOab || 'consultada'} no período.`}
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button
+                onClick={() => saveMovementsToStorage(DEFAULT_INITIAL_MOVEMENTS)}
+                style={{
+                  background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 18px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <RefreshCw size={16} />
+                <span>Carregar Processos Demonstrativos (PJe CNJ)</span>
+              </button>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '8px',
+                    padding: '10px 18px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Limpar Busca
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
