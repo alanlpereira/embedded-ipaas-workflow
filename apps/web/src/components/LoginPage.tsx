@@ -158,7 +158,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       try {
         const cleanEmail = email.trim().toLowerCase();
         
-        // 🚀 Tentar cadastrar novo usuário via Supabase Auth
+        // Verificar se a conta já existe na tabela profiles
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (existingProfile) {
+          console.warn(`⚠️ [DUPLICATE SIGNUP ATTEMPT] E-mail ${cleanEmail} já cadastrado no banco.`);
+          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada no Synapse. Por favor, digite sua senha para entrar.');
+          setIsSignUp(false); // Retorna imediatamente para a tela de login inicial
+          setPassword('');
+          setConfirmPassword('');
+          setIsLoading(false);
+          return;
+        }
+
+        // Tentar cadastrar novo usuário via Supabase Auth
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
@@ -171,19 +188,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         });
 
-        // 🛑 Detectar se o usuário já possui conta criada anteriormente
+        // 🛑 Detectar se o usuário já possui conta criada anteriormente no Auth
         const isUserAlreadyRegistered = Boolean(
           error?.message?.toLowerCase().includes('already registered') ||
           error?.message?.toLowerCase().includes('already exists') ||
           error?.code === 'user_already_exists' ||
-          (data?.user && (!data.user.identities || data.user.identities.length === 0)) ||
-          (data?.user && data.user.created_at && (Date.now() - new Date(data.user.created_at).getTime() > 10000))
+          (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
         );
 
         if (isUserAlreadyRegistered) {
           console.warn(`⚠️ [DUPLICATE AUTH SIGNUP] O e-mail ${cleanEmail} já está cadastrado.`);
           setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada no Synapse. Por favor, informe sua senha para entrar.');
-          setIsSignUp(false); // Retorna imediatamente para a tela de Login inicial
+          setIsSignUp(false);
           setPassword('');
           setConfirmPassword('');
           setIsLoading(false);
@@ -203,7 +219,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         }
 
-        // Se for um novo usuário sem plano na URL, prosseguir para a tela de Onboarding/Planos
+        // Se for um novo usuário sem plano na URL, entrar com status 'inactive' para obrigatoriamente ir ao Onboarding/Pricing
         fallbackLocalLogin(email, fullName, userId);
       } catch (err: any) {
         setErrorMessage(err.message || 'Erro ao realizar cadastro.');
@@ -285,12 +301,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           onLoginSuccess(fullProfile);
         }
       } catch (err: any) {
-        if (selectedPlanPriceId) {
-          const checkoutSuccess = await triggerStripeCheckout(`usr-${Date.now()}`, email);
-          if (checkoutSuccess) return;
-          return;
-        }
-        fallbackLocalLogin(email, fullName);
+        setErrorMessage(err.message || 'Erro ao realizar login.');
       } finally {
         if (!selectedPlanPriceId) {
           setIsLoading(false);
@@ -301,13 +312,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   const fallbackLocalLogin = (targetEmail: string, nameInput: string, explicitUserId?: string) => {
     const validUuid = explicitUserId && explicitUserId.length === 36 ? explicitUserId : crypto.randomUUID();
+    const isMasterEmail = targetEmail === 'alanlpereira@hotmail.com' || targetEmail === 'alan.pereira@alp-nexus.com' || targetEmail.endsWith('@alp-nexus.com');
     const localProfile: Profile = {
       id: validUuid,
       organization_id: 'org-alp-nexus',
       email: targetEmail,
       full_name: nameInput || '',
-      role: 'Member',
-      subscription_status: 'trialing',
+      role: isMasterEmail ? 'Master' : 'Member',
+      subscription_status: isMasterEmail ? 'active' : 'inactive',
       subscription_plan: 'Pro',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
