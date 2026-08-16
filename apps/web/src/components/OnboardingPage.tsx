@@ -69,8 +69,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         oab_uf: cleanUf,
         full_name: cleanName,
         phone: cleanPhone,
-        subscription_status: 'active',
-        subscription_plan: 'Pro',
+        subscription_status: currentProfile?.subscription_status || 'inactive',
+        subscription_plan: currentProfile?.subscription_plan || 'Pro',
         updated_at: new Date().toISOString()
       };
 
@@ -98,8 +98,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         oab_number: cleanOab,
         oab_uf: cleanUf,
         phone: cleanPhone,
-        subscription_status: 'active',
-        subscription_plan: 'Pro',
+        subscription_status: currentProfile?.subscription_status || 'inactive',
+        subscription_plan: currentProfile?.subscription_plan || 'Pro',
         updated_at: new Date().toISOString()
       };
 
