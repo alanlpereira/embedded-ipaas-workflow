@@ -1458,11 +1458,25 @@ function WorkflowAppContent() {
           <OnboardingPage
             currentProfile={currentProfile}
             onOnboardingComplete={(updatedProfile) => {
-              setCurrentProfile(updatedProfile);
-              setCurrentTab('pricing');
+              const activeTrialProfile: Profile = {
+                ...updatedProfile,
+                subscription_status: 'active',
+                subscription_plan: updatedProfile.subscription_plan || 'Pro'
+              };
+              setCurrentProfile(activeTrialProfile);
+              setCurrentTab('dashboard');
               try {
-                localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
+                localStorage.setItem('synapse_active_session', JSON.stringify(activeTrialProfile));
               } catch (e) {}
+
+              // Atualizar no PostgreSQL em segundo plano
+              supabase
+                .from('profiles')
+                .update({ subscription_status: 'active', subscription_plan: 'Pro' })
+                .eq('id', activeTrialProfile.id)
+                .then(({ error }) => {
+                  if (error) console.warn('⚠️ Erro ao ativar trial do novo usuário:', error.message);
+                });
             }}
           />
         );
