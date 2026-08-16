@@ -188,7 +188,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         }
 
         // Se não houver plano selecionado na URL, entrar no sistema normalmente
-        fallbackLocalLogin(email, fullName);
+        fallbackLocalLogin(email, fullName, registeredUser?.id);
       } catch (err: any) {
         setErrorMessage(err.message || 'Erro ao realizar cadastro.');
         setIsLoading(false);
@@ -283,13 +283,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const fallbackLocalLogin = (targetEmail: string, nameInput: string) => {
+  const fallbackLocalLogin = (targetEmail: string, nameInput: string, explicitUserId?: string) => {
+    const validUuid = explicitUserId && explicitUserId.length === 36 ? explicitUserId : crypto.randomUUID();
     const localProfile: Profile = {
-      id: `usr-${Date.now()}`,
+      id: validUuid,
       organization_id: 'org-alp-nexus',
       email: targetEmail,
       full_name: nameInput || '',
       role: 'Member',
+      subscription_status: 'trialing',
+      subscription_plan: 'Pro',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
