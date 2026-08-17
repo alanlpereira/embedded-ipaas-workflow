@@ -25,45 +25,38 @@ export const SubscriptionSyncPage: React.FC<SubscriptionSyncPageProps> = ({
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id || currentProfile?.id;
 
-        if (userId) {
-          const { data: profile } = await supabase
+        if (userId && isMounted) {
+          console.log('✅ [SUBSCRIPTION SYNC] Retorno da Stripe detectado! Ativando plano Pro no PostgreSQL para ID:', userId);
+
+          // Persistir status 'active' no banco de dados imediatamente no retorno da Stripe
+          await supabase
             .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
+            .update({ subscription_status: 'active', subscription_plan: 'Pro' })
+            .eq('id', userId);
 
-          if (profile && isMounted) {
-            console.log('✅ [SUBSCRIPTION SYNC] Retorno da Stripe confirmado! Ativando plano Pro no PostgreSQL...');
-            setIsActivated(true);
-            setStatusMessage('✨ Plano ativado com sucesso! Redirecionando...');
+          setIsActivated(true);
+          setStatusMessage('✨ Plano ativado com sucesso! Redirecionando...');
 
-            // Persistir status 'active' no banco de dados
-            await supabase
-              .from('profiles')
-              .update({ subscription_status: 'active', subscription_plan: 'Pro' })
-              .eq('id', userId);
+          const updated: Profile = {
+            ...(currentProfile || {}),
+            id: userId,
+            subscription_status: 'active',
+            subscription_plan: 'Pro'
+          } as Profile;
 
-            const updated: Profile = {
-              ...(currentProfile || profile),
-              ...profile,
-              subscription_status: 'active',
-              subscription_plan: 'Pro'
-            };
+          localStorage.setItem('synapse_active_session', JSON.stringify(updated));
 
-            localStorage.setItem('synapse_active_session', JSON.stringify(updated));
+          const storedOab = localStorage.getItem('synapse_advocate_oab');
+          const isProfileComplete = Boolean(
+            (updated.full_name?.trim() || currentProfile?.full_name?.trim()) &&
+            (updated.oab_number?.trim() || currentProfile?.oab_number?.trim() || (storedOab && storedOab.trim() !== ''))
+          );
 
-            const storedOab = localStorage.getItem('synapse_advocate_oab');
-            const isProfileComplete = Boolean(
-              updated.full_name?.trim() &&
-              (updated.oab_number?.trim() || (storedOab && storedOab.trim() !== ''))
-            );
+          setTimeout(() => {
+            onSyncComplete(isProfileComplete ? 'dashboard' : 'onboarding', updated);
+          }, 800);
 
-            setTimeout(() => {
-              onSyncComplete(isProfileComplete ? 'dashboard' : 'onboarding', updated);
-            }, 1200);
-
-            return true;
-          }
+          return true;
         }
       } catch (err) {
         console.warn('⚠️ Polling error:', err);
