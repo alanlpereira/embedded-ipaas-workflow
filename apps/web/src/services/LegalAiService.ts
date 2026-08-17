@@ -1,5 +1,5 @@
-// Módulo de Inteligência Artificial Jurídica Resiliente - Synapse Legal AI
-// Arquitetura de Tripla Camada de Resiliência (Triple-Tier AI Fallback Engine)
+// Módulo de Inteligência Artificial Jurídica Resiliente - Synapse Legal AI (Gateway Multi-LLM)
+// Roteamento Seguro via Edge Function llm-router (Claude 3.5 Sonnet + Gemini 2.0 Flash)
 
 import { supabase } from '../lib/supabase';
 
@@ -10,6 +10,7 @@ export interface LegalAiMessage {
 
 export interface LegalAiRequestOptions {
   prompt: string;
+  actionType?: 'gerar_peca' | 'discutir_processo' | 'help';
   history?: LegalAiMessage[];
   fileUrls?: string[];
   filePaths?: string[];
@@ -19,7 +20,7 @@ export interface LegalAiRequestOptions {
 export interface LegalAiResponse {
   success: boolean;
   reply: string;
-  providerUsed: 'edge_function' | 'gemini_direct' | 'emergency_fallback';
+  providerUsed: 'llm_router' | 'emergency_fallback';
   modelUsed?: string;
   error?: string;
 }
@@ -37,150 +38,54 @@ export interface AiUsageLogItem {
   timestamp: string;
 }
 
-const DEFAULT_SYSTEM_INSTRUCTION = `Você é um Advogado Sênior, Parecerista e Especialista em Direito Processual Civil e Penal Brasileiro. Sua função é redigir peças processuais (Contestações, Recursos, Petições Iniciais, Réplicas, Agravos e Pareceres) com base nas instruções e documentos fornecidos.
-
-REGRAS OBRIGATÓRIAS:
-1. Use linguagem culta, técnica, precisa e respeitosa.
-2. Estruture a peça processual formalmente com:
-   - EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO...
-   - QUALIFICAÇÃO DAS PARTES
-   - DOS FATOS
-   - DO DIREITO (Com fundamentação na Constituição Federal, Códigos e Legislação Vigente)
-   - DOS PEDIDOS E REQUERIMENTOS FINAIS
-3. NUNCA invente fatos ou dados de processos que não existam no escopo. Se faltar alguma informação específica do cliente, utilize o formato de preenchimento entre colchetes, por exemplo: [NOME DO AUTOR], [VALOR DA CAUSA].
-4. Formate a resposta sempre em Markdown elegante e profissional.`;
-
-// Chaves da API Gemini para failover direto (do ambiente do cliente ou fallback seguro)
-const CLIENT_GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-
 export class LegalAiService {
   /**
-   * Gera conteúdo jurídico (Contestações, Pareceres, Análises) utilizando Tripla Camada de Resiliência.
+   * Gera conteúdo jurídico (Contestações, Pareceres, Análises) roteando com segurança para a Edge Function llm-router.
    */
   static async generateLegalContent(options: LegalAiRequestOptions): Promise<LegalAiResponse> {
-    const { prompt, history = [], fileUrls = [], filePaths = [], systemInstruction = DEFAULT_SYSTEM_INSTRUCTION } = options;
+    const { prompt, actionType = 'gerar_peca', history = [], fileUrls = [], filePaths = [] } = options;
     const targetPaths = filePaths.length > 0 ? filePaths : fileUrls;
 
-    console.log('⚖️ [LegalAiService] Iniciando processamento de IA Jurídica...');
+    console.log(`⚖️ [LegalAiService] Processando solicitação (${actionType}) via Roteador Seguro llm-router...`);
 
     // ------------------------------------------------------------------------
-    // CAMADA 1: Invocação da Edge Function do Supabase (Passando apiKey do cliente como backup)
+    // CAMADA 1: Invocação Segura do Gateway Multi-LLM (Supabase Edge Function llm-router)
     // ------------------------------------------------------------------------
     try {
-      console.log('📡 [LegalAiService - Camada 1] Invocando Supabase Edge Function legal-copilot...');
-
-      const { data, error } = await supabase.functions.invoke('legal-copilot', {
+      const { data, error } = await supabase.functions.invoke('llm-router', {
         body: {
+          action_type: actionType,
           prompt,
           history,
           fileUrls: targetPaths,
-          filePaths: targetPaths,
-          apiKey: CLIENT_GEMINI_KEY || undefined,
+          filePaths: targetPaths
         },
       });
 
       if (!error && data?.reply && data?.success !== false) {
-        console.log('✅ [LegalAiService] Sucesso na Camada 1 (Edge Function Supabase)!');
-        LegalAiService.logAiUsage(prompt, data.reply, data.modelUsed || 'gemini-2.0-flash', 'edge_function');
+        console.log(`✅ [LegalAiService] Sucesso via llm-router (Provedor: ${data.providerUsed || 'Claude/Gemini'}, Modelo: ${data.modelUsed})!`);
         return {
           success: true,
           reply: data.reply,
-          providerUsed: 'edge_function',
-          modelUsed: data.modelUsed || 'gemini-2.0-flash',
+          providerUsed: 'llm_router',
+          modelUsed: data.modelUsed || 'claude-3-5-sonnet-20241022',
         };
       }
 
       if (error) {
-        console.warn('⚠️ [LegalAiService - Camada 1 Warn]:', error.message);
+        console.warn('⚠️ [LegalAiService - llm-router Warn]:', error.message);
       } else if (data?.error) {
-        console.warn('⚠️ [LegalAiService - Camada 1 Error JSON]:', data.error);
+        console.warn('⚠️ [LegalAiService - llm-router Error JSON]:', data.error);
       }
     } catch (tier1Error: any) {
-      console.warn('⚠️ [LegalAiService - Camada 1 Falha total]:', tier1Error?.message || tier1Error);
+      console.warn('⚠️ [LegalAiService - llm-router Falha de Conexão]:', tier1Error?.message || tier1Error);
     }
 
     // ------------------------------------------------------------------------
-    // CAMADA 2: Failover Direto para a API REST Oficial do Google Gemini
+    // CAMADA 2: Failover de Emergência (Geração de Minuta Estruturada Local Offline)
     // ------------------------------------------------------------------------
-    if (CLIENT_GEMINI_KEY && !CLIENT_GEMINI_KEY.includes('YourGeminiApiKeyHere')) {
-      console.log('⚡ [LegalAiService - Camada 2] Ativando Failover Direto para Google Gemini REST API...');
-
-      const modelCandidates = [
-        'gemini-2.0-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-pro-latest',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-      ];
-
-      const contentsList: any[] = [];
-
-      // Histórico
-      history.forEach((h) => {
-        if (h.role && h.text) {
-          contentsList.push({
-            role: h.role === 'user' ? 'user' : 'model',
-            parts: [{ text: h.text }],
-          });
-        }
-      });
-
-      // Prompt com links de arquivos
-      let fullPromptText = prompt;
-      if (fileUrls && fileUrls.length > 0) {
-        fullPromptText += `\n\n[DOCUMENTOS E ANEXOS DO PROCESSO PARA ANÁLISE]:\n` + fileUrls.map((u, i) => `• Documento ${i + 1}: ${u}`).join('\n');
-      }
-
-      contentsList.push({
-        role: 'user',
-        parts: [{ text: fullPromptText }],
-      });
-
-      for (const modelName of modelCandidates) {
-        try {
-          console.log(`🤖 [LegalAiService - Camada 2] Tentando modelo ${modelName}...`);
-          const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${CLIENT_GEMINI_KEY}`;
-
-          const resp = await fetch(geminiEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              system_instruction: {
-                parts: [{ text: systemInstruction }],
-              },
-              contents: contentsList,
-            }),
-          });
-
-          if (resp.ok) {
-            const data = await resp.json();
-            const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (replyText && replyText.trim().length > 0) {
-              console.log(`✅ [LegalAiService] Sucesso na Camada 2 (Modelo Direto: ${modelName})!`);
-              LegalAiService.logAiUsage(prompt, replyText, modelName, 'gemini_direct');
-              return {
-                success: true,
-                reply: replyText,
-                providerUsed: 'gemini_direct',
-                modelUsed: modelName,
-              };
-            }
-          } else {
-            const errText = await resp.text();
-            console.warn(`⚠️ [LegalAiService - Camada 2 Model ${modelName} HTTP ${resp.status}]:`, errText);
-          }
-        } catch (tier2ModelErr: any) {
-          console.warn(`⚠️ [LegalAiService - Camada 2 Exception em ${modelName}]:`, tier2ModelErr.message);
-        }
-      }
-    }
-
-    // ------------------------------------------------------------------------
-    // CAMADA 3: Failover de Emergência (Geração de Minuta Estruturada Local)
-    // ------------------------------------------------------------------------
-    console.log('🛡️ [LegalAiService - Camada 3] Ativando Motor de Minuta Jurídica Estruturada Local...');
+    console.log('🛡️ [LegalAiService - Emergência] Ativando Motor de Minuta Jurídica Estruturada Local...');
     const emergencyReply = LegalAiService.generateEmergencyDraft(prompt, fileUrls);
-    LegalAiService.logAiUsage(prompt, emergencyReply, 'synapse-legal-local-v1', 'emergency_fallback');
 
     return {
       success: true,
@@ -191,55 +96,7 @@ export class LegalAiService {
   }
 
   /**
-   * Registra a utilização de IA por usuário para monitoramento de custos vs Google Ultra
-   */
-  private static logAiUsage(prompt: string, reply: string, modelUsed: string, providerUsed: string) {
-    try {
-      let userEmail = '';
-      let userName = '';
-
-      const activeSession = localStorage.getItem('synapse_active_session');
-      if (activeSession) {
-        try {
-          const parsed = JSON.parse(activeSession);
-          if (parsed.email) userEmail = parsed.email;
-          if (parsed.full_name) userName = parsed.full_name;
-        } catch (e) {}
-      }
-
-      const promptTokens = Math.ceil((prompt || '').length / 4);
-      const replyTokens = Math.ceil((reply || '').length / 4);
-      const totalTokens = promptTokens + replyTokens;
-
-      const isPro = modelUsed.includes('pro');
-      const costPerMillionUsd = isPro ? 1.25 : 0.075;
-      const costUsd = (totalTokens / 1000000) * costPerMillionUsd;
-      const costBrl = costUsd * 5.5;
-
-      const logEntry: AiUsageLogItem = {
-        id: `ai-log-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-        user_email: userEmail,
-        user_name: userName,
-        prompt_preview: prompt ? prompt.substring(0, 90) + (prompt.length > 90 ? '...' : '') : 'Análise de Intimação PJe',
-        model_used: modelUsed,
-        provider_used: providerUsed,
-        tokens_consumed: totalTokens,
-        estimated_cost_usd: Number(costUsd.toFixed(6)),
-        estimated_cost_brl: Number(costBrl.toFixed(4)),
-        timestamp: new Date().toISOString(),
-      };
-
-      const existingLogsStr = localStorage.getItem('synapse_ai_usage_logs');
-      const existingLogs: AiUsageLogItem[] = existingLogsStr ? JSON.parse(existingLogsStr) : [];
-      existingLogs.unshift(logEntry);
-      localStorage.setItem('synapse_ai_usage_logs', JSON.stringify(existingLogs.slice(0, 200)));
-    } catch (e) {
-      console.warn('⚠️ Erro ao registrar log de uso da IA:', e);
-    }
-  }
-
-  /**
-   * Gera uma minuta de emergência estruturada caso haja indisponibilidade de conexões externas.
+   * Gera uma minuta de emergência estruturada caso haja indisponibilidade de conexões de rede.
    */
   private static generateEmergencyDraft(userPrompt: string, fileUrls: string[]): string {
     const isContestacao = userPrompt.toLowerCase().includes('contestação') || userPrompt.toLowerCase().includes('contestar');
