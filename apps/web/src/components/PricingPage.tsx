@@ -226,6 +226,14 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
   };
 
   const handleOpenCustomerPortal = async () => {
+    if (!userProfile?.stripe_customer_id) {
+      setToastMessage({
+        text: 'ℹ️ Você ainda não possui uma assinatura ativa no Stripe para gerenciar. Escolha um dos planos abaixo para iniciar seu período de 14 dias grátis!',
+        type: 'info'
+      });
+      return;
+    }
+
     setLoadingPortal(true);
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://auth.alp-nexus.com';
@@ -268,7 +276,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
     } catch (err: any) {
       console.error('❌ Erro ao abrir Stripe Customer Portal:', err);
       setToastMessage({
-        text: `Erro ao abrir Portal da Stripe: ${err.message}`,
+        text: `Erro ao abrir Portal da Stripe: ${err.message || 'Verifique se seu plano está ativo.'}`,
         type: 'error'
       });
       setLoadingPortal(false);
@@ -403,8 +411,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
             Desbloqueie o poder da Inteligência Artificial (Gemini 1.5 Pro) e a varredura automática no PJe CNJ para multiplicar a produtividade da sua equipe jurídica.
           </p>
 
-          {/* Painel de Gestão de Assinatura para Usuários Logados */}
-          {userProfile && (
+          {/* Painel de Gestão de Assinatura para Usuários com Assinatura Ativa */}
+          {userProfile && (userProfile.subscription_status === 'active' || userProfile.subscription_status === 'trialing') && userProfile.stripe_customer_id && (
             <div style={{
               marginTop: '24px',
               display: 'inline-flex',
@@ -419,9 +427,9 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
               boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
             }}>
               <div>
-                <span>Seu Plano Atual: <strong style={{ color: 'var(--accent-blue)', fontWeight: 800 }}>{userProfile.subscription_plan}</strong></span>
+                <span>Seu Plano Atual: <strong style={{ color: 'var(--accent-blue)', fontWeight: 800 }}>{userProfile.subscription_plan || 'Pro'}</strong></span>
                 <span style={{ color: 'var(--border-color)', margin: '0 8px' }}>•</span>
-                <span>Uso de IA no Mês: <strong style={{ color: '#10b981', fontWeight: 800 }}>{userProfile.ai_monthly_usage} / {userProfile.ai_monthly_limit} peças</strong></span>
+                <span>Uso de IA no Mês: <strong style={{ color: '#10b981', fontWeight: 800 }}>{userProfile.ai_monthly_usage || 0} / {userProfile.ai_monthly_limit || 0} peças</strong></span>
               </div>
 
               <button
@@ -467,7 +475,12 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
           alignItems: 'stretch'
         }}>
           {plans.map((plan) => {
-            const isCurrentPlan = userProfile?.subscription_plan?.toLowerCase() === plan.name.toLowerCase();
+            const hasActiveSub = Boolean(
+              userProfile &&
+              (userProfile.subscription_status === 'active' || userProfile.subscription_status === 'trialing') &&
+              userProfile.stripe_customer_id
+            );
+            const isCurrentPlan = hasActiveSub && userProfile?.subscription_plan?.toLowerCase() === plan.name.toLowerCase();
             const isLoading = loadingPriceId === plan.priceId;
 
             return (
