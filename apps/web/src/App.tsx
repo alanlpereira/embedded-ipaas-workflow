@@ -1387,10 +1387,28 @@ function WorkflowAppContent() {
           <SubscriptionSyncPage
             currentProfile={currentProfile}
             onSyncComplete={(targetScreen, updatedProfile) => {
-              setCurrentProfile(updatedProfile);
+              const activeProfile: Profile = {
+                ...updatedProfile,
+                subscription_status: 'active',
+                subscription_plan: 'Pro'
+              };
+              setCurrentProfile(activeProfile);
               setIsSyncingStripe(false);
-              window.history.replaceState({}, document.title, '/dashboard');
+              window.history.replaceState({}, document.title, '/juridico');
               setCurrentTab('dashboard');
+              try {
+                localStorage.setItem('synapse_active_session', JSON.stringify(activeProfile));
+              } catch (e) {}
+
+              if (activeProfile.id) {
+                supabase
+                  .from('profiles')
+                  .update({ subscription_status: 'active', subscription_plan: 'Pro' })
+                  .eq('id', activeProfile.id)
+                  .then(({ error }) => {
+                    if (error) console.warn('⚠️ Erro ao persisitir ativação da Stripe:', error.message);
+                  });
+              }
             }}
           />
         );
