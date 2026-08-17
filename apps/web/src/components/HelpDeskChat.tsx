@@ -11,6 +11,33 @@ interface ChatMessage {
   model?: string;
 }
 
+const renderFormattedText = (text: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, index) => {
+    if (part.match(/https?:\/\/[^\s]+/)) {
+      const isWhatsApp = part.includes('wa.me') || part.includes('whatsapp');
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={
+            isWhatsApp
+              ? "inline-flex items-center gap-1.5 px-3 py-1.5 my-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md transition"
+              : "text-blue-400 hover:underline font-medium"
+          }
+        >
+          {isWhatsApp ? '💬 Falar com Especialista no WhatsApp' : part}
+        </a>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
+
 export const HelpDeskChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -137,7 +164,7 @@ export const HelpDeskChat: React.FC = () => {
                     ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-600/20'
                     : 'bg-slate-950/80 border border-slate-800 text-slate-200 rounded-tl-none shadow-md'
                 }`}>
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  <p className="whitespace-pre-wrap">{renderFormattedText(msg.text)}</p>
                   
                   <div className="flex items-center justify-between gap-4 text-[10px] opacity-70 border-t border-white/10 pt-1.5 font-mono">
                     <span>{msg.timestamp}</span>
