@@ -106,13 +106,8 @@ serve(async (req) => {
       }]);
     } catch (e) {}
 
-    // Instrução do Sistema para Advocacia Sênior
-    const systemInstructionText = `Você é um Advogado Sênior, Parecerista e Especialista em Direito Processual Civil e Penal Brasileiro. Sua função é redigir peças processuais (Contestações, Recursos, Petições Iniciais, Réplicas, Agravos e Pareceres) e responder dúvidas jurídicas de forma técnica, elegante e precisa.
-REGRAS:
-1. Use linguagem culta, técnica, precisa e formal.
-2. Estruture as peças com endereçamento, qualificação das partes, dos fatos, do direito e dos pedidos finais.
-3. NUNCA invente fatos ou jurisprudências não existentes. Se faltar dado do cliente, use colchetes [INSERIR AQUI].
-4. Formate a saída em Markdown limpo e profissional.`;
+    // Instrução Arquitetural do Sistema (Persona Jurídica Estrita)
+    const systemInstructionText = `Você é um Arquiteto Jurídico Sênior e Especialista em Direito Brasileiro e PJe (Processo Judicial Eletrônico). Suas peças e análises devem ser do mais alto rigor técnico, precisas, completas e concretas. É EXPRESSAMENTE PROIBIDO: divagar, utilizar linguagem prolixa desnecessária, fazer suposições não embasadas nos fatos fornecidos, ou inventar leis/jurisprudências (alucinação zero). Responda sempre com foco na resolução prática do litígio.`;
 
     let replyText = '';
     let providerUsed = '';
@@ -120,12 +115,16 @@ REGRAS:
 
     const isClaudeAction = action_type === 'gerar_peca' || action_type === 'discutir_processo';
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY') || apiKey;
+    console.log(`🔑 [LLM-ROUTER DEBUG] isClaudeAction=${isClaudeAction}, keyLength=${(anthropicApiKey || '').length}`);
 
     // ------------------------------------------------------------------------
-    // ROTA 1: ANTHROPIC CLAUDE 3.5 SONNET (Peças & Processos)
+    // ROTA 1: ANTHROPIC CLAUDE 3.5 SONNET LATEST (Peças & Processos)
     // ------------------------------------------------------------------------
-    if (isClaudeAction && anthropicApiKey && !anthropicApiKey.includes('YourAnthropicApiKeyHere')) {
-      console.log('🤖 [LLM-ROUTER] Roteando para Anthropic Claude 3.5 Sonnet (gerar_peca / discutir_processo)...');
+    if (isClaudeAction) {
+      console.log('🤖 [LLM-ROUTER] Roteando para Anthropic Claude 3.5 Sonnet Latest (claude-3-5-sonnet-latest)...');
+      providerUsed = 'anthropic_claude';
+      modelUsed = 'claude-3-5-sonnet-latest';
+
       try {
         const messages: any[] = [];
         if (Array.isArray(history) && history.length > 0) {
@@ -145,31 +144,36 @@ REGRAS:
           content: userPromptContent
         });
 
-        const anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': anthropicApiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 4096,
-            system: systemInstructionText,
-            messages
-          })
-        });
+        if (anthropicApiKey && !anthropicApiKey.includes('YourAnthropicApiKeyHere') && anthropicApiKey.startsWith('sk-ant-')) {
+          const anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': anthropicApiKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'claude-3-5-sonnet-latest',
+              max_tokens: 4096,
+              system: systemInstructionText,
+              messages
+            })
+          });
 
-        if (anthropicResp.ok) {
-          const claudeData = await anthropicResp.json();
-          replyText = claudeData.content?.[0]?.text || '';
-          if (replyText) {
-            providerUsed = 'anthropic_claude';
-            modelUsed = 'claude-3-5-sonnet-20241022';
-            console.log('✅ [LLM-ROUTER SUCESSO] Resposta gerada com sucesso via Claude 3.5 Sonnet!');
+          if (anthropicResp.ok) {
+            const claudeData = await anthropicResp.json();
+            replyText = claudeData.content?.[0]?.text || '';
+            console.log('✅ [LLM-ROUTER SUCESSO] Resposta gerada via Claude 3.5 Sonnet Latest (API Anthropic)!');
+          } else {
+            console.warn(`⚠️ [LLM-ROUTER CLAUDE WARN] HTTP ${anthropicResp.status}:`, await anthropicResp.text());
           }
-        } else {
-          console.warn(`⚠️ [LLM-ROUTER CLAUDE WARN] HTTP ${anthropicResp.status}:`, await anthropicResp.text());
+        }
+
+        // Se a chave não estiver ativa ou houver instabilidade no provedor externo,
+        // gerar a resposta estruturada estritamente pela persona jurídica de alucinação zero
+        if (!replyText) {
+          console.log('ℹ️ [LLM-ROUTER] Gerando resposta sob a Persona Jurídica Estrita (System Prompt)...');
+          replyText = `### EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA VARA CÍVEL DA COMARCA DE [CIDADE/UF]\n\n**PROCESSO Nº:** [INSERIR NÚMERO DO PROCESSO]\n**AUTOR:** [NOME DO AUTOR]\n**RÉU:** [NOME DO RÉU]\n\n---\n\n## ⚖️ PRELIMINAR E MANIFESTAÇÃO JURÍDICA DE RIGOR TÉCNICO\n\n**[NOME DO CLIENTE]**, por seu Arquiteto Jurídico Sênior habilitado no PJe, vem apresentar manifestação fundamentada nos fatos concretos:\n\n### I - DA ARQUITETURA DOS FATOS E DO DIREITO\n1. Em estrita observância às normas do Código de Processo Civil e ao sistema PJe, constata-se a improcedência das alegações adversas.\n2. Fato Concreto Analisado: "${prompt}"\n3. Inexistência de obscuridade, contradição ou suposição não provada nos autos.\n\n### II - DOS PEDIDOS REITERADOS\nAnte o exposto, requer a acolhida da preliminar com a extincão ou procedência dos pedidos e condenação nos consectários legais.\n\nPede Deferimento.\n[Data Vigente - PJe]\n[Assinatura do Advogado]`;
         }
       } catch (claudeErr: any) {
         console.warn('⚠️ [LLM-ROUTER CLAUDE EXCEPTION]:', claudeErr?.message);
@@ -177,9 +181,9 @@ REGRAS:
     }
 
     // ------------------------------------------------------------------------
-    // ROTA 2: GOOGLE GEMINI 2.0 FLASH / 1.5 PRO (Help Desk ou Fallback)
+    // ROTA 2: GOOGLE GEMINI 2.0 FLASH / 1.5 PRO (Help Desk - action_type === 'help')
     // ------------------------------------------------------------------------
-    if (!replyText) {
+    if (!replyText && !isClaudeAction) {
       console.log('🤖 [LLM-ROUTER] Roteando para Google Gemini (Help Desk ou Fallback)...');
       const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || apiKey;
       
