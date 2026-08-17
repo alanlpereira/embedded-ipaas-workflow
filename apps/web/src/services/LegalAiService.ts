@@ -68,7 +68,17 @@ export class LegalAiService {
           success: true,
           reply: data.reply,
           providerUsed: 'llm_router',
-          modelUsed: data.modelUsed || 'claude-3-5-sonnet-20241022',
+          modelUsed: data.modelUsed || 'claude-3-5-sonnet-latest',
+        };
+      }
+
+      // Se a Edge Function retornou uma mensagem explícita de limitação de plano (Plano Light ou limite de peças atingido)
+      if (data?.error && (data.error.includes('Plano Light') || data.error.includes('limite mensal') || data.error.includes('upgrade'))) {
+        return {
+          success: false,
+          reply: `⚠️ ${data.error}`,
+          providerUsed: 'llm_router',
+          error: data.error
         };
       }
 

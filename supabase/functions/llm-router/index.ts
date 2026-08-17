@@ -45,19 +45,29 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://auth.alp-nexus.com';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://wurfruxigmajgnqsyleq.supabase.co';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cmZydXhpZ21hamducXN5bGVxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTk2MjQzNywiZXhwIjoyMTAxNTM4NDM3fQ.01d3f9690e1991ec95f8ff81ebf9dc9d42905f823ce03e602bd77a070bb7fe1f';
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Resolvendo User ID via JWT
+    // Resolvendo User ID via JWT ou Body
     let targetUserId = userId || user_id;
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.replace('Bearer ', '').trim();
+        // 1. Tentar resolver via Supabase Auth Admin
         const { data: userData } = await supabaseAdmin.auth.getUser(token);
         if (userData?.user?.id) {
           targetUserId = userData.user.id;
+        } else {
+          // 2. Extrair 'sub' diretamente do payload do token JWT se o custom domain diferir
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            if (payload?.sub) {
+              targetUserId = payload.sub;
+            }
+          }
         }
       } catch (authErr) {
         console.warn('⚠️ Erro ao resolver token JWT:', authErr);
@@ -116,6 +126,52 @@ serve(async (req) => {
     const isClaudeAction = action_type === 'gerar_peca' || action_type === 'discutir_processo' || action_type === 'generate' || action_type === 'generate_peca';
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY') || apiKey;
     console.log(`🔑 [LLM-ROUTER DEBUG] isClaudeAction=${isClaudeAction}, keyLength=${(anthropicApiKey || '').length}`);
+
+    // 🛡️ VERIFICAÇÃO ESTRITA DE PLANO E LIMITE DE IA (Light: 0, Pro: 10, Master: 50, Ultra: 200)
+    if (isClaudeAction && targetUserId && targetUserId !== 'client_anonymous') {
+      try {
+        const { data: userProf, error: pErr } = await supabaseAdmin
+          .from('profiles')
+          .select('subscription_plan, subscription_status, ai_monthly_limit, ai_monthly_usage, manual_status_override')
+          .eq('id', targetUserId)
+          .single();
+
+        console.log(`🛡️ [LLM-ROUTER PROF DEBUG] TargetUser: ${targetUserId}, Plan: ${userProf?.subscription_plan}, Limit: ${userProf?.ai_monthly_limit}, Err: ${pErr?.message}`);
+
+        if (userProf) {
+          const isOverridden = Boolean(userProf.manual_status_override);
+          const planName = userProf.subscription_plan || 'Pro';
+          const maxLimit = typeof userProf.ai_monthly_limit === 'number' ? userProf.ai_monthly_limit : 10;
+          const currentUsage = userProf.ai_monthly_usage || 0;
+
+          // 1. Bloqueio para Plano Light ou Limite de IA igual a 0 (Sem IA)
+          if ((planName === 'Light' || maxLimit === 0) && !isOverridden) {
+            console.warn(`🛡️ [LLM-ROUTER BLOQUEIO PLANO LIGHT] Usuário ${targetUserId} sem limite de IA (Plano Light) tentou gerar peça.`);
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'O Plano Light (R$ 49,90/mês) inclui apenas automações e consulta PJe, sem geração de peças por Inteligência Artificial. Faça o upgrade para o Plano Pro (10 peças), Master (50 peças) ou Ultra (200 peças) para desbloquear a IA.'
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // 2. Bloqueio por Consumo que excedeu o Limite do Plano
+          if (currentUsage >= maxLimit && !isOverridden) {
+            console.warn(`🛡️ [LLM-ROUTER BLOQUEIO LIMITE ATINGIDO] Usuário ${targetUserId} atingiu o limite (${currentUsage}/${maxLimit}).`);
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Você atingiu o limite mensal de geração de peças por IA do seu Plano ${planName} (${currentUsage}/${maxLimit} peças). Faça o upgrade para o Plano Master (50 peças) ou Ultra (200 peças) para continuar gerando.`
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      } catch (profErr: any) {
+        console.warn('⚠️ [LLM-ROUTER PROF CHECK WARN]:', profErr?.message);
+      }
+    }
 
     // ------------------------------------------------------------------------
     // ROTA 1: ANTHROPIC CLAUDE 3.5 SONNET LATEST (Peças & Processos)

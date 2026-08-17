@@ -828,7 +828,12 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                     <td style={{ padding: '14px 16px' }}>
                       <select
                         value={user.subscription_plan || 'Pro'}
-                        onChange={(e) => handleUpdateUserField(user.id, 'subscription_plan', e.target.value)}
+                        onChange={(e) => {
+                          const newPlan = e.target.value;
+                          const newLimit = newPlan === 'Light' ? 0 : (newPlan === 'Pro' ? 10 : (newPlan === 'Master' ? 50 : (newPlan === 'Ultra' ? 200 : 1000)));
+                          handleUpdateUserField(user.id, 'subscription_plan', newPlan);
+                          handleUpdateUserField(user.id, 'ai_monthly_limit', newLimit);
+                        }}
                         style={{
                           padding: '4px 8px',
                           borderRadius: '6px',
@@ -840,13 +845,11 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                           cursor: 'pointer'
                         }}
                       >
-                        <option value="Pro">⚖️ Plano Pro (R$ 149)</option>
-                        <option value="Enterprise">🏢 Enterprise</option>
-                        <option value="LegalOps">⚖️ Legal Ops (500k)</option>
-                        <option value="Synapse">✨ Synapse (1M)</option>
-                        <option value="Axiom">⚡ Axiom (200k)</option>
-                        <option value="Kinex">🔥 Kinex (50k)</option>
-                        <option value="Forge">🔨 Forge (10k)</option>
+                        <option value="Light">💡 Light (R$ 49,90 - 0 peças)</option>
+                        <option value="Pro">⚖️ Pro (R$ 79,90 - 10 peças)</option>
+                        <option value="Master">⭐ Master (R$ 99,90 - 50 peças)</option>
+                        <option value="Ultra">🚀 Ultra (R$ 109,90 - 200 peças)</option>
+                        <option value="Enterprise">🏢 Enterprise (Custom)</option>
                       </select>
                       {user.custom_plan_price ? (
                         <div style={{ fontSize: '10px', color: '#f59e0b', fontWeight: 700, marginTop: '2px' }}>Custom: R$ {user.custom_plan_price}/mês</div>

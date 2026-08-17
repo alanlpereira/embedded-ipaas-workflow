@@ -53,7 +53,7 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { action, target_user_id, manual_status_override, subscription_status, custom_plan_price, ai_monthly_limit } = body;
+    const { action, target_user_id, manual_status_override, subscription_status, subscription_plan, custom_plan_price, ai_monthly_limit, ai_monthly_usage } = body;
 
     if (!target_user_id) {
       return new Response(
@@ -78,12 +78,14 @@ serve(async (req) => {
       );
 
     } else if (action === 'update_profile_override' || action === 'update_subscription_price') {
-      // Atualizar perfil via RPC admin_update_user_profile ou Supabase Client
+      // Atualizar perfil via Supabase Client
       const updateData: Record<string, any> = {};
       if (typeof manual_status_override === 'boolean') updateData.manual_status_override = manual_status_override;
       if (subscription_status !== undefined) updateData.subscription_status = subscription_status;
+      if (subscription_plan !== undefined) updateData.subscription_plan = subscription_plan;
       if (custom_plan_price !== undefined) updateData.custom_plan_price = custom_plan_price;
       if (ai_monthly_limit !== undefined) updateData.ai_monthly_limit = ai_monthly_limit;
+      if (ai_monthly_usage !== undefined) updateData.ai_monthly_usage = ai_monthly_usage;
 
       const { data: updatedProfile, error: updateErr } = await supabaseAdmin
         .from('profiles')

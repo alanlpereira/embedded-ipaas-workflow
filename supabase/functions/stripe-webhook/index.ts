@@ -6,42 +6,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
 };
 
-// Mapeamento de Limite de IA por Plano / Price ID
+// Mapeamento Estrito de Limites de IA por Plano Oficial (Light: 0, Pro: 10, Master: 50, Ultra: 200)
 function getPlanLimit(planName: string, priceId?: string): { plan: string; limit: number } {
   const p = (planName || '').toUpperCase();
   const pid = (priceId || '').toLowerCase();
 
   const lightPrice = (Deno.env.get('STRIPE_PRICE_ID_LIGHT') || '').toLowerCase();
   const proPrice = (Deno.env.get('STRIPE_PRICE_ID_PRO') || '').toLowerCase();
-  const enterprisePrice = (Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') || '').toLowerCase();
+  const masterPrice = (Deno.env.get('STRIPE_PRICE_ID_MASTER') || '').toLowerCase();
+  const ultraPrice = (Deno.env.get('STRIPE_PRICE_ID_ULTRA') || '').toLowerCase();
 
-  if (p.includes('ENTERPRISE') || pid === enterprisePrice) {
-    return { plan: 'Enterprise', limit: 100000 };
+  if (p.includes('ULTRA') || pid === ultraPrice) {
+    return { plan: 'Ultra', limit: 200 };
   }
-  if (p.includes('LEGALOPS') || p.includes('LEGAL OPS')) {
-    return { plan: 'LegalOps', limit: 500000 };
-  }
-  if (p.includes('SYNAPSE')) {
-    return { plan: 'Synapse', limit: 1000000 };
-  }
-  if (p.includes('AXIOM')) {
-    return { plan: 'Axiom', limit: 200000 };
-  }
-  if (p.includes('KINEX')) {
-    return { plan: 'Kinex', limit: 50000 };
-  }
-  if (p.includes('FORGE')) {
-    return { plan: 'Forge', limit: 10000 };
+  if (p.includes('MASTER') || pid === masterPrice) {
+    return { plan: 'Master', limit: 50 };
   }
   if (p.includes('PRO') || pid === proPrice) {
-    return { plan: 'Pro', limit: 5000 };
+    return { plan: 'Pro', limit: 10 };
   }
   if (p.includes('LIGHT') || pid === lightPrice) {
-    return { plan: 'Light', limit: 500 };
+    return { plan: 'Light', limit: 0 };
+  }
+  if (p.includes('ENTERPRISE')) {
+    return { plan: 'Enterprise', limit: 1000 };
   }
 
-  // Padrão para assinaturas jurídicas ativas sem nome de plano explícito: Plano Pro (5.000 limite)
-  return { plan: 'Pro', limit: 5000 };
+  // Padrão de entrada para novos assinantes: Plano Pro (10 peças)
+  return { plan: 'Pro', limit: 10 };
 }
 
 serve(async (req) => {
