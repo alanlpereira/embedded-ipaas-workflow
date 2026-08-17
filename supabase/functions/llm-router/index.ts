@@ -181,56 +181,141 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------------------
-    // ROTA 2: GOOGLE GEMINI 2.0 FLASH / 1.5 PRO (Help Desk - action_type === 'help')
+    // ROTA 2: GOOGLE GEMINI (Help Desk - action_type === 'help' ou 'helpdesk' ou RAG)
     // ------------------------------------------------------------------------
     if (!replyText && !isClaudeAction) {
-      console.log('🤖 [LLM-ROUTER] Roteando para Google Gemini (Help Desk ou Fallback)...');
+      console.log('🤖 [LLM-ROUTER RAG] Roteando para Help Desk RAG...');
       const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || apiKey;
-      
+      let retrievedContextText = '';
+
+      // 1. Tentar busca vetorial via RPC se geminiApiKey estiver disponível
       if (geminiApiKey && !geminiApiKey.includes('YourGeminiApiKeyHere')) {
-        const contents: any[] = [];
-        if (Array.isArray(history) && history.length > 0) {
-          history.forEach((h: any) => {
-            if (h.role && h.text) {
-              contents.push({
-                role: h.role === 'user' ? 'user' : 'model',
-                parts: [{ text: h.text }]
-              });
-            }
+        try {
+          const embResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'models/text-embedding-004',
+              content: { parts: [{ text: prompt || 'Como resetar senha' }] }
+            })
           });
-        }
 
-        contents.push({
-          role: 'user',
-          parts: [{ text: prompt || 'Responda à solicitação jurídica do usuário.' }]
-        });
+          if (embResp.ok) {
+            const embData = await embResp.json();
+            const queryVector = embData.embedding?.values || [];
 
-        const geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-        for (const mName of geminiModels) {
-          try {
-            const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${geminiApiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemInstructionText }] },
-                contents
-              })
-            });
+            if (Array.isArray(queryVector) && queryVector.length === 768) {
+              console.log('🔍 [LLM-ROUTER RAG] Vetor de busca gerado (768d). Executando RPC match_knowledge_base...');
+              // 2. Executar RPC match_knowledge_base (threshold: 0.45, count: 4)
+              const { data: matchedDocs, error: rpcErr } = await supabaseAdmin.rpc('match_knowledge_base', {
+                query_embedding: JSON.stringify(queryVector),
+                match_threshold: 0.45,
+                match_count: 4
+              });
 
-            if (geminiResp.ok) {
-              const gData = await geminiResp.json();
-              replyText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              if (replyText) {
-                providerUsed = 'google_gemini';
-                modelUsed = mName;
-                console.log(`✅ [LLM-ROUTER SUCESSO] Resposta gerada via Google Gemini (${mName})!`);
-                break;
+              if (!rpcErr && Array.isArray(matchedDocs) && matchedDocs.length > 0) {
+                retrievedContextText = matchedDocs.map((d: any) => `[Manual: ${d.title}]\n${d.content}`).join('\n\n');
+                console.log(`✅ [LLM-ROUTER RAG] ${matchedDocs.length} documento(s) relevante(s) recuperados da knowledge_base via pgvector (threshold 0.45)!`);
               }
             }
-          } catch (gErr: any) {
-            console.warn(`⚠️ [LLM-ROUTER GEMINI EXCEPTION] Modelo ${mName}:`, gErr?.message);
+          }
+        } catch (ragErr: any) {
+          console.warn('⚠️ [LLM-ROUTER RAG BUSCA EXCEPTION]:', ragErr?.message);
+        }
+      }
+
+      // 2. Busca de Palavras-Chave de Tópicos Válidos se a busca por vetor não encontrar
+      if (!retrievedContextText && prompt) {
+        const topicKeywords = ['login', 'cadastro', 'perfil', 'onboarding', 'oab', 'master', 'member', 'assinatura', 'plano', 'billing', 'stripe', 'preço', 'valor', 'peça', 'peças', 'claude', 'anthropic', 'suporte', 'ajuda'];
+        const promptLower = prompt.toLowerCase();
+        const hasTopicMatch = topicKeywords.some(tk => promptLower.includes(tk));
+
+        if (hasTopicMatch) {
+          try {
+            const { data: allDocs } = await supabaseAdmin
+              .from('knowledge_base')
+              .select('title, content');
+
+            if (Array.isArray(allDocs) && allDocs.length > 0) {
+              const matchedDocs = allDocs.filter((d: any) => {
+                const titleLower = (d.title || '').toLowerCase();
+                const contentLower = (d.content || '').toLowerCase();
+                return topicKeywords.some(tk => promptLower.includes(tk) && (titleLower.includes(tk) || contentLower.includes(tk)));
+              });
+
+              if (matchedDocs.length > 0) {
+                retrievedContextText = matchedDocs.map((d: any) => `[Manual: ${d.title}]\n${d.content}`).join('\n\n');
+                console.log(`ℹ️ [LLM-ROUTER HYBRID RAG] ${matchedDocs.length} manual(is) de tópico recuperado(s)!`);
+              }
+            }
+          } catch (kwErr: any) {
+            console.warn('⚠️ [LLM-ROUTER HYBRID RAG WARN]:', kwErr?.message);
           }
         }
+      }
+
+      const HUMAN_FALLBACK_TEXT = "Para resolver essa questão com precisão, vou precisar transferir você para o nosso atendimento corporativo. Por favor, clique no link a seguir para falar com nosso especialista: https://wa.me/5532988654825";
+
+      // 3. Se temos manuais recuperados:
+      if (retrievedContextText) {
+        if (geminiApiKey && !geminiApiKey.includes('YourGeminiApiKeyHere')) {
+          let ragSystemInstruction = `Você é o suporte técnico do aplicativo Synapse. Responda à dúvida do usuário baseando-se EXCLUSIVAMENTE nos manuais fornecidos a seguir. Seja direto e guie o usuário pelas funcionalidades descritas. REGRA ABSOLUTA: Se a resposta não estiver explicitamente nos manuais, ou se o problema for complexo e exigir intervenção técnica/financeira, É PROIBIDO supor, delirar ou divagar. Você DEVE responder exatamente com esta frase: '${HUMAN_FALLBACK_TEXT}'. Manuais:\n${retrievedContextText}`;
+
+          const contents: any[] = [];
+          if (Array.isArray(history) && history.length > 0) {
+            history.forEach((h: any) => {
+              if (h.role && h.text) {
+                contents.push({
+                  role: h.role === 'user' ? 'user' : 'model',
+                  parts: [{ text: h.text }]
+                });
+              }
+            });
+          }
+
+          contents.push({
+            role: 'user',
+            parts: [{ text: prompt || 'Como reseto a minha senha?' }]
+          });
+
+          const geminiModels = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+          for (const mName of geminiModels) {
+            try {
+              const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  system_instruction: { parts: [{ text: ragSystemInstruction }] },
+                  contents
+                })
+              });
+
+              if (geminiResp.ok) {
+                const gData = await geminiResp.json();
+                replyText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (replyText) {
+                  providerUsed = 'google_gemini_rag';
+                  modelUsed = mName;
+                  console.log(`✅ [LLM-ROUTER RAG SUCESSO] Resposta do Help Desk gerada via Gemini (${mName})!`);
+                  break;
+                }
+              }
+            } catch (gErr: any) {
+              console.warn(`⚠️ [LLM-ROUTER GEMINI EXCEPTION] Modelo ${mName}:`, gErr?.message);
+            }
+          }
+        }
+
+        if (!replyText) {
+          replyText = `Com base na Base de Conhecimento RAG do Synapse:\n\n${retrievedContextText}`;
+          providerUsed = 'google_gemini_rag';
+          modelUsed = 'gemini-1.5-flash';
+        }
+      } else {
+        // Se nenhum manual for encontrado (pergunta impossível / fora de escopo): Transbordo Humano WhatsApp
+        replyText = HUMAN_FALLBACK_TEXT;
+        providerUsed = 'google_gemini_rag';
+        modelUsed = 'gemini-1.5-flash';
       }
     }
 
