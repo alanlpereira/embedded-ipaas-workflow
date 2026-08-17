@@ -34,6 +34,7 @@ import { OnboardingPage } from './components/OnboardingPage';
 import { SubscriptionSyncPage } from './components/SubscriptionSyncPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
+import { AdminKnowledgePage } from './components/AdminKnowledgePage';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
 import { supabase } from './lib/supabase';
 import { getApiUrl } from './lib/api';
@@ -1446,6 +1447,24 @@ function WorkflowAppContent() {
         }}
       />
     );
+  }
+
+  const isKnowledgeAdminEntry = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/knowledge');
+
+  if (isKnowledgeAdminEntry) {
+    if (!currentProfile) {
+      return (
+        <LoginPage
+          onLoginSuccess={(profile) => setCurrentProfile(profile)}
+        />
+      );
+    }
+    if (!isMasterRole) {
+      console.warn('⚠️ [RBAC RAG] Acesso negado a /admin/knowledge para o Member. Redirecionando para /juridico...');
+      window.location.href = '/juridico';
+      return null;
+    }
+    return <AdminKnowledgePage />;
   }
 
   // PASSO 1 FALLBACK: Se não tem sessão no Supabase ou perfil -> Tela de Login
