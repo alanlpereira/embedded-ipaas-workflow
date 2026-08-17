@@ -178,7 +178,7 @@ serve(async (req) => {
       await supabaseAdmin
         .from('profiles')
         .update({
-          subscription_plan: 'Free',
+          subscription_plan: 'Light',
           subscription_status: 'canceled',
           ai_monthly_limit: 0,
           updated_at: new Date().toISOString()
