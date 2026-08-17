@@ -35,6 +35,7 @@ import { SubscriptionSyncPage } from './components/SubscriptionSyncPage';
 import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { AdminKnowledgePage } from './components/AdminKnowledgePage';
+import { HelpDeskChat } from './components/HelpDeskChat';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
 import { supabase } from './lib/supabase';
 import { getApiUrl } from './lib/api';
@@ -193,6 +194,7 @@ function WorkflowAppContent() {
       const path = window.location.pathname;
       const hash = window.location.hash;
       if (path.startsWith('/admin/knowledge')) return 'knowledge';
+      if (path.startsWith('/ajuda') || path.startsWith('/help') || path.startsWith('/suporte')) return 'helpdesk';
       // 🏛️ Módulo Jurídico (/juridico, /portal, /oab/) -> Dashboard de Processos
       if (path.startsWith('/juridico') || hash.includes('juridico') || path.startsWith('/portal') || path.startsWith('/oab/')) return 'dashboard';
       if (path.startsWith('/pricing') || hash.includes('pricing')) return 'pricing';
@@ -1653,6 +1655,10 @@ function WorkflowAppContent() {
 
       {currentTab === 'knowledge' && (
         <AdminKnowledgePage />
+      )}
+
+      {currentTab === 'helpdesk' && (
+        <HelpDeskChat />
       )}
 
       {currentTab === 'tenantAdmin' && (

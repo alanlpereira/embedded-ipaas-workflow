@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { CollaboratorInfo } from '../collaboration/useYjsCollaboration';
 import { EditionBadge } from './EditionBadge';
 
-export type ViewTab = 'dashboard' | 'copilot' | 'clients' | 'profile' | 'pricing' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions' | 'dashboard_flows' | 'knowledge';
+export type ViewTab = 'dashboard' | 'copilot' | 'clients' | 'profile' | 'pricing' | 'templates' | 'editor' | 'team' | 'audit' | 'agency' | 'masterAdmin' | 'tenantAdmin' | 'integrations' | 'settings' | 'executions' | 'dashboard_flows' | 'knowledge' | 'helpdesk';
 
 interface NavbarProps {
   currentProfile: Profile | null;
