@@ -1485,16 +1485,8 @@ function WorkflowAppContent() {
     );
   }
 
-  // PASSO 3: O role é Master? (Direciona para /juridico no Módulo Jurídico e / no IPaaS)
-  if (isMasterRole) {
-    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile' && currentTab !== 'helpdesk' && currentTab !== 'knowledge') {
-      setCurrentTab('dashboard');
-    } else if (isRootEntry && currentTab === 'dashboard') {
-      setCurrentTab('editor');
-    }
-  } else {
-    // É Member (Usuário Advogado Padrão)
-
+  // PASSO 3: O role é Member? (Verifica OAB e Assinatura)
+  if (!isMasterRole) {
     // PASSO 4: O role é Member e falta oab_number? (Direciona para /onboarding)
     if (!hasOab) {
       return (
@@ -1516,11 +1508,6 @@ function WorkflowAppContent() {
           onNavigateToSignup={() => {}}
         />
       );
-    }
-
-    // PASSO 6: O role é Member, tem OAB, e a assinatura está ativa? (Direciona para /juridico - Portal PJe)
-    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile' && currentTab !== 'helpdesk') {
-      setCurrentTab('dashboard');
     }
   }
 
