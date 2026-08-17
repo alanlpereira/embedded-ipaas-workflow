@@ -1519,11 +1519,15 @@ function WorkflowAppContent() {
   }
 
   // RBAC Hard Redirect para abas exclusivas do SuperAdmin
-  const superAdminOnlyTabs: ViewTab[] = ['masterAdmin', 'tenantAdmin', 'agency', 'audit'];
+  const superAdminOnlyTabs: ViewTab[] = ['masterAdmin', 'tenantAdmin', 'agency', 'audit', 'knowledge'];
   if (!isMasterRole && superAdminOnlyTabs.includes(currentTab)) {
     console.warn(`🛡️ [RBAC HARD REDIRECT] Acesso negado à aba '${currentTab}' para o Member. Redirecionando para 'dashboard'...`);
     setCurrentTab('dashboard');
     window.history.replaceState(null, '', '/juridico');
+  }
+
+  if (isKnowledgeAdminEntry && currentTab !== 'knowledge' && isMasterRole) {
+    setCurrentTab('knowledge');
   }
 
   // 🛡️ PASSO 5: LIBERAR /DASHBOARD E LAYOUT PRINCIPAL DO APP
@@ -1644,6 +1648,10 @@ function WorkflowAppContent() {
         <MasterAdminPage
           currentProfile={currentProfile}
         />
+      )}
+
+      {currentTab === 'knowledge' && (
+        <AdminKnowledgePage />
       )}
 
       {currentTab === 'tenantAdmin' && (
