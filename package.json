@@ -6,6 +6,8 @@
     "setup:local": "bash setup-local.sh",
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "build:pages": "turbo run build",
+    "deploy:pages": "npx wrangler pages deploy apps/web/dist --project-name=synapse-legal-ipaas",
     "test": "turbo run test",
     "test:watch": "pnpm --filter @ipaas/web test:watch",
     "lint": "turbo run lint",
