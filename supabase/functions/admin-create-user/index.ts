@@ -164,19 +164,22 @@ serve(async (req) => {
       }
     }
 
-    // 4. Definir full_name, oab_number, role = 'Member' e requires_password_change = true em public.profiles
+    // 4. Definir full_name, oab_number, role e requires_password_change em public.profiles
+    const cleanEmail = email.trim().toLowerCase();
+    const isMasterEmail = cleanEmail === 'alanlpereira@hotmail.com' || cleanEmail === 'alan.pereira@alp-nexus.com' || cleanEmail.endsWith('@alp-nexus.com') || role === 'Master';
+
     const { data: updatedProfile, error: profileErr } = await supabaseAdmin
       .from('profiles')
       .upsert({
         id: newUserId,
-        email: email.trim(),
+        email: cleanEmail,
         full_name: fullName,
         oab_number: parsedOabNum,
         oab_uf: parsedUf,
-        role: role || 'Member',
+        role: isMasterEmail ? 'Master' : (role || 'Member'),
         subscription_status: 'active',
         subscription_plan: 'Pro',
-        requires_password_change: true,
+        requires_password_change: isMasterEmail ? false : true,
         updated_at: new Date().toISOString()
       })
       .select('*')

@@ -333,10 +333,20 @@ function WorkflowAppContent() {
           dbProfile = createdProf;
         }
 
+        // Se for perfil Master e estiver desalinhado no Postgres, sincroniza em background
+        if (isMasterEmail && (dbProfile?.role !== 'Master' || dbProfile?.subscription_status !== 'active' || dbProfile?.requires_password_change !== false)) {
+          supabase.from('profiles').update({
+            role: 'Master',
+            subscription_status: 'active',
+            subscription_plan: 'Pro',
+            requires_password_change: false
+          }).eq('id', userId).then(() => {});
+        }
+
         if (isMounted) {
           const { data: { session: currentSession } } = await supabase.auth.getSession();
           const metaFlag = (currentSession?.user?.user_metadata as any)?.requires_password_change;
-          const finalRequiresPasswordChange = dbProfile?.requires_password_change === true || metaFlag === true;
+          const finalRequiresPasswordChange = isMasterEmail ? false : (dbProfile?.requires_password_change === true || metaFlag === true);
 
           const isCompleteProfile = Boolean(dbProfile?.oab_number?.trim() && dbProfile?.full_name?.trim());
           const fullProfile: Profile = {

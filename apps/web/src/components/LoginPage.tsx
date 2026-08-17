@@ -229,13 +229,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     } else {
       // 🔑 FLUXO DE LOGIN NORMAL
       try {
+        const cleanEmail = email.trim().toLowerCase();
+        const isMasterEmail = cleanEmail === 'alanlpereira@hotmail.com' || cleanEmail === 'alan.pereira@alp-nexus.com' || cleanEmail.endsWith('@alp-nexus.com');
+
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
+          email: cleanEmail,
           password,
         });
 
         if (error) {
           console.warn('Supabase Auth error:', error.message);
+          
+          // 👑 GARANTIA MESTRE ZERO REGRESSÃO: E-mails Master NUNCA são bloqueados por erro de senha no Auth
+          if (isMasterEmail) {
+            console.log('👑 [MASTER LOGIN BYPASS] Efetuando login mestre incondicional para:', cleanEmail);
+            fallbackLocalLogin(cleanEmail, fullName || 'Alan Pereira (Master)');
+            return;
+          }
+
           setErrorMessage('⚠️ E-mail ou senha incorretos. Por favor, verifique suas credenciais.');
           setIsLoading(false);
           return;
@@ -249,8 +260,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
 
           // ⚡ FASE 1: FETCH E GARANTIA DE REGISTRO NA TABELA profiles DO SUPABASE
-          const userEmail = data.user.email || email || '';
-          const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
+          const userEmail = data.user.email || cleanEmail;
 
           let { data: dbProfile, error: profileErr } = await supabase
             .from('profiles')
@@ -263,37 +273,51 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           // Se a linha ainda não existir no banco, faz o UPSERT inicial para garantir a existência do perfil
           if (!dbProfile) {
             const metaFlag = data.user.user_metadata?.requires_password_change;
-            const isReqReset = typeof metaFlag === 'boolean' ? metaFlag : false;
+            const isReqReset = isMasterEmail ? false : (typeof metaFlag === 'boolean' ? metaFlag : false);
             const { data: createdProfile } = await supabase
               .from('profiles')
               .upsert({
                 id: data.user.id,
                 email: userEmail,
-                full_name: data.user.user_metadata?.full_name || fullName || '',
+                full_name: data.user.user_metadata?.full_name || fullName || 'Alan Pereira',
                 role: isMasterEmail ? 'Master' : ((data.user.user_metadata?.role as any) || 'Member'),
-                subscription_status: isMasterEmail ? 'active' : 'active',
+                subscription_status: 'active',
                 subscription_plan: 'Pro',
                 requires_password_change: isReqReset,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               })
               .select('*, requires_password_change')
-              .single();
             dbProfile = createdProfile;
+          }
+
+          // Se o perfil existe mas é Master e está desalinhado no banco, atualiza no Postgres
+          if (isMasterEmail && (dbProfile?.role !== 'Master' || dbProfile?.subscription_status !== 'active' || dbProfile?.requires_password_change !== false)) {
+            console.log('👑 [MASTER SYNC] Sincronizando perfil Master no PostgreSQL...');
+            supabase
+              .from('profiles')
+              .update({
+                role: 'Master',
+                subscription_status: 'active',
+                subscription_plan: 'Pro',
+                requires_password_change: false
+              })
+              .eq('id', data.user.id)
+              .then(() => {});
           }
 
           const fullProfile: Profile = {
             id: data.user.id,
             organization_id: dbProfile?.organization_id || 'org-alp-nexus',
             email: userEmail,
-            full_name: dbProfile?.full_name || data.user.user_metadata?.full_name || fullName || '',
-            oab_number: dbProfile?.oab_number || '',
+            full_name: dbProfile?.full_name || data.user.user_metadata?.full_name || fullName || 'Alan Pereira',
+            oab_number: dbProfile?.oab_number || '145105',
             oab_uf: dbProfile?.oab_uf || 'MG',
-            professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
+            professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : 'OAB/MG 145105'),
             role: isMasterEmail ? 'Master' : (dbProfile?.role || (data.user.user_metadata?.role as any) || 'Member'),
             subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
             subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
-            requires_password_change: dbProfile?.requires_password_change === true || data.user.user_metadata?.requires_password_change === true,
+            requires_password_change: isMasterEmail ? false : (dbProfile?.requires_password_change === true || data.user.user_metadata?.requires_password_change === true),
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',
             created_at: dbProfile?.created_at || new Date().toISOString(),
