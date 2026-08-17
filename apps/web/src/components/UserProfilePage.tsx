@@ -102,6 +102,13 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
     showToast('🗑️ Foto de perfil removida.');
   };
 
+  const isMaster = Boolean(
+    currentProfile?.role === 'Master' ||
+    currentProfile?.email === 'alanlpereira@hotmail.com' ||
+    currentProfile?.email === 'alan.pereira@alp-nexus.com' ||
+    (currentProfile?.email && currentProfile.email.includes('master'))
+  );
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -116,23 +123,29 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
         return;
       }
 
-      const cleanOab = oabNumber.trim();
-      const cleanUf = oabUf.trim().toUpperCase();
+      const cleanOab = (isMaster ? oabNumber : (currentProfile?.oab_number || oabNumber)).trim();
+      const cleanUf = (isMaster ? oabUf : (currentProfile?.oab_uf || oabUf)).trim().toUpperCase();
       const cleanName = fullName.trim();
       const cleanPhone = phone.trim();
+
+      const updatePayload: Record<string, any> = {
+        full_name: cleanName,
+        phone: cleanPhone,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      };
+
+      // 🔐 Apenas o usuário Master pode alterar OAB e UF
+      if (isMaster) {
+        updatePayload.oab_number = cleanOab;
+        updatePayload.oab_uf = cleanUf;
+        updatePayload.professional_id = cleanOab ? `OAB/${cleanUf} ${cleanOab}` : '';
+      }
 
       // Persistir no Supabase public.profiles (incluindo avatar_url)
       const { data: updatedProfile, error } = await supabase
         .from('profiles')
-        .update({
-          full_name: cleanName,
-          oab_number: cleanOab,
-          oab_uf: cleanUf,
-          professional_id: cleanOab ? `OAB/${cleanUf} ${cleanOab}` : '',
-          phone: cleanPhone,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', targetUserId)
         .select('*')
         .single();
@@ -416,62 +429,73 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
           </div>
 
           {/* Grid: Número OAB + UF */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
-                Número da OAB *
-              </label>
-              <div style={{ position: 'relative' }}>
-                <FileBadge size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                <input
-                  type="text"
-                  required
-                  value={oabNumber}
-                  onChange={(e) => setOabNumber(e.target.value)}
-                  placeholder="123456"
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px 12px 42px',
-                    background: 'rgba(15, 23, 42, 0.8)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '10px',
-                    color: '#ffffff',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
+                  Número da OAB * {!isMaster && <span style={{ color: '#94a3b8', fontWeight: 400 }}>(Estático)</span>}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <FileBadge size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                  <input
+                    type="text"
+                    required
+                    readOnly={!isMaster}
+                    disabled={!isMaster}
+                    value={oabNumber}
+                    onChange={(e) => isMaster && setOabNumber(e.target.value)}
+                    placeholder="123456"
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px 12px 42px',
+                      background: isMaster ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '10px',
+                      color: isMaster ? '#ffffff' : '#94a3b8',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      cursor: isMaster ? 'text' : 'not-allowed'
+                    }}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
-                UF *
-              </label>
-              <div style={{ position: 'relative' }}>
-                <MapPin size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                <select
-                  value={oabUf}
-                  onChange={(e) => setOabUf(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px 12px 42px',
-                    background: 'rgba(15, 23, 42, 0.8)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '10px',
-                    color: '#ffffff',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map((uf) => (
-                    <option key={uf} value={uf} style={{ background: '#0f172a', color: '#ffffff' }}>{uf}</option>
-                  ))}
-                </select>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
+                  UF *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <MapPin size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                  <select
+                    disabled={!isMaster}
+                    value={oabUf}
+                    onChange={(e) => isMaster && setOabUf(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px 12px 42px',
+                      background: isMaster ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '10px',
+                      color: isMaster ? '#ffffff' : '#94a3b8',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      cursor: isMaster ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map((uf) => (
+                      <option key={uf} value={uf} style={{ background: '#0f172a', color: '#ffffff' }}>{uf}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
+            {!isMaster && (
+              <span style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', display: 'block' }}>
+                🔒 O número e a UF da OAB são estáticos e definidos na assinatura. Somente o usuário Master pode alterar a OAB.
+              </span>
+            )}
           </div>
 
           {/* Telefone / WhatsApp */}

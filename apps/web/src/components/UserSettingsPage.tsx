@@ -61,20 +61,35 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
     }
   };
 
+  const isMaster = Boolean(
+    currentProfile?.role === 'Master' ||
+    currentProfile?.email === 'alanlpereira@hotmail.com' ||
+    currentProfile?.email === 'alan.pereira@alp-nexus.com' ||
+    (currentProfile?.email && currentProfile.email.includes('master'))
+  );
+
   // Salvar Perfil
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    const finalOab = (isMaster ? oabNumber : (currentProfile?.oab_number || oabNumber)).trim();
+    const finalUf = (isMaster ? oabUf : (currentProfile?.oab_uf || oabUf)).trim().toUpperCase();
+
     const updatedData: Partial<Profile> = {
       full_name: fullName,
       email,
       phone,
-      professional_id: `OAB/${oabUf} ${oabNumber}`,
+      professional_id: `OAB/${finalUf} ${finalOab}`,
       avatar_url: avatarUrl,
     };
 
-    // Salvar também no LocalStorage para persistência rápida de sessão
-    localStorage.setItem('synapse_advocate_oab', oabNumber);
-    localStorage.setItem('synapse_advocate_uf', oabUf);
+    if (isMaster) {
+      updatedData.oab_number = finalOab;
+      updatedData.oab_uf = finalUf;
+
+      // Salvar também no LocalStorage para persistência rápida de sessão
+      localStorage.setItem('synapse_advocate_oab', finalOab);
+      localStorage.setItem('synapse_advocate_uf', finalUf);
+    }
     localStorage.setItem('synapse_advocate_phone', phone);
     localStorage.setItem('synapse_advocate_email', email);
 
@@ -376,27 +391,35 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Número da OAB
+                Número da OAB {!isMaster && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Estático)</span>}
               </label>
               <div style={{ position: 'relative' }}>
                 <BadgeCheck size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
+                  readOnly={!isMaster}
+                  disabled={!isMaster}
                   value={oabNumber}
-                  onChange={(e) => setOabNumber(e.target.value)}
+                  onChange={(e) => isMaster && setOabNumber(e.target.value)}
                   placeholder="123456"
                   style={{
                     width: '100%',
                     padding: '10px 12px 10px 38px',
-                    background: 'var(--bg-glass)',
+                    background: isMaster ? 'var(--bg-glass)' : 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
-                    color: 'var(--text-primary)',
+                    color: isMaster ? 'var(--text-primary)' : 'var(--text-muted)',
                     fontSize: '13px',
+                    cursor: isMaster ? 'text' : 'not-allowed'
                   }}
                   required
                 />
               </div>
+              {!isMaster && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  🔒 OAB estática e vinculada à assinatura.
+                </span>
+              )}
             </div>
 
             <div>
@@ -406,16 +429,18 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
               <div style={{ position: 'relative' }}>
                 <MapPin size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <select
+                  disabled={!isMaster}
                   value={oabUf}
-                  onChange={(e) => setOabUf(e.target.value)}
+                  onChange={(e) => isMaster && setOabUf(e.target.value)}
                   style={{
                     width: '100%',
                     padding: '10px 12px 10px 38px',
-                    background: 'var(--bg-glass)',
+                    background: isMaster ? 'var(--bg-glass)' : 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
-                    color: 'var(--text-primary)',
+                    color: isMaster ? 'var(--text-primary)' : 'var(--text-muted)',
                     fontSize: '13px',
+                    cursor: isMaster ? 'pointer' : 'not-allowed'
                   }}
                 >
                   <option value="MG">MG - Minas Gerais</option>

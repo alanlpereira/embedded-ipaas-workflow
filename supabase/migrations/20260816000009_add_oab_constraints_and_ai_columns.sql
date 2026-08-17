@@ -29,17 +29,33 @@ BEGIN
   END IF;
 END $$;
 
--- 4. Trava de Imutabilidade da OAB (Trigger)
+-- 4. Trava de Imutabilidade da OAB para não-Master (Trigger)
 CREATE OR REPLACE FUNCTION prevent_oab_update()
 RETURNS TRIGGER AS $$
+DECLARE
+  executing_role text;
 BEGIN
-  -- Se a OAB antiga existir (não for nula nem vazia) e a nova for diferente, aborta a transação
-  IF OLD.oab_number IS NOT NULL AND OLD.oab_number <> '' AND NEW.oab_number IS DISTINCT FROM OLD.oab_number THEN
-    RAISE EXCEPTION 'Regra de Negócio: A OAB não pode ser alterada após o cadastro inicial.';
+  -- Se a OAB (número ou UF) está sendo modificada
+  IF (OLD.oab_number IS DISTINCT FROM NEW.oab_number OR OLD.oab_uf IS DISTINCT FROM NEW.oab_uf) THEN
+    -- Se a OAB antiga já existia (não nula e não vazia)
+    IF OLD.oab_number IS NOT NULL AND OLD.oab_number <> '' THEN
+      -- Permitir se for executado por service_role
+      IF current_setting('role', true) = 'service_role' THEN
+        RETURN NEW;
+      END IF;
+
+      -- Verificar se o usuário da sessão (auth.uid()) é Master
+      SELECT role INTO executing_role FROM public.profiles WHERE id = auth.uid();
+
+      IF executing_role IS NULL OR executing_role <> 'Master' THEN
+        RAISE EXCEPTION 'Regra de Negócio: A OAB é estática e somente o usuário Master pode alterá-la.';
+      END IF;
+    END IF;
   END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS enforce_oab_immutability ON public.profiles;
 
