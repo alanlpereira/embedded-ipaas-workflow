@@ -113,7 +113,7 @@ serve(async (req) => {
     let providerUsed = '';
     let modelUsed = '';
 
-    const isClaudeAction = action_type === 'gerar_peca' || action_type === 'discutir_processo';
+    const isClaudeAction = action_type === 'gerar_peca' || action_type === 'discutir_processo' || action_type === 'generate' || action_type === 'generate_peca';
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY') || apiKey;
     console.log(`🔑 [LLM-ROUTER DEBUG] isClaudeAction=${isClaudeAction}, keyLength=${(anthropicApiKey || '').length}`);
 
@@ -226,7 +226,7 @@ serve(async (req) => {
 
       // 2. Busca de Palavras-Chave de Tópicos Válidos se a busca por vetor não encontrar
       if (!retrievedContextText && prompt) {
-        const topicKeywords = ['login', 'cadastro', 'perfil', 'onboarding', 'oab', 'master', 'member', 'assinatura', 'plano', 'billing', 'stripe', 'preço', 'valor', 'peça', 'peças', 'claude', 'anthropic', 'suporte', 'ajuda'];
+        const topicKeywords = ['login', 'cadastro', 'perfil', 'onboarding', 'oab', 'master', 'member', 'assinatura', 'plano', 'billing', 'stripe', 'preço', 'valor', 'cartão', 'recusado', 'pagamento', 'peça', 'peças', 'claude', 'anthropic', 'suporte', 'ajuda'];
         const promptLower = prompt.toLowerCase();
         const hasTopicMatch = topicKeywords.some(tk => promptLower.includes(tk));
 
