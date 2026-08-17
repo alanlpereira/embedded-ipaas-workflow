@@ -272,7 +272,7 @@ export const LegalCopilotChat: React.FC = () => {
                 fontSize: '11px',
                 fontWeight: 700
               }}>
-                Gemini 1.5 Pro
+                Claude 3.5 Sonnet
               </span>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)', margin: '2px 0 0 0' }}>
@@ -461,7 +461,7 @@ export const LegalCopilotChat: React.FC = () => {
             animation: 'pulse 1.5s infinite'
           }}>
             <RefreshCw size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-            <span>Redigindo parecer/peça jurídica via Gemini 1.5 Pro...</span>
+            <span>Redigindo parecer/peça jurídica via Claude 3.5 Sonnet...</span>
           </div>
         )}
 

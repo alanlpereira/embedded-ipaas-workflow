@@ -540,11 +540,11 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
             </div>
           </div>
 
-          {/* Campo Dedicado de Instrução / Prompt para a IA (Gemini) - Injetado ANTES do botão */}
+          {/* Campo Dedicado de Instrução / Prompt para a IA (Claude 3.5 Sonnet) - Injetado ANTES do botão */}
           <div style={{ gridColumn: '1 / -1', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--accent-blue)', marginBottom: '6px' }}>
               <Sparkles size={15} style={{ color: '#38bdf8' }} />
-              🤖 Campo de Instrução / Prompt Personalizado para a IA (Gemini)
+              🤖 Campo de Instrução / Prompt Personalizado para a IA (Claude 3.5 Sonnet)
             </label>
             <textarea
               value={aiPrompt}
@@ -898,7 +898,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
                     </span>
                   </div>
                   <span style={{ fontSize: '11px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
-                    Gemini 1.5 Pro Ativo
+                    Claude 3.5 Sonnet Ativo
                   </span>
                 </div>
 
@@ -948,7 +948,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
                 {/* Status de Carregando */}
                 {procAiLoading[proc.id] && (
                   <div style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 600, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <RefreshCw size={14} className="animate-spin" /> Analisando o processo via Gemini 1.5 Pro...
+                    <RefreshCw size={14} className="animate-spin" /> Analisando o processo via Claude 3.5 Sonnet...
                   </div>
                 )}
 

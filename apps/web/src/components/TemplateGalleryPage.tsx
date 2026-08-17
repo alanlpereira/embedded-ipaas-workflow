@@ -60,12 +60,12 @@ export const fallback21Templates: WorkflowTemplate[] = [
     id: 'tpl-jur-pje-comunica',
     name: 'Consulta Diária PJe Comunica (OAB & Intimações)',
     category: 'Jurídico',
-    description: 'Automação jurídica diária executada às 08:00 AM que acessa o PJe Comunica (comunica.pje.jus.br) pesquisando intimações por Nº e UF da OAB (ex: 145105 MG) do dia anterior ao dia de hoje. A IA Gemini elabora um resumo com o órgão julgador, número do processo, partes e prazos fatais, envia aprovação por e-mail com botões SIM/NÃO e dispara via WhatsApp para o cliente se aprovado.',
+    description: 'Automação jurídica diária executada às 08:00 AM que acessa o PJe Comunica (comunica.pje.jus.br) pesquisando intimações por Nº e UF da OAB (ex: 145105 MG) do dia anterior ao dia de hoje. A IA Claude 3.5 Sonnet elabora um resumo com o órgão julgador, número do processo, partes e prazos fatais, envia aprovação por e-mail com botões SIM/NÃO e dispara via WhatsApp para o cliente se aprovado.',
     icon: 'FileText',
     nodes: [
       { id: 'n1', type: 'trigger', position: { x: 250, y: 50 }, data: { label: '⏰ Agendamento Diário (08:00 AM)', type: 'trigger', description: 'Execução diária às 08:00 (Data Inicial: Ontem | Data Final: Hoje)' } },
       { id: 'n2', type: 'action', position: { x: 250, y: 180 }, data: { label: '🌐 Consulta PJe Comunica (comunica.pje.jus.br)', type: 'action', description: 'Pesquisa no PJe Comunica com OAB 145105 e UF MG (Dia anterior ➔ Hoje)' } },
-      { id: 'n3', type: 'action', position: { x: 250, y: 310 }, data: { label: '✨ Resumo de Intimações & Prazos via IA Gemini', type: 'action', description: 'IA extrai órgão julgador, nº do processo, partes, ações necessárias e prazos' } },
+      { id: 'n3', type: 'action', position: { x: 250, y: 310 }, data: { label: '✨ Resumo de Intimações & Prazos via IA Claude 3.5 Sonnet', type: 'action', description: 'IA extrai órgão julgador, nº do processo, partes, ações necessárias e prazos' } },
       { id: 'n4', type: 'approval', position: { x: 250, y: 440 }, data: { label: '✉️ Pergunta por E-mail: Enviar para o cliente? (Sim / Não)', type: 'approval', description: 'Envia e-mail para alanlpereira@hotmail.com com botões de aprovação SIM / NÃO' } },
       { id: 'n5', type: 'output', position: { x: 250, y: 570 }, data: { label: '📱 Disparo WhatsApp (+55 37 9958-3402)', type: 'output', description: 'Dispara o resumo no WhatsApp +553799583402 se aprovado no e-mail' } }
     ],
@@ -80,11 +80,11 @@ export const fallback21Templates: WorkflowTemplate[] = [
     id: 'tpl-jur-1',
     name: 'Triagem de Intimações e Gestão de Prazos',
     category: 'Jurídico',
-    description: 'Automação para escritórios de advocacia que recebe intimações judiciais via e-mail webhook, extrai dados cruciais com IA Gemini (número do processo, partes e prazo fatal), avalia urgência (< 3 dias), salva no sistema de gestão jurídica, notifica via Slack/WhatsApp e exige aprovação HITL do advogado.',
+    description: 'Automação para escritórios de advocacia que recebe intimações judiciais via e-mail webhook, extrai dados cruciais com IA Claude 3.5 Sonnet (número do processo, partes e prazo fatal), avalia urgência (< 3 dias), salva no sistema de gestão jurídica, notifica via Slack/WhatsApp e exige aprovação HITL do advogado.',
     icon: 'FileText',
     nodes: [
       { id: 'n1', type: 'trigger', position: { x: 250, y: 50 }, data: { label: 'Recebimento de E-mail (Intimação)', type: 'trigger', description: 'Webhook acionado ao receber e-mail de intimação judicial' } },
-      { id: 'n2', type: 'action', position: { x: 250, y: 180 }, data: { label: 'Extração AI Gemini (Intimação)', type: 'action', description: 'IA extrai nº do processo, nomes das partes e data do prazo fatal' } },
+      { id: 'n2', type: 'action', position: { x: 250, y: 180 }, data: { label: 'Extração AI Claude 3.5 Sonnet (Intimação)', type: 'action', description: 'IA extrai nº do processo, nomes das partes e data do prazo fatal' } },
       { id: 'n3', type: 'decision', position: { x: 250, y: 310 }, data: { label: 'Condicional: Prazo < 3 Dias?', type: 'decision', description: 'Se prazo fatal <= 3 dias -> Rota de Urgência Prioritária' } },
       { id: 'n4', type: 'action', position: { x: 250, y: 440 }, data: { label: 'Salvar no Sistema de Gestão Jurídica', type: 'action', description: 'HTTP POST /api/v1/legal/prazos (Cadastra processo e agenda)' } },
       { id: 'n5', type: 'action', position: { x: 250, y: 570 }, data: { label: 'Notificação Slack / WhatsApp', type: 'action', description: 'Envia mensagem ao advogado responsável com resumo e prazo' } },

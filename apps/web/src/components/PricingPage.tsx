@@ -116,7 +116,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
       features: [
         'Tudo do Plano Light +',
         '🤖 10 Gerações de Peças com IA / mês',
-        'Síntese Defensiva e Análise de Riscos da IA Gemini',
+        'Síntese Defensiva e Análise de Riscos da IA Claude 3.5 Sonnet',
         'Minutas automáticas de petição e manifestações',
         'Notificação no WhatsApp do Cliente com 1 clique'
       ]
@@ -408,7 +408,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
             margin: '0 auto',
             lineHeight: '1.6'
           }}>
-            Desbloqueie o poder da Inteligência Artificial (Gemini 1.5 Pro) e a varredura automática no PJe CNJ para multiplicar a produtividade da sua equipe jurídica.
+            Desbloqueie o poder da Inteligência Artificial (Claude 3.5 Sonnet) e a varredura automática no PJe CNJ para multiplicar a produtividade da sua equipe jurídica.
           </p>
 
           {/* Banner de Alerta em caso de Inadimplência / Cartão Recusado na Stripe */}

@@ -48,7 +48,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const navItems = [
     // Módulo Jurídico (Disponível para todos os perfis, inclusive advogados comuns)
     { id: 'dashboard' as ViewTab, label: 'Portal de Processos', icon: <Scale size={18} />, badge: 'PJe Live', group: 'Módulo Jurídico' },
-    { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Gemini 1.5', group: 'Módulo Jurídico' },
+    { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Claude 3.5', group: 'Módulo Jurídico' },
     { id: 'clients' as ViewTab, label: 'Clientes & Casos', icon: <Users size={18} />, group: 'Módulo Jurídico' },
     { id: 'profile' as ViewTab, label: 'Meu Perfil', icon: <User size={18} />, group: 'Módulo Jurídico' },
 
