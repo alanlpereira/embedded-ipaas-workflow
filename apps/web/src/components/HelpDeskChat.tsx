@@ -38,7 +38,11 @@ const renderFormattedText = (text: string) => {
   });
 };
 
-export const HelpDeskChat: React.FC = () => {
+interface HelpDeskChatProps {
+  onBack?: () => void;
+}
+
+export const HelpDeskChat: React.FC<HelpDeskChatProps> = ({ onBack }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-1',
@@ -121,13 +125,20 @@ export const HelpDeskChat: React.FC = () => {
         {/* Header Corporativo do Help Desk */}
         <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-2xl p-4 md:p-6 backdrop-blur-md shadow-xl">
           <div className="flex items-center gap-3">
-            <a
-              href="/juridico"
-              className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition"
-              title="Voltar ao Portal"
+            <button
+              type="button"
+              onClick={() => {
+                if (onBack) {
+                  onBack();
+                } else if (typeof window !== 'undefined') {
+                  window.history.back();
+                }
+              }}
+              className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              title="Voltar"
             >
               <ArrowLeft className="w-5 h-5" />
-            </a>
+            </button>
             <div className="p-2.5 bg-blue-600/10 border border-blue-500/20 rounded-xl text-blue-400">
               <HelpCircle className="w-6 h-6" />
             </div>
