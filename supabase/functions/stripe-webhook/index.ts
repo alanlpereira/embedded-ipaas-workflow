@@ -11,25 +11,37 @@ function getPlanLimit(planName: string, priceId?: string): { plan: string; limit
   const p = (planName || '').toUpperCase();
   const pid = (priceId || '').toLowerCase();
 
-  const lightPrice = (Deno.env.get('STRIPE_PRICE_ID_LIGHT') || 'price_1U4hdiKZ8AtVWlGqV8zSzau5').toLowerCase();
-  const proPrice = (Deno.env.get('STRIPE_PRICE_ID_PRO') || 'price_1U4hdiKZ8AtVWlGqlA6cEzrM').toLowerCase();
-  const masterPrice = (Deno.env.get('STRIPE_PRICE_ID_MASTER') || 'price_1U4hdiKZ8AtVWlGqLba6xeXY').toLowerCase();
-  const ultraPrice = (Deno.env.get('STRIPE_PRICE_ID_ULTRA') || 'price_1U4hdiKZ8AtVWlGqhyAiSDVy').toLowerCase();
+  const lightPrice = (Deno.env.get('STRIPE_PRICE_ID_LIGHT') || '').toLowerCase();
+  const proPrice = (Deno.env.get('STRIPE_PRICE_ID_PRO') || '').toLowerCase();
+  const enterprisePrice = (Deno.env.get('STRIPE_PRICE_ID_ENTERPRISE') || '').toLowerCase();
 
-  if (p.includes('LIGHT') || pid === lightPrice) {
-    return { plan: 'Light', limit: 0 };
+  if (p.includes('ENTERPRISE') || pid === enterprisePrice) {
+    return { plan: 'Enterprise', limit: 100000 };
+  }
+  if (p.includes('LEGALOPS') || p.includes('LEGAL OPS')) {
+    return { plan: 'LegalOps', limit: 500000 };
+  }
+  if (p.includes('SYNAPSE')) {
+    return { plan: 'Synapse', limit: 1000000 };
+  }
+  if (p.includes('AXIOM')) {
+    return { plan: 'Axiom', limit: 200000 };
+  }
+  if (p.includes('KINEX')) {
+    return { plan: 'Kinex', limit: 50000 };
+  }
+  if (p.includes('FORGE')) {
+    return { plan: 'Forge', limit: 10000 };
   }
   if (p.includes('PRO') || pid === proPrice) {
-    return { plan: 'Pro', limit: 10 };
+    return { plan: 'Pro', limit: 5000 };
   }
-  if (p.includes('MASTER') || pid === masterPrice) {
-    return { plan: 'Master', limit: 50 };
-  }
-  if (p.includes('ULTRA') || pid === ultraPrice) {
-    return { plan: 'Ultra', limit: 200 };
+  if (p.includes('LIGHT') || pid === lightPrice) {
+    return { plan: 'Light', limit: 500 };
   }
 
-  return { plan: 'Free', limit: 0 };
+  // Padrão para assinaturas jurídicas ativas sem nome de plano explícito: Plano Pro (5.000 limite)
+  return { plan: 'Pro', limit: 5000 };
 }
 
 serve(async (req) => {
@@ -52,13 +64,13 @@ serve(async (req) => {
       const customerEmail = session.customer_email || session.customer_details?.email;
       const stripeCustomerId = session.customer;
       const stripeSubscriptionId = session.subscription;
-      const metadataPlan = session.metadata?.planName || '';
+      const metadataPlan = session.metadata?.planName || 'Pro';
 
       console.log(`✅ [STRIPE CHECKOUT COMPLETED] User: ${userId}, Email: ${customerEmail}, Plan: ${metadataPlan}`);
 
       let targetUserId = userId;
 
-      // Se userId não veio no metadata, tentar localizar pelo e-mail do cliente no Supabase Auth
+      // Se userId não veio no metadata, localizar pelo e-mail no Supabase Auth
       if (!targetUserId && customerEmail) {
         const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
         const matchedUser = usersData.users.find(u => u.email?.toLowerCase() === customerEmail.toLowerCase());
@@ -78,7 +90,7 @@ serve(async (req) => {
             stripe_customer_id: stripeCustomerId,
             stripe_subscription_id: stripeSubscriptionId,
             subscription_plan: planInfo.plan,
-            subscription_status: 'active',
+            subscription_status: 'trialing', // Período de Testes Grátis de 14 Dias ativado
             ai_monthly_limit: planInfo.limit,
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' });
@@ -86,15 +98,15 @@ serve(async (req) => {
         if (updateErr) {
           console.error('❌ [PROFILES UPDATE ERROR]', updateErr);
         } else {
-          console.log(`🎉 [PROFILE UPDATED] User ${targetUserId} agora é Plano ${planInfo.plan} (Limite IA: ${planInfo.limit}/mês)`);
+          console.log(`🎉 [PROFILE UPDATED] User ${targetUserId} ativado no Plano ${planInfo.plan} com 14 dias de Trial (Limite IA: ${planInfo.limit}/mês)`);
         }
 
         // Registrar Log de Auditoria no Supabase
         await supabaseAdmin.from('audit_logs').insert([{
           table_name: 'profiles',
           record_id: targetUserId,
-          action: 'UPDATE_SUBSCRIPTION',
-          new_data: { plan: planInfo.plan, limit: planInfo.limit, customer_id: stripeCustomerId, event: eventType },
+          action: 'START_SUBSCRIPTION_TRIAL',
+          new_data: { plan: planInfo.plan, limit: planInfo.limit, customer_id: stripeCustomerId, event: eventType, trial_days: 14 },
           user_id: targetUserId
         }]);
       } else {
@@ -104,16 +116,17 @@ serve(async (req) => {
       const sub = event.data.object;
       const stripeCustomerId = sub.customer;
       const stripeSubscriptionId = sub.id;
-      const status = sub.status; // active, trialing, canceled, past_due
+      const status = sub.status; // active, trialing, past_due, unpaid, canceled
       const priceId = sub.items?.data?.[0]?.price?.id || '';
 
       const planInfo = getPlanLimit('', priceId);
+      const isSubActiveOrTrial = status === 'active' || status === 'trialing';
 
       console.log(`🔄 [SUBSCRIPTION UPDATED] Customer: ${stripeCustomerId}, Status: ${status}, Price: ${priceId}`);
 
       const { data: profile } = await supabaseAdmin
         .from('profiles')
-        .select('id')
+        .select('id, manual_status_override')
         .eq('stripe_customer_id', stripeCustomerId)
         .single();
 
@@ -122,12 +135,47 @@ serve(async (req) => {
           .from('profiles')
           .update({
             stripe_subscription_id: stripeSubscriptionId,
-            subscription_plan: status === 'active' ? planInfo.plan : 'Free',
+            subscription_plan: isSubActiveOrTrial ? planInfo.plan : 'Pro',
             subscription_status: status,
-            ai_monthly_limit: status === 'active' ? planInfo.limit : 0,
+            ai_monthly_limit: isSubActiveOrTrial ? planInfo.limit : (profile.manual_status_override ? 5000 : 0),
             updated_at: new Date().toISOString()
           })
           .eq('id', profile.id);
+      }
+    } else if (eventType === 'invoice.payment_failed') {
+      // ⚠️ TRATAMENTO DE RECORRÊNCIA E REUSO DE CARTÃO RECUSADO / INADIMPLÊNCIA
+      const invoice = event.data.object;
+      const stripeCustomerId = invoice.customer;
+      const stripeSubscriptionId = invoice.subscription;
+
+      console.log(`🚨 [INVOICE PAYMENT FAILED] Falha na cobrança recorrente! Customer: ${stripeCustomerId}, Invoice: ${invoice.id}`);
+
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email, manual_status_override')
+        .eq('stripe_customer_id', stripeCustomerId)
+        .single();
+
+      if (profile) {
+        // Atualizar status para past_due (inadimplente com cobrança pendente)
+        await supabaseAdmin
+          .from('profiles')
+          .update({
+            subscription_status: 'past_due',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', profile.id);
+
+        // Audit Log de Falha no Pagamento
+        await supabaseAdmin.from('audit_logs').insert([{
+          table_name: 'profiles',
+          record_id: profile.id,
+          action: 'PAYMENT_FAILED_DUNNING',
+          new_data: { customer_id: stripeCustomerId, subscription_id: stripeSubscriptionId, invoice_id: invoice.id },
+          user_id: profile.id
+        }]);
+
+        console.log(`⚠️ [DUNNING NOTICE] Status de ${profile.email} alterado para 'past_due'. Manual Override: ${profile.manual_status_override}`);
       }
     } else if (eventType === 'customer.subscription.deleted') {
       const sub = event.data.object;

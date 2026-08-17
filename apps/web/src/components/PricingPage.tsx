@@ -379,16 +379,16 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'rgba(59, 130, 246, 0.15)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-            color: 'var(--accent-blue)',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            color: '#10b981',
             padding: '6px 16px',
             borderRadius: '20px',
             fontSize: '13px',
-            fontWeight: 700,
+            fontWeight: 800,
             marginBottom: '16px'
           }}>
-            <Sparkles size={16} /> Vitrine Oficial de Planos Synapse 2026
+            <Sparkles size={16} /> 🎁 14 DIAS DE TESTE GRÁTIS — Primeira cobrança somente no 14º dia de uso
           </div>
           <h1 style={{
             fontSize: '36px',
@@ -411,7 +411,52 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
             Desbloqueie o poder da Inteligência Artificial (Gemini 1.5 Pro) e a varredura automática no PJe CNJ para multiplicar a produtividade da sua equipe jurídica.
           </p>
 
-          {/* Painel de Gestão de Assinatura para Usuários com Assinatura Ativa */}
+          {/* Banner de Alerta em caso de Inadimplência / Cartão Recusado na Stripe */}
+          {userProfile && userProfile.subscription_status === 'past_due' && (
+            <div style={{
+              marginTop: '20px',
+              padding: '16px 24px',
+              borderRadius: '14px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f8fafc',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px',
+              maxWidth: '800px',
+              margin: '20px auto 0 auto'
+            }}>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertCircle size={18} /> ⚠️ Falha no Pagamento Recorrente (Stripe)
+                </div>
+                <div style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '4px' }}>
+                  Houve um problema na cobrança do seu cartão. Atualize seu cartão no Portal da Stripe para evitar o bloqueio automático de acesso ao PJe.
+                </div>
+              </div>
+              <button
+                onClick={handleOpenCustomerPortal}
+                disabled={loadingPortal}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                💳 Atualizar Cartão no Portal PCI
+              </button>
+            </div>
+          )}
+
+          {/* Painel de Gestão de Assinatura para Usuários com Assinatura Ativa ou Trial */}
           {userProfile && (userProfile.subscription_status === 'active' || userProfile.subscription_status === 'trialing') && userProfile.stripe_customer_id && (
             <div style={{
               marginTop: '24px',
