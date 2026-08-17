@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Zap, Crown, Shield, Star, Sparkles, Loader2, ArrowRight, AlertCircle, RefreshCw, Settings, LogIn, ExternalLink } from 'lucide-react';
+import { Check, Zap, Crown, Shield, Star, Sparkles, Loader2, ArrowRight, AlertCircle, RefreshCw, Settings, LogIn, ExternalLink, MessageSquare, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface PlanTier {
@@ -619,6 +619,78 @@ export const PricingPage: React.FC<PricingPageProps> = ({ currentUser: propCurre
               </div>
             );
           })}
+        </div>
+
+        {/* 🏢 BANNER ENTERPRISE (WHATSAPP PARA MÚLTIPLOS ADVOGADOS / ESCRITÓRIOS) */}
+        <div style={{
+          marginTop: '32px',
+          padding: '24px 32px',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(16, 185, 129, 0.08) 50%, rgba(14, 165, 233, 0.1) 100%)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          borderRadius: '20px',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '20px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: '1 1 300px' }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)',
+              flexShrink: 0
+            }}>
+              <Users size={24} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '-0.3px' }}>
+                  Múltiplos Advogados ou Grandes Escritórios?
+                </h3>
+                <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px', padding: '2px 8px', fontWeight: 800 }}>
+                  ENTERPRISE
+                </span>
+              </div>
+              <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, lineHeight: '1.4' }}>
+                Precisa de contas adicionais para sua equipe, limites customizados de IA ou automação sob medida? Fale diretamente com nosso consultor especialista.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://wa.me/5532988654825?text=Ol%C3%A1,%20gostaria%20de%20saber%20mais%20sobre%20o%20plano%20para%20escrit%C3%B3rios%20do%20Synapse"
+            target="_blank"
+            rel="noopener noreferrer"
+            id="whatsapp-enterprise-btn"
+            style={{
+              padding: '14px 24px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: '14px',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
+              transition: 'transform 0.2s ease, boxShadow 0.2s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+          >
+            <MessageSquare size={18} color="#ffffff" />
+            <span>Falar com Consultor</span>
+          </a>
         </div>
 
         {/* Footer de Segurança Stripe & Reasseguramento de Trial */}
