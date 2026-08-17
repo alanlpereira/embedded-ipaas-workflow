@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2 } from 'lucide-react';
+import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2, ToggleLeft, ToggleRight, Mail, Phone } from 'lucide-react';
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
@@ -162,6 +162,42 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [generatedDemoOrg, setGeneratedDemoOrg] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isGeneratingDemo, setIsGeneratingDemo] = useState(false);
+
+  // 🚩 ESTADOS DE FEATURE FLAGS (Obrigatoriedade de Confirmação de E-mail e Telefone)
+  const [requireEmailVerification, setRequireEmailVerification] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('synapse_require_email_verification') === 'true' : false;
+  });
+  const [requirePhoneVerification, setRequirePhoneVerification] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('synapse_require_phone_verification') === 'true' : false;
+  });
+
+  const handleToggleEmailVerification = async () => {
+    const nextVal = !requireEmailVerification;
+    setRequireEmailVerification(nextVal);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('synapse_require_email_verification', String(nextVal));
+    }
+    try {
+      await supabase
+        .from('organizations')
+        .update({ require_email_verification: nextVal })
+        .eq('id', 'org-alp-nexus');
+    } catch (e) {}
+  };
+
+  const handleTogglePhoneVerification = async () => {
+    const nextVal = !requirePhoneVerification;
+    setRequirePhoneVerification(nextVal);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('synapse_require_phone_verification', String(nextVal));
+    }
+    try {
+      await supabase
+        .from('organizations')
+        .update({ require_phone_verification: nextVal })
+        .eq('id', 'org-alp-nexus');
+    } catch (e) {}
+  };
 
   const isMaster = Boolean(
     currentProfile?.role === 'Master' ||
@@ -351,6 +387,66 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
           </div>
           <div style={{ fontSize: '26px', fontWeight: 900, color: '#f59e0b' }}>
             {(orgs.reduce((acc, o) => acc + o.ai_tokens_used, 0) / 1000).toFixed(1)}k
+          </div>
+        </div>
+      </div>
+
+      {/* 🚩 SEÇÃO DE FEATURE FLAGS (CONTROLE MASTER DE CONFIRMAÇÃO DE E-MAIL E TELEFONE) */}
+      <div style={{ ...cardStyle, marginBottom: '28px', border: '1px solid rgba(56, 189, 248, 0.25)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={20} color="#38bdf8" />
+              Feature Flags da Plataforma (Controle Master)
+            </h3>
+            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>
+              Alterne em tempo real as travas de verificação obrigatória durante o cadastro e onboarding.
+            </p>
+          </div>
+          <span style={{ fontSize: '11px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '12px', padding: '4px 10px', fontWeight: 700 }}>
+            Configuração Global
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          {/* Toggle 1: Obrigatoriedade de E-mail */}
+          <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ padding: '8px', borderRadius: '10px', background: requireEmailVerification ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)', color: requireEmailVerification ? '#10b981' : '#94a3b8' }}>
+                <Mail size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>Confirmação de E-mail</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Exigir verificação Magic Link / OTP</div>
+              </div>
+            </div>
+            <button
+              onClick={handleToggleEmailVerification}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: requireEmailVerification ? '#10b981' : '#64748b', transition: 'all 0.2s' }}
+              title={requireEmailVerification ? 'Ativo (Clique para desativar)' : 'Desativado (Clique para ativar)'}
+            >
+              {requireEmailVerification ? <ToggleRight size={34} /> : <ToggleLeft size={34} />}
+            </button>
+          </div>
+
+          {/* Toggle 2: Obrigatoriedade de Telefone */}
+          <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ padding: '8px', borderRadius: '10px', background: requirePhoneVerification ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)', color: requirePhoneVerification ? '#10b981' : '#94a3b8' }}>
+                <Phone size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>Confirmação de Telefone</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Exigir validação por SMS / WhatsApp</div>
+              </div>
+            </div>
+            <button
+              onClick={handleTogglePhoneVerification}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: requirePhoneVerification ? '#10b981' : '#64748b', transition: 'all 0.2s' }}
+              title={requirePhoneVerification ? 'Ativo (Clique para desativar)' : 'Desativado (Clique para ativar)'}
+            >
+              {requirePhoneVerification ? <ToggleRight size={34} /> : <ToggleLeft size={34} />}
+            </button>
           </div>
         </div>
       </div>

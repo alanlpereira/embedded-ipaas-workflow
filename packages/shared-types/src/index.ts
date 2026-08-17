@@ -9,8 +9,22 @@ export interface Organization {
   ai_tokens_limit: number;
   ai_tokens_used: number;
   custom_token_override?: number;
+  require_email_verification?: boolean;
+  require_phone_verification?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AppFeatureFlags {
+  require_email_verification: boolean;
+  require_phone_verification: boolean;
+}
+
+export interface AppSettings {
+  key: string;
+  value: AppFeatureFlags;
+  description?: string;
+  updated_at?: string;
 }
 
 export interface Profile {
