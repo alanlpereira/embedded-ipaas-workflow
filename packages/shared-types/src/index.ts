@@ -41,6 +41,8 @@ export interface Profile {
   stripe_subscription_id?: string;
   subscription_plan?: string;
   subscription_status?: string;
+  manual_status_override?: boolean;
+  custom_plan_price?: number;
   ai_monthly_limit?: number;
   ai_monthly_usage?: number;
   role: UserRole;

@@ -7,6 +7,12 @@ import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
 import { getApiUrl } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
+export interface ExtendedProfile extends Profile {
+  manual_status_override?: boolean;
+  custom_plan_price?: number;
+  ai_monthly_limit?: number;
+}
+
 interface MasterAdminPageProps {
   currentProfile: Profile | null;
 }
@@ -113,7 +119,7 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [newAdminName, setNewAdminName] = useState('');
   const [newPlanTier, setNewPlanTier] = useState<PlanTier>('LegalOps');
 
-  const [dbUsers, setDbUsers] = useState<Profile[]>([]);
+  const [dbUsers, setDbUsers] = useState<ExtendedProfile[]>([]);
 
   // 🚀 Carregamento de Perfis Globais via RPC get_all_profiles (SECURITY DEFINER)
   const fetchMasterProfilesFromRpc = async () => {
@@ -152,7 +158,107 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
     }
   };
 
-  // Estado de Edição de Override
+  // Estado de Edição de Override de Usuário PostgreSQL
+  const [editingUser, setEditingUser] = useState<ExtendedProfile | null>(null);
+  const [userOverrideStatus, setUserOverrideStatus] = useState<boolean>(false);
+  const [userAiLimit, setUserAiLimit] = useState<number>(100);
+  const [userCustomPrice, setUserCustomPrice] = useState<number | ''>('');
+  const [isSendingStripePortal, setIsSendingStripePortal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (editingUser) {
+      setUserOverrideStatus(Boolean(editingUser.manual_status_override));
+      setUserAiLimit(editingUser.ai_monthly_limit || 100);
+      setUserCustomPrice(editingUser.custom_plan_price || '');
+    }
+  }, [editingUser]);
+
+  const handleSaveUserOverrides = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      console.log(`⚡ [MASTER OVERRIDE] Atualizando perfil ${editingUser.email}...`);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const resp = await fetch(getApiUrl('admin-billing-manager'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'update_profile_override',
+          target_user_id: editingUser.id,
+          manual_status_override: userOverrideStatus,
+          ai_monthly_limit: Number(userAiLimit),
+          custom_plan_price: userCustomPrice === '' ? null : Number(userCustomPrice)
+        })
+      });
+
+      const res = await resp.json();
+      if (!res.success) {
+        // Fallback direto via Supabase Client
+        await supabase
+          .from('profiles')
+          .update({
+            manual_status_override: userOverrideStatus,
+            ai_monthly_limit: Number(userAiLimit),
+            custom_plan_price: userCustomPrice === '' ? null : Number(userCustomPrice)
+          })
+          .eq('id', editingUser.id);
+      }
+
+      setDbUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUser.id
+            ? {
+                ...u,
+                manual_status_override: userOverrideStatus,
+                ai_monthly_limit: Number(userAiLimit),
+                custom_plan_price: userCustomPrice === '' ? undefined : Number(userCustomPrice)
+              }
+            : u
+        )
+      );
+
+      alert(`✅ Overrides de ${editingUser.email} atualizados com sucesso!`);
+      setEditingUser(null);
+    } catch (err: any) {
+      alert(`Erro ao atualizar overrides: ${err.message}`);
+    }
+  };
+
+  const handleSendStripePortalLink = async () => {
+    if (!editingUser) return;
+    setIsSendingStripePortal(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const resp = await fetch(getApiUrl('admin-billing-manager'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'send_portal_link',
+          target_user_id: editingUser.id
+        })
+      });
+
+      const res = await resp.json();
+      alert(`✉️ [STRIPE PORTAL] ${res.message || 'Link gerado com sucesso.'}`);
+    } catch (err: any) {
+      alert(`Erro ao gerar link do portal: ${err.message}`);
+    } finally {
+      setIsSendingStripePortal(false);
+    }
+  };
+
+  // Estado de Edição de Override de Organização
   const [editingOrg, setEditingOrg] = useState<ClientOrganizationItem | null>(null);
   const [editOverride, setEditOverride] = useState<number>(0);
   const [editPlan, setEditPlan] = useState<PlanTier>('LegalOps');
@@ -627,75 +733,113 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
         </div>
       </div>
 
-      {/* Seção 3: Usuários Cadastrados no Banco de Dados PostgreSQL */}
+      {/* Seção 3: Centro de Comando Master — Usuários Registrados (`public.profiles`) */}
       <div style={{ ...cardStyle, marginBottom: '28px' }}>
         <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Users size={18} color="#10b981" />
-          Usuários Registrados no PostgreSQL (`public.profiles`) — ({dbUsers.length} cadastrados)
+          Centro de Comando Master — Usuários Registrados (`public.profiles`) ({dbUsers.length})
         </h3>
 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>ID / Usuário</th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>E-mail</th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Role</th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>OAB / Profissional</th>
-                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>Ação de Deleção</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Advogado / ID</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>E-mail & OAB</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Status & Override</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Plano & Preço</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Uso IA / Limite</th>
+                <th style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right' }}>Painel de Comando Master</th>
               </tr>
             </thead>
             <tbody>
-              {dbUsers.map((user) => (
-                <tr key={user.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
-                    {user.full_name || 'Sem nome'}
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{user.id}</div>
-                  </td>
-                  <td style={{ padding: '14px 16px', color: '#38bdf8', fontSize: '13px', fontWeight: 600 }}>
-                    {user.email}
-                  </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      background: user.role === 'Master' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(59, 130, 246, 0.15)',
-                      color: user.role === 'Master' ? '#f59e0b' : '#3b82f6',
-                      border: user.role === 'Master' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)'
-                    }}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '12px' }}>
-                    {user.oab_number ? `OAB/${user.oab_uf || 'MG'} ${user.oab_number}` : 'N/A'}
-                  </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => handleDeleteDbUser(user.id, user.email)}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        color: '#f87171',
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <Trash2 size={14} /> Excluir do Banco
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {dbUsers.map((user) => {
+                const isOverridden = Boolean(user.manual_status_override);
+                const isAct = isOverridden || user.subscription_status === 'active';
+                const currentUsage = user.ai_monthly_usage || 0;
+                const maxLimit = user.ai_monthly_limit || 100;
+
+                return (
+                  <tr key={user.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
+                      {user.full_name || 'Advogado'}
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{user.id}</div>
+                    </td>
+                    <td style={{ padding: '14px 16px', color: '#38bdf8', fontSize: '13px', fontWeight: 600 }}>
+                      {user.email}
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                        {user.oab_number ? `OAB/${user.oab_uf || 'MG'} ${user.oab_number}` : 'OAB Pendente'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      {isOverridden ? (
+                        <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+                          🟢 OVERRIDE (LIBERADO)
+                        </span>
+                      ) : (
+                        <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, background: isAct ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: isAct ? '#3b82f6' : '#ef4444', border: isAct ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)' }}>
+                          {isAct ? 'ATIVO (STRIPE)' : '🔴 INATIVO (BLOQUEADO)'}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontSize: '12px' }}>
+                      <strong>{user.subscription_plan || 'Pro'}</strong>
+                      {user.custom_plan_price ? (
+                        <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 700 }}>Custom: R$ {user.custom_plan_price}/mês</div>
+                      ) : (
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>R$ 149/mês</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontSize: '12px' }}>
+                      <strong>{currentUsage} / {maxLimit}</strong> tokens
+                      <div style={{ width: '100px', height: '5px', background: 'var(--bg-tertiary)', borderRadius: '3px', marginTop: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.min(100, Math.round((currentUsage / maxLimit) * 100))}%`, height: '100%', background: '#38bdf8' }}></div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '8px' }}>
+                        <button
+                          onClick={() => setEditingUser(user)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
+                            color: '#0a0c10',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Zap size={13} /> Gerenciar Overrides
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteDbUser(user.id, user.email)}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#f87171',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {dbUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
                     Nenhum usuário cadastrado no banco de dados.
                   </td>
                 </tr>
@@ -747,6 +891,92 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
               <button onClick={() => setGeneratedDemoUrl(null)} style={{ padding: '8px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>Fechar</button>
               <button onClick={handleCopyLink} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--accent-cyan)', color: '#0a0c10', fontWeight: 800, border: 'none' }}>{copiedLink ? 'Copiado!' : 'Copiar Link'}</button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Overrides de Usuário (Painel Master) */}
+      {editingUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '28px', width: '90%', maxWidth: '480px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap size={20} color="var(--accent-cyan)" />
+                Gerenciar Overrides — {editingUser.full_name || editingUser.email}
+              </h3>
+              <button onClick={() => setEditingUser(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleSaveUserOverrides} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Override Liberação Forçada */}
+              <div style={{ padding: '14px', borderRadius: '10px', background: userOverrideStatus ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-tertiary)', border: userOverrideStatus ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
+                  <span>🟢 Forçar Liberação de Acesso (Override Stripe)</span>
+                  <input
+                    type="checkbox"
+                    checked={userOverrideStatus}
+                    onChange={(e) => setUserOverrideStatus(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }}
+                  />
+                </label>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Quando ativado, ignora pendências/inadimplência do Stripe e libera o Portal PJe imediatamente.
+                </div>
+              </div>
+
+              {/* Ajustar Limite Mensal de IA */}
+              <div>
+                <label style={labelStyle}>Novo Limite Mensal de IA (ai_monthly_limit)</label>
+                <input
+                  type="number"
+                  value={userAiLimit}
+                  onChange={(e) => setUserAiLimit(Number(e.target.value))}
+                  placeholder="Ex: 5000"
+                  required
+                  style={inputStyle}
+                />
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Limite de peças/prompts gerados por mês para este advogado.
+                </div>
+              </div>
+
+              {/* Preço Customizado da Assinatura */}
+              <div>
+                <label style={labelStyle}>Preço Customizado do Plano (R$/mês)</label>
+                <input
+                  type="number"
+                  value={userCustomPrice}
+                  onChange={(e) => setUserCustomPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Deixar em branco para padrão R$ 149"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Ação Stripe Customer Portal */}
+              <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={handleSendStripePortalLink}
+                  disabled={isSendingStripePortal}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#3b82f6',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✉️ Enviar Link Stripe Customer Portal (PCI)
+                </button>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" onClick={() => setEditingUser(null)} style={{ padding: '8px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', cursor: 'pointer' }}>Cancelar</button>
+                  <button type="submit" style={{ padding: '8px 16px', borderRadius: '8px', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))', color: '#0a0c10', fontWeight: 800, border: 'none', cursor: 'pointer' }}>Salvar Overrides</button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
