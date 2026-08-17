@@ -120,7 +120,10 @@ AFTER INSERT OR UPDATE OR DELETE ON public.organizations
 FOR EACH ROW EXECUTE FUNCTION public.log_audit_event();
 
 -- Trigger na tabela folders (Pastas de Organização)
-DROP TRIGGER IF EXISTS audit_folders_trigger ON public.folders;
-CREATE TRIGGER audit_folders_trigger
-AFTER INSERT OR UPDATE OR DELETE ON public.folders
-FOR EACH ROW EXECUTE FUNCTION public.log_audit_event();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'folders') THEN
+    EXECUTE 'DROP TRIGGER IF EXISTS audit_folders_trigger ON public.folders';
+    EXECUTE 'CREATE TRIGGER audit_folders_trigger AFTER INSERT OR UPDATE OR DELETE ON public.folders FOR EACH ROW EXECUTE FUNCTION public.log_audit_event()';
+  END IF;
+END $$;

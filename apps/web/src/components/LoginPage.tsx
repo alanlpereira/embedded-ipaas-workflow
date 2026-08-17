@@ -255,27 +255,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           const userEmail = data.user.email || email || '';
           const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
 
-          let { data: dbProfile } = await supabase
+          let { data: dbProfile, error: profileErr } = await supabase
             .from('profiles')
-            .select('*')
+            .select('*, requires_password_change')
             .eq('id', data.user.id)
             .single();
 
+          console.log('🔑 [LOGIN PAGE] Perfil lido do Supabase:', dbProfile, 'Erro:', profileErr);
+
           // Se a linha ainda não existir no banco, faz o UPSERT inicial para garantir a existência do perfil
           if (!dbProfile) {
+            const metaFlag = data.user.user_metadata?.requires_password_change;
+            const isReqReset = typeof metaFlag === 'boolean' ? metaFlag : true;
             const { data: createdProfile } = await supabase
               .from('profiles')
               .upsert({
                 id: data.user.id,
                 email: userEmail,
                 full_name: data.user.user_metadata?.full_name || fullName || '',
-                role: isMasterEmail ? 'Master' : 'Member',
-                subscription_status: isMasterEmail ? 'active' : 'inactive',
+                role: isMasterEmail ? 'Master' : ((data.user.user_metadata?.role as any) || 'Member'),
+                subscription_status: isMasterEmail ? 'active' : 'active',
                 subscription_plan: 'Pro',
+                requires_password_change: isReqReset,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               })
-              .select()
+              .select('*, requires_password_change')
               .single();
             dbProfile = createdProfile;
           }
@@ -289,8 +294,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             oab_uf: dbProfile?.oab_uf || 'MG',
             professional_id: dbProfile?.professional_id || (dbProfile?.oab_number ? `OAB/${dbProfile.oab_uf || 'MG'} ${dbProfile.oab_number}` : ''),
             role: isMasterEmail ? 'Master' : (dbProfile?.role || (data.user.user_metadata?.role as any) || 'Member'),
-            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'inactive'),
+            subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
             subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
+            requires_password_change: dbProfile?.requires_password_change ?? data.user.user_metadata?.requires_password_change ?? false,
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',
             created_at: dbProfile?.created_at || new Date().toISOString(),

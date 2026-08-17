@@ -20,6 +20,7 @@ END;
 $$;
 
 -- 2. Criar Stored Procedure (RPC) com SECURITY DEFINER para exclusão definitiva de perfis
+DROP FUNCTION IF EXISTS public.delete_user_profile(UUID);
 CREATE OR REPLACE FUNCTION public.delete_user_profile(target_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql

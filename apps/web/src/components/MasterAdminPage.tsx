@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2, ToggleLeft, ToggleRight, Mail, Phone } from 'lucide-react';
+import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2, ToggleLeft, ToggleRight, Mail, Phone, UserPlus } from 'lucide-react';
 import { Profile, PlanTier, UserRole } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
 import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
 import { getApiUrl } from '../lib/api';
 import { supabase } from '../lib/supabase';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://wurfruxigmajgnqsyleq.supabase.co';
 
 export interface ExtendedProfile extends Profile {
   manual_status_override?: boolean;
@@ -120,6 +122,57 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [newPlanTier, setNewPlanTier] = useState<PlanTier>('LegalOps');
 
   const [dbUsers, setDbUsers] = useState<ExtendedProfile[]>([]);
+
+  // Estados de Provisionamento Manual de Usuários
+  const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    name: '',
+    email: '',
+    oab: '',
+    temp_password: 'Temp@123',
+    role: 'Member'
+  });
+  const [provisionError, setProvisionError] = useState('');
+  const [provisionSuccess, setProvisionSuccess] = useState('');
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProvisionError('');
+    setProvisionSuccess('');
+    setIsCreatingUser(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || '';
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newUserForm)
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao provisionar novo usuário.');
+      }
+
+      setProvisionSuccess(`Usuário ${newUserForm.email} provisionado com sucesso!`);
+      setNewUserForm({ name: '', email: '', oab: '', temp_password: 'Temp@123', role: 'Member' });
+      await fetchMasterProfilesFromRpc();
+      setTimeout(() => {
+        setIsNewUserModalOpen(false);
+        setProvisionSuccess('');
+      }, 1500);
+    } catch (err: any) {
+      setProvisionError(err.message || 'Erro ao criar usuário.');
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
 
   // 🚀 Carregamento de Perfis Globais via RPC get_all_profiles (SECURITY DEFINER)
   const fetchMasterProfilesFromRpc = async () => {
@@ -768,10 +821,167 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
 
       {/* Seção 3: Centro de Comando Master — Usuários Registrados (`public.profiles`) */}
       <div style={{ ...cardStyle, marginBottom: '28px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Users size={18} color="#10b981" />
-          Centro de Comando Master — Usuários Registrados (`public.profiles`) ({dbUsers.length})
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Users size={18} color="#10b981" />
+            Centro de Comando Master — Usuários Registrados (`public.profiles`) ({dbUsers.length})
+          </h3>
+
+          <button
+            id="btn-novo-usuario-modal"
+            onClick={() => setIsNewUserModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: 700,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <UserPlus size={16} />
+            <span>+ Novo Usuário</span>
+          </button>
+        </div>
+
+        {/* Modal de Provisionamento Corporativo de Novo Usuário */}
+        {isNewUserModalOpen && (
+          <div
+            id="modal-novo-usuario"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '480px',
+                background: '#0f172a',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: '16px',
+                padding: '28px',
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <UserPlus size={20} color="#38bdf8" />
+                  Provisionamento Corporativo
+                </h3>
+                <button
+                  onClick={() => setIsNewUserModalOpen(false)}
+                  style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '18px', fontWeight: 700 }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {provisionError && (
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', fontSize: '13px', marginBottom: '16px' }}>
+                  ⚠️ {provisionError}
+                </div>
+              )}
+
+              {provisionSuccess && (
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#22c55e', fontSize: '13px', marginBottom: '16px' }}>
+                  ✅ {provisionSuccess}
+                </div>
+              )}
+
+              <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>Nome Completo</label>
+                  <input
+                    id="provision-name-input"
+                    type="text"
+                    required
+                    placeholder="Ex: Dra. Ana Paula Silva"
+                    value={newUserForm.name}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(51, 65, 85, 0.8)', borderRadius: '8px', color: '#ffffff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>E-mail Corporativo</label>
+                  <input
+                    id="provision-email-input"
+                    type="email"
+                    required
+                    placeholder="Ex: ana.silva@escritorio.com"
+                    value={newUserForm.email}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(51, 65, 85, 0.8)', borderRadius: '8px', color: '#ffffff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>Número OAB</label>
+                    <input
+                      id="provision-oab-input"
+                      type="text"
+                      required
+                      placeholder="Ex: 112233 ou 112233/MG"
+                      value={newUserForm.oab}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, oab: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(51, 65, 85, 0.8)', borderRadius: '8px', color: '#ffffff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '4px' }}>Senha Temporária</label>
+                    <input
+                      id="provision-password-input"
+                      type="text"
+                      required
+                      placeholder="Ex: Temp@123"
+                      value={newUserForm.temp_password}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, temp_password: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(51, 65, 85, 0.8)', borderRadius: '8px', color: '#ffffff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsNewUserModalOpen(false)}
+                    style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(51, 65, 85, 0.5)', color: '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    id="btn-confirmar-provisionamento"
+                    type="submit"
+                    disabled={isCreatingUser}
+                    style={{ padding: '10px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #38bdf8, #6366f1)', color: '#ffffff', border: 'none', cursor: isCreatingUser ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 700, boxShadow: '0 4px 12px rgba(56, 189, 248, 0.3)' }}
+                  >
+                    {isCreatingUser ? 'Provisionando...' : 'Criar e Notificar Usuário'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>

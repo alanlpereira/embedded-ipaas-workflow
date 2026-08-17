@@ -29,6 +29,7 @@ export interface Profile {
   subscription_status?: string;
   ai_monthly_limit?: number;
   ai_monthly_usage?: number;
+  requires_password_change?: boolean;
   role: UserRole;
   created_at: string;
   updated_at: string;

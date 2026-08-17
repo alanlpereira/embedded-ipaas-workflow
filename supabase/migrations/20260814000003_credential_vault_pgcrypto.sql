@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- 2. Criar a tabela 'credential_vault' para armazenamento seguro de chaves de API e tokens de sistemas externos
 CREATE TABLE IF NOT EXISTS public.credential_vault (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    organization_id TEXT,
     name TEXT NOT NULL,
     service_type TEXT NOT NULL CHECK (service_type IN ('whatsapp', 'sendgrid', 'slack', 'custom_bearer', 'api_key', 'pje_credentials')),
     masked_value TEXT NOT NULL,

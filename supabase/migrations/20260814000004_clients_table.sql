@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS public.clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+    organization_id TEXT,
     name TEXT NOT NULL,
     email TEXT,
     phone TEXT NOT NULL,

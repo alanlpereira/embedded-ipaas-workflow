@@ -43,6 +43,7 @@ export interface Profile {
   subscription_status?: string;
   manual_status_override?: boolean;
   custom_plan_price?: number;
+  requires_password_change?: boolean;
   ai_monthly_limit?: number;
   ai_monthly_usage?: number;
   role: UserRole;

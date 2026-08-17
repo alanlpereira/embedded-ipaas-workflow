@@ -47,22 +47,22 @@ CREATE POLICY "Usuários podem atualizar seu próprio perfil" ON profiles
 DROP POLICY IF EXISTS "Usuários autenticados podem visualizar seus fluxos" ON flowcharts;
 CREATE POLICY "Usuários autenticados podem visualizar seus fluxos" ON flowcharts
   FOR SELECT TO authenticated
-  USING (auth.uid() = user_id OR user_id IS NULL OR auth.role() = 'authenticated');
+  USING (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Usuários autenticados podem criar fluxos" ON flowcharts;
 CREATE POLICY "Usuários autenticados podem criar fluxos" ON flowcharts
   FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() = user_id OR user_id IS NULL OR auth.role() = 'authenticated');
+  WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Usuários autenticados podem atualizar fluxos" ON flowcharts;
 CREATE POLICY "Usuários autenticados podem atualizar fluxos" ON flowcharts
   FOR UPDATE TO authenticated
-  USING (auth.uid() = user_id OR user_id IS NULL OR auth.role() = 'authenticated');
+  USING (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Usuários autenticados podem deletar fluxos" ON flowcharts;
 CREATE POLICY "Usuários autenticados podem deletar fluxos" ON flowcharts
   FOR DELETE TO authenticated
-  USING (auth.uid() = user_id OR user_id IS NULL OR auth.role() = 'authenticated');
+  USING (auth.role() = 'authenticated');
 
 -- Tabela: flow_executions
 DROP POLICY IF EXISTS "Acesso às execuções de fluxo" ON flow_executions;
@@ -77,10 +77,13 @@ CREATE POLICY "Acesso público e autenticado aos tokens de aprovação" ON appro
   USING (true);
 
 -- Tabela: audit_logs
-DROP POLICY IF EXISTS "Acesso a logs de auditoria" ON audit_logs;
-CREATE POLICY "Acesso a logs de auditoria" ON audit_logs
-  FOR ALL TO authenticated
-  USING (auth.role() = 'authenticated');
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'audit_logs') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "Acesso a logs de auditoria" ON audit_logs';
+    EXECUTE 'CREATE POLICY "Acesso a logs de auditoria" ON audit_logs FOR ALL TO authenticated USING (auth.role() = ''authenticated'')';
+  END IF;
+END $$;
 
 -- 4. Políticas de Segurança RLS para o Storage Privado 'legal_copilot_files'
 DROP POLICY IF EXISTS "Leitura de arquivos privados para usuários autenticados" ON storage.objects;

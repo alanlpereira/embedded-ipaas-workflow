@@ -23,6 +23,7 @@ import { MobileNodeListView } from './components/MobileNodeListView';
 import { ZeroFrictionDecidePage } from './components/ZeroFrictionDecidePage';
 import { MagicDemoPage } from './components/MagicDemoPage';
 import { IntegrationsVaultPage } from './components/IntegrationsVaultPage';
+import { ForcePasswordResetPage } from './components/ForcePasswordResetPage';
 import { UserSettingsPage } from './components/UserSettingsPage';
 import { UserProfilePage } from './components/UserProfilePage';
 import { LegalDashboardPage } from './components/LegalDashboardPage';
@@ -300,15 +301,20 @@ function WorkflowAppContent() {
         setIsLoadingProfile(true);
         let { data: dbProfile } = await supabase
           .from('profiles')
-          .select('*')
+          .select('*, requires_password_change')
           .eq('id', userId)
           .single();
+
+        console.log('🧪 [HYDRATE PROFILE] dbProfile lido:', dbProfile, 'requires_password_change:', dbProfile?.requires_password_change);
 
         const userEmail = email || dbProfile?.email || '';
         const isMasterEmail = userEmail === 'alanlpereira@hotmail.com' || userEmail === 'alan.pereira@alp-nexus.com' || userEmail.endsWith('@alp-nexus.com');
 
         // Self-healing: Se a linha ainda não existir na tabela public.profiles, grava via UPSERT
         if (!dbProfile && userId) {
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          const metaFlag = (currentSession?.user?.user_metadata as any)?.requires_password_change;
+          const isReqReset = typeof metaFlag === 'boolean' ? metaFlag : true;
           const { data: createdProf } = await supabase
             .from('profiles')
             .upsert({
@@ -318,15 +324,20 @@ function WorkflowAppContent() {
               role: isMasterEmail ? 'Master' : 'Member',
               subscription_status: isMasterEmail ? 'active' : 'active',
               subscription_plan: 'Pro',
+              requires_password_change: isReqReset,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             })
-            .select()
+            .select('*, requires_password_change')
             .single();
           dbProfile = createdProf;
         }
 
         if (isMounted) {
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          const metaFlag = (currentSession?.user?.user_metadata as any)?.requires_password_change;
+          const finalRequiresPasswordChange = dbProfile?.requires_password_change === true || metaFlag === true;
+
           const isCompleteProfile = Boolean(dbProfile?.oab_number?.trim() && dbProfile?.full_name?.trim());
           const fullProfile: Profile = {
             id: userId,
@@ -340,6 +351,7 @@ function WorkflowAppContent() {
             // Respeita estritamente o subscription_status vindo da tabela public.profiles do PostgreSQL
             subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'inactive'),
             subscription_plan: dbProfile?.subscription_plan || 'Pro',
+            requires_password_change: finalRequiresPasswordChange,
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',
             created_at: dbProfile?.created_at || new Date().toISOString(),
@@ -1483,6 +1495,36 @@ function WorkflowAppContent() {
         }}
       />
     );
+  }
+
+  // 🚨 REGRA SÍNCRONA DE RESET OBRIGATÓRIO DE SENHA:
+  // Se o usuário estiver logado e o perfil indicar requires_password_change === true,
+  // redirecione IMEDIATAMENTE para /reset-senha-obrigatorio, bloqueando o acesso a /juridico ou /onboarding.
+  const isPasswordResetRequired = Boolean(currentProfile?.requires_password_change);
+  const isResetPasswordPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/reset-senha-obrigatorio');
+
+  if (isPasswordResetRequired) {
+    if (!isResetPasswordPath && typeof window !== 'undefined') {
+      window.history.replaceState({}, document.title, '/reset-senha-obrigatorio');
+    }
+    return (
+      <ForcePasswordResetPage
+        currentProfile={currentProfile}
+        onPasswordResetComplete={(updatedProfile) => {
+          setCurrentProfile(updatedProfile);
+          try {
+            localStorage.setItem('synapse_active_session', JSON.stringify(updatedProfile));
+          } catch (e) {}
+          window.location.href = '/juridico';
+        }}
+      />
+    );
+  }
+
+  // Se o usuário acessar /reset-senha-obrigatorio sem precisar alterar a senha, redireciona para /juridico
+  if (isResetPasswordPath && !isPasswordResetRequired) {
+    window.location.href = '/juridico';
+    return null;
   }
 
   // PASSO 3: O role é Member? (Verifica OAB e Assinatura)

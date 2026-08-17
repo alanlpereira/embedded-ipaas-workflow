@@ -39,3 +39,7 @@ verify_jwt = false
 
 [functions.workflow-scheduler]
 verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = false
+
