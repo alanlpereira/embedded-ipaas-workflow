@@ -192,6 +192,7 @@ function WorkflowAppContent() {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const hash = window.location.hash;
+      if (path.startsWith('/admin/knowledge')) return 'knowledge';
       // 🏛️ Módulo Jurídico (/juridico, /portal, /oab/) -> Dashboard de Processos
       if (path.startsWith('/juridico') || hash.includes('juridico') || path.startsWith('/portal') || path.startsWith('/oab/')) return 'dashboard';
       if (path.startsWith('/pricing') || hash.includes('pricing')) return 'pricing';
