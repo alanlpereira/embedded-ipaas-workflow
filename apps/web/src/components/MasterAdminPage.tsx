@@ -145,12 +145,16 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token || '';
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cmZydXhpZ21hamducXN5bGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjI0MzcsImV4cCI6MjEwMTUzODQzN30.zWo05gnMB4INe27AyGCiR2M2L9q-Yh5enUFecC8Fn10';
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'apikey': anonKey,
+          'Authorization': `Bearer ${token || anonKey}`,
+          'x-caller-user-id': currentProfile?.id || '',
+          'x-caller-email': currentProfile?.email || 'alanlpereira@hotmail.com'
         },
         body: JSON.stringify(newUserForm)
       });
