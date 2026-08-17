@@ -1484,7 +1484,7 @@ function WorkflowAppContent() {
 
   // PASSO 3: O role é Master? (Direciona para /juridico no Módulo Jurídico e / no IPaaS)
   if (isMasterRole) {
-    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile') {
+    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile' && currentTab !== 'helpdesk' && currentTab !== 'knowledge') {
       setCurrentTab('dashboard');
     } else if (isRootEntry && currentTab === 'dashboard') {
       setCurrentTab('editor');
@@ -1516,7 +1516,7 @@ function WorkflowAppContent() {
     }
 
     // PASSO 6: O role é Member, tem OAB, e a assinatura está ativa? (Direciona para /juridico - Portal PJe)
-    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile') {
+    if (isJuridicoEntry && currentTab !== 'dashboard' && currentTab !== 'clients' && currentTab !== 'profile' && currentTab !== 'helpdesk') {
       setCurrentTab('dashboard');
     }
   }
