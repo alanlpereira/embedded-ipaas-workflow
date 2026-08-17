@@ -348,12 +348,15 @@ function WorkflowAppContent() {
           setCurrentProfile(fullProfile);
           localStorage.setItem('synapse_active_session', JSON.stringify(fullProfile));
 
-          // 🎯 SEGREGAÇÃO ESTRITA DE DOMÍNIOS E ROTAS DE ENTRADA (/ vs /juridico)
+          // 🎯 SEGREGAÇÃO ESTRITA DE DOMÍNIOS E ROTAS DE ENTRADA (/ vs /juridico vs /admin/users)
           const path = typeof window !== 'undefined' ? window.location.pathname : '';
           const hash = typeof window !== 'undefined' ? window.location.hash : '';
           const isJuridicoPath = path.startsWith('/juridico') || hash.includes('juridico') || path.startsWith('/portal') || path.startsWith('/oab/');
+          const isAdminUsersPath = path.includes('/admin/users') || path.includes('/users') || path.includes('/admin');
 
-          if (isJuridicoPath) {
+          if (isAdminUsersPath && isMasterEmail) {
+            setCurrentTab('masterAdmin');
+          } else if (isJuridicoPath) {
             // Acessou explicitamente a rota do Módulo Jurídico (/juridico) -> Portal do Advogado / Consultas PJe
             setCurrentTab('dashboard');
           } else {

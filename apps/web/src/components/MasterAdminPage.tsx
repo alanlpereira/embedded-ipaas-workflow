@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2, ToggleLeft, ToggleRight, Mail, Phone } from 'lucide-react';
-import { Profile, PlanTier } from '@ipaas/shared-types';
+import { Profile, PlanTier, UserRole } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
 import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
@@ -163,6 +163,10 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [userOverrideStatus, setUserOverrideStatus] = useState<boolean>(false);
   const [userAiLimit, setUserAiLimit] = useState<number>(100);
   const [userCustomPrice, setUserCustomPrice] = useState<number | ''>('');
+  const [userPlan, setUserPlan] = useState<string>('Pro');
+  const [userRole, setUserRole] = useState<UserRole>('Member');
+  const [userOabNumber, setUserOabNumber] = useState<string>('');
+  const [userOabUf, setUserOabUf] = useState<string>('MG');
   const [isSendingStripePortal, setIsSendingStripePortal] = useState<boolean>(false);
 
   useEffect(() => {
@@ -170,17 +174,51 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
       setUserOverrideStatus(Boolean(editingUser.manual_status_override));
       setUserAiLimit(editingUser.ai_monthly_limit || 100);
       setUserCustomPrice(editingUser.custom_plan_price || '');
+      setUserPlan(editingUser.subscription_plan || 'Pro');
+      setUserRole(editingUser.role || 'Member');
+      setUserOabNumber(editingUser.oab_number || '');
+      setUserOabUf(editingUser.oab_uf || 'MG');
     }
   }, [editingUser]);
+
+  const handleUpdateUserField = async (userId: string, field: string, value: any) => {
+    try {
+      console.log(`⚡ [MASTER FIELD UPDATE] Atualizando ${field} para ${userId}:`, value);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ [field]: value })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      setDbUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, [field]: value } : u))
+      );
+
+      console.log(`✅ [MASTER FIELD UPDATE SUCESSO] ${field} de ${userId} atualizado!`);
+    } catch (err: any) {
+      alert(`Erro ao atualizar campo ${field}: ${err.message}`);
+    }
+  };
 
   const handleSaveUserOverrides = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
     try {
-      console.log(`⚡ [MASTER OVERRIDE] Atualizando perfil ${editingUser.email}...`);
+      console.log(`⚡ [MASTER OVERRIDE] Atualizando perfil completo ${editingUser.email}...`);
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
+
+      const payload = {
+        manual_status_override: userOverrideStatus,
+        ai_monthly_limit: Number(userAiLimit),
+        custom_plan_price: userCustomPrice === '' ? null : Number(userCustomPrice),
+        subscription_plan: userPlan,
+        role: userRole as UserRole,
+        oab_number: userOabNumber || null,
+        oab_uf: userOabUf || 'MG'
+      };
 
       const resp = await fetch(getApiUrl('admin-billing-manager'), {
         method: 'POST',
@@ -191,39 +229,34 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
         body: JSON.stringify({
           action: 'update_profile_override',
           target_user_id: editingUser.id,
-          manual_status_override: userOverrideStatus,
-          ai_monthly_limit: Number(userAiLimit),
-          custom_plan_price: userCustomPrice === '' ? null : Number(userCustomPrice)
+          ...payload
         })
       });
 
       const res = await resp.json();
-      if (!res.success) {
-        // Fallback direto via Supabase Client
-        await supabase
-          .from('profiles')
-          .update({
-            manual_status_override: userOverrideStatus,
-            ai_monthly_limit: Number(userAiLimit),
-            custom_plan_price: userCustomPrice === '' ? null : Number(userCustomPrice)
-          })
-          .eq('id', editingUser.id);
-      }
+
+      // Atualização direta no PostgreSQL como fallback
+      await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', editingUser.id);
 
       setDbUsers((prev) =>
         prev.map((u) =>
           u.id === editingUser.id
             ? {
                 ...u,
-                manual_status_override: userOverrideStatus,
-                ai_monthly_limit: Number(userAiLimit),
-                custom_plan_price: userCustomPrice === '' ? undefined : Number(userCustomPrice)
+                ...payload,
+                role: userRole as UserRole,
+                custom_plan_price: userCustomPrice === '' ? undefined : Number(userCustomPrice),
+                oab_number: userOabNumber || undefined,
+                oab_uf: userOabUf || undefined
               }
             : u
         )
       );
 
-      alert(`✅ Overrides de ${editingUser.email} atualizados com sucesso!`);
+      alert(`✅ Configurações e Overrides de ${editingUser.email} atualizados com sucesso!`);
       setEditingUser(null);
     } catch (err: any) {
       alert(`Erro ao atualizar overrides: ${err.message}`);
@@ -772,26 +805,64 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                       </div>
                     </td>
                     <td style={{ padding: '14px 16px' }}>
-                      {isOverridden ? (
-                        <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.4)' }}>
-                          🟢 OVERRIDE (LIBERADO)
-                        </span>
-                      ) : (
-                        <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, background: isAct ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: isAct ? '#3b82f6' : '#ef4444', border: isAct ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)' }}>
-                          {isAct ? 'ATIVO (STRIPE)' : '🔴 INATIVO (BLOQUEADO)'}
-                        </span>
-                      )}
+                      <button
+                        onClick={() => handleUpdateUserField(user.id, 'manual_status_override', !isOverridden)}
+                        title="Clique para Alternar Liberação Forçada (Override Stripe)"
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          background: isOverridden ? 'rgba(16, 185, 129, 0.2)' : (isAct ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)'),
+                          color: isOverridden ? '#10b981' : (isAct ? '#3b82f6' : '#ef4444'),
+                          border: isOverridden ? '1px solid rgba(16, 185, 129, 0.4)' : (isAct ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'),
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        {isOverridden ? '🟢 LIBERADO (OVERRIDE)' : (isAct ? '🔵 ATIVO (STRIPE)' : '🔴 BLOQUEADO')}
+                      </button>
                     </td>
-                    <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontSize: '12px' }}>
-                      <strong>{user.subscription_plan || 'Pro'}</strong>
+                    <td style={{ padding: '14px 16px' }}>
+                      <select
+                        value={user.subscription_plan || 'Pro'}
+                        onChange={(e) => handleUpdateUserField(user.id, 'subscription_plan', e.target.value)}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          background: 'var(--bg-tertiary)',
+                          border: '1px solid var(--border-color)',
+                          color: '#38bdf8',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="Pro">⚖️ Plano Pro (R$ 149)</option>
+                        <option value="Enterprise">🏢 Enterprise</option>
+                        <option value="LegalOps">⚖️ Legal Ops (500k)</option>
+                        <option value="Synapse">✨ Synapse (1M)</option>
+                        <option value="Axiom">⚡ Axiom (200k)</option>
+                        <option value="Kinex">🔥 Kinex (50k)</option>
+                        <option value="Forge">🔨 Forge (10k)</option>
+                      </select>
                       {user.custom_plan_price ? (
-                        <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 700 }}>Custom: R$ {user.custom_plan_price}/mês</div>
-                      ) : (
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>R$ 149/mês</div>
-                      )}
+                        <div style={{ fontSize: '10px', color: '#f59e0b', fontWeight: 700, marginTop: '2px' }}>Custom: R$ {user.custom_plan_price}/mês</div>
+                      ) : null}
                     </td>
                     <td style={{ padding: '14px 16px', color: 'var(--text-primary)', fontSize: '12px' }}>
-                      <strong>{currentUsage} / {maxLimit}</strong> tokens
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <strong>{currentUsage} / {maxLimit}</strong>
+                        <button
+                          title="Zerar Consumo de IA"
+                          onClick={() => handleUpdateUserField(user.id, 'ai_monthly_usage', 0)}
+                          style={{ padding: '2px 5px', borderRadius: '4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer' }}
+                        >
+                          🔄 Zerar
+                        </button>
+                      </div>
                       <div style={{ width: '100px', height: '5px', background: 'var(--bg-tertiary)', borderRadius: '3px', marginTop: '4px', overflow: 'hidden' }}>
                         <div style={{ width: `${Math.min(100, Math.round((currentUsage / maxLimit) * 100))}%`, height: '100%', background: '#38bdf8' }}></div>
                       </div>
@@ -906,11 +977,71 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
               <button onClick={() => setEditingUser(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
-            <form onSubmit={handleSaveUserOverrides} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <form onSubmit={handleSaveUserOverrides} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Edição do App / Plano & Role */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Edição do App / Plano</label>
+                  <select
+                    value={userPlan}
+                    onChange={(e) => setUserPlan(e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="Pro">⚖️ Plano Pro (R$ 149/mês)</option>
+                    <option value="Enterprise">🏢 Enterprise</option>
+                    <option value="LegalOps">⚖️ Legal Ops (500k tokens)</option>
+                    <option value="Synapse">✨ Synapse (1M tokens)</option>
+                    <option value="Axiom">⚡ Axiom (200k tokens)</option>
+                    <option value="Kinex">🔥 Kinex (50k tokens)</option>
+                    <option value="Forge">🔨 Forge (10k tokens)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Role / Permissão</label>
+                  <select
+                    value={userRole}
+                    onChange={(e) => setUserRole(e.target.value as UserRole)}
+                    style={inputStyle}
+                  >
+                    <option value="Member">👤 Member (Advogado)</option>
+                    <option value="Master">👑 Master (Admin Global)</option>
+                    <option value="Admin">🛡️ Admin (Gestor)</option>
+                    <option value="Viewer">👁️ Viewer (Leitura)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Registro Profissional OAB */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Número da OAB</label>
+                  <input
+                    type="text"
+                    value={userOabNumber}
+                    onChange={(e) => setUserOabNumber(e.target.value)}
+                    placeholder="Ex: 123456"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>UF da OAB</label>
+                  <select
+                    value={userOabUf}
+                    onChange={(e) => setUserOabUf(e.target.value)}
+                    style={inputStyle}
+                  >
+                    {['MG', 'SP', 'RJ', 'PR', 'RS', 'SC', 'BA', 'DF', 'GO', 'ES', 'PE', 'CE', 'MA', 'PA', 'PB', 'AM', 'RN', 'AL', 'PI', 'MT', 'MS', 'SE', 'RO', 'TO', 'AC', 'AP', 'RR'].map(uf => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Override Liberação Forçada */}
-              <div style={{ padding: '14px', borderRadius: '10px', background: userOverrideStatus ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-tertiary)', border: userOverrideStatus ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
-                  <span>🟢 Forçar Liberação de Acesso (Override Stripe)</span>
+              <div style={{ padding: '12px 14px', borderRadius: '10px', background: userOverrideStatus ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-tertiary)', border: userOverrideStatus ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontWeight: 700, fontSize: '12px', color: 'var(--text-primary)' }}>
+                  <span>🟢 Liberação Forçada (Override Stripe)</span>
                   <input
                     type="checkbox"
                     checked={userOverrideStatus}
@@ -919,36 +1050,34 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                   />
                 </label>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Quando ativado, ignora pendências/inadimplência do Stripe e libera o Portal PJe imediatamente.
+                  Quando ativado, libera o Portal PJe imediatamente, ignorando inadimplência do Stripe.
                 </div>
               </div>
 
-              {/* Ajustar Limite Mensal de IA */}
-              <div>
-                <label style={labelStyle}>Novo Limite Mensal de IA (ai_monthly_limit)</label>
-                <input
-                  type="number"
-                  value={userAiLimit}
-                  onChange={(e) => setUserAiLimit(Number(e.target.value))}
-                  placeholder="Ex: 5000"
-                  required
-                  style={inputStyle}
-                />
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Limite de peças/prompts gerados por mês para este advogado.
+              {/* Ajustar Limite Mensal de IA & Preço Customizado */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Limite Mensal de IA (ai_monthly_limit)</label>
+                  <input
+                    type="number"
+                    value={userAiLimit}
+                    onChange={(e) => setUserAiLimit(Number(e.target.value))}
+                    placeholder="Ex: 5000"
+                    required
+                    style={inputStyle}
+                  />
                 </div>
-              </div>
 
-              {/* Preço Customizado da Assinatura */}
-              <div>
-                <label style={labelStyle}>Preço Customizado do Plano (R$/mês)</label>
-                <input
-                  type="number"
-                  value={userCustomPrice}
-                  onChange={(e) => setUserCustomPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="Deixar em branco para padrão R$ 149"
-                  style={inputStyle}
-                />
+                <div>
+                  <label style={labelStyle}>Preço Customizado (R$/mês)</label>
+                  <input
+                    type="number"
+                    value={userCustomPrice}
+                    onChange={(e) => setUserCustomPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="Padrão R$ 149"
+                    style={inputStyle}
+                  />
+                </div>
               </div>
 
               {/* Ação Stripe Customer Portal */}
@@ -968,12 +1097,12 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                     cursor: 'pointer'
                   }}
                 >
-                  ✉️ Enviar Link Stripe Customer Portal (PCI)
+                  ✉️ Link Stripe Portal (PCI)
                 </button>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button type="button" onClick={() => setEditingUser(null)} style={{ padding: '8px 14px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', cursor: 'pointer' }}>Cancelar</button>
-                  <button type="submit" style={{ padding: '8px 16px', borderRadius: '8px', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))', color: '#0a0c10', fontWeight: 800, border: 'none', cursor: 'pointer' }}>Salvar Overrides</button>
+                  <button type="submit" style={{ padding: '8px 16px', borderRadius: '8px', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))', color: '#0a0c10', fontWeight: 800, border: 'none', cursor: 'pointer' }}>Salvar Configurações</button>
                 </div>
               </div>
             </form>
