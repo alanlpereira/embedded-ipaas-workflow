@@ -113,15 +113,13 @@ serve(async (req) => {
 
         if (!isDue && cronExpr && cronExpr.split(' ').length >= 5) {
           try {
+            // AVALIAÇÃO EXCLUSIVA DE FUSO HORÁRIO DE BRASÍLIA (America/Sao_Paulo UTC-3)
+            // Removemos a verificação de diffUtc para evitar disparos às 05h00 AM (que é 08h00 AM UTC)
             const intervalSp = cronParser.parseExpression(cronExpr, { tz: 'America/Sao_Paulo', currentDate: now });
             const prevSp = intervalSp.prev().toDate();
             const diffSp = Math.abs((now.getTime() - prevSp.getTime()) / 1000);
 
-            const intervalUtc = cronParser.parseExpression(cronExpr, { currentDate: now });
-            const prevUtc = intervalUtc.prev().toDate();
-            const diffUtc = Math.abs((now.getTime() - prevUtc.getTime()) / 1000);
-
-            if (diffSp < 60 || diffUtc < 60) {
+            if (diffSp < 60) {
               isDue = true;
             }
           } catch (cErr: any) {
@@ -130,19 +128,22 @@ serve(async (req) => {
         }
 
         if (isDue) {
-          const minuteCutoff = new Date(now.getTime() - 55000).toISOString();
+          // Trava de Deduplicação Rígida de 15 Minutos (900.000 ms) por Fluxo/Nome
+          const lockoutCutoff = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
+          
           const { data: existingExec } = await supabase
             .from('flow_executions')
             .select('id')
             .eq('workflow_id', workflow.id)
-            .gte('started_at', minuteCutoff)
+            .gte('started_at', lockoutCutoff)
             .maybeSingle();
 
           if (existingExec) {
+            console.log(`⏸️ [DEDUPLICATION LOCKOUT] Fluxo "${workflow.name}" (ID: ${workflow.id}) já foi executado nos últimos 15 min. Ignorando disparo duplicado.`);
             continue;
           }
 
-          console.log(`🚀 [SCHEDULE MATCH!] Cron/Horário devido! Hora SP: ${currentLocalTime} | Iniciando "${workflow.name}"...`);
+          console.log(`🚀 [SCHEDULE MATCH!] Cron/Horário devido (Hora SP: ${currentLocalTime}) | Iniciando "${workflow.name}"...`);
 
           const schedExecId = crypto.randomUUID();
           const executionPayload = {

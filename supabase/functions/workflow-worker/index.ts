@@ -139,7 +139,7 @@ serve(async (req) => {
   if (body.action === 'query_pje') {
     const targetOab = String(body.oab_number || body.oab || '').trim();
     const targetUf = String(body.oab_uf || body.uf || 'MG').trim().toUpperCase();
-    const startDate = body.start_date || new Date(Date.now() - 86400000 * 15).toISOString().split('T')[0];
+    const startDate = body.start_date || new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0];
     const endDate = body.end_date || new Date().toISOString().split('T')[0];
 
     console.log(`📡 [WORKER QUERY_PJE] Buscando PJe CNJ para OAB/${targetUf} ${targetOab} de ${startDate} até ${endDate}...`);
@@ -1531,13 +1531,22 @@ ${combinedEmailsText}`;
 
         const targetOab = String(contextData.oab_number || settings.oabNumber || settings.oab_number || '').trim();
         const targetUf = String(contextData.oab_uf || settings.oabUf || settings.oab_uf || 'MG').trim().toUpperCase();
-        const startDate = contextData.start_date || settings.startDate || settings.start_date || new Date(Date.now() - 86400000 * 15).toISOString().split('T')[0];
-        const endDate = contextData.end_date || settings.endDate || settings.end_date || new Date().toISOString().split('T')[0];
+        
+        const todayIsoStr = new Date().toISOString().split('T')[0];
+        const isScheduledRun = contextData.trigger === 'schedule' || settings.isScheduled;
+        
+        // Se for execução automatizada agendada (08:00 AM), o padrão de data inicial é HOJE
+        const defaultStartDate = isScheduledRun
+          ? todayIsoStr
+          : new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0];
+
+        const startDate = contextData.start_date || settings.startDate || settings.start_date || defaultStartDate;
+        const endDate = contextData.end_date || settings.endDate || settings.end_date || todayIsoStr;
 
         let liveApiProcesses: any[] = [];
         try {
           const pjeUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacao?numeroOab=${targetOab}&ufOab=${targetUf}&dataDisponibilizacaoInicio=${startDate}&dataDisponibilizacaoFim=${endDate}&pagina=1&itensPorPagina=100`;
-          console.log(`📡 [WORKER] AUTOMATIZADO: Consultando API Oficial do PJe CNJ: ${pjeUrl}`);
+          console.log(`📡 [WORKER] AUTOMATIZADO: Consultando API Oficial do PJe CNJ (Filtro: ${startDate} a ${endDate}): ${pjeUrl}`);
           
           const pjeRes = await fetch(pjeUrl, {
             headers: {
@@ -1549,12 +1558,16 @@ ${combinedEmailsText}`;
           if (pjeRes.ok) {
             const pjeData = await pjeRes.json();
             if (pjeData && Array.isArray(pjeData.items) && pjeData.items.length > 0) {
-              liveApiProcesses = pjeData.items.map((item: any, idx: number) => {
+              const mappedProcesses = pjeData.items.map((item: any, idx: number) => {
                 const rawDate = item.data_disponibilizacao || item.dataDisponibilizacao || item.data_comunicacao || item.dataComunicacao || item.created_at || new Date().toISOString();
                 let formattedDate = String(rawDate).includes('T') ? String(rawDate).split('T')[0] : String(rawDate);
+                let isoDateStr = formattedDate;
                 if (/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
                   const [y, m, d] = formattedDate.split('-');
                   formattedDate = `${d}/${m}/${y}`;
+                } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(formattedDate)) {
+                  const [d, m, y] = formattedDate.split('/');
+                  isoDateStr = `${y}-${m}-${d}`;
                 }
 
                 return {
@@ -1574,9 +1587,17 @@ ${combinedEmailsText}`;
                   movement_date: formattedDate,
                   data_disponibilizacao: formattedDate,
                   updated_at: formattedDate,
+                  raw_iso_date: isoDateStr
                 };
               });
-              console.log(`✅ [WORKER] AUTOMATIZAÇÃO SUCESSO: ${liveApiProcesses.length} processos reais obtidos diretamente da API do CNJ PJe Comunica!`);
+
+              // 🎯 FILTRAGEM ESTRITA POR DATA DE MOVIMENTAÇÃO (Garantir que movimentos antigos fora da janela solicitada não apareçam)
+              liveApiProcesses = mappedProcesses.filter((proc: any) => {
+                if (!proc.raw_iso_date) return true;
+                return proc.raw_iso_date >= startDate && proc.raw_iso_date <= endDate;
+              });
+
+              console.log(`✅ [WORKER] AUTOMATIZAÇÃO SUCESSO: ${liveApiProcesses.length} processo(s) mantido(s) após filtragem estrita da janela [${startDate} a ${endDate}]!`);
             }
           }
         } catch (pjeErr: any) {
