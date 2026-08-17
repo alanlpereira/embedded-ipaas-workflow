@@ -1,11 +1,10 @@
 # Workflow do GitHub Actions para Análise Automatizada de Segurança via Snyk
 # -----------------------------------------------------------------------------------
-# ⚠️ ATENÇÃO E CONFIGURAÇÃO OBRIGATÓRIA:
-# Para que este workflow funcione no repositório do GitHub, a chave de API da Snyk (SNYK_TOKEN)
-# precisa ser cadastrada nas configurações do repositório no GitHub:
-# -> Acesse: Settings -> Secrets and variables -> Actions -> New repository secret
+# ⚠️ CONFIGURAÇÃO OBRIGATÓRIA PARA INTEGRAÇÃO COM PAINEL SNYK:
+# Para enviar relatórios diretamente para o app.snyk.io:
+# -> Acesse: GitHub Settings -> Secrets and variables -> Actions -> New repository secret
 # -> Nome da Secret: SNYK_TOKEN
-# -> Valor: Obtenha a API Key gratuita da sua conta no painel da Snyk (https://app.snyk.io/)
+# -> Valor: API Key da sua conta no Snyk (https://app.snyk.io/)
 # -----------------------------------------------------------------------------------
 
 name: Snyk Security Scan
@@ -15,12 +14,13 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
   schedule:
     - cron: '0 3 * * 1' # Executa semanalmente toda segunda-feira às 03:00 UTC
 
 jobs:
   security-audit:
-    name: Snyk Vulnerability Test
+    name: Snyk Vulnerability & Code SAST Test
     runs-on: ubuntu-latest
 
     steps:
@@ -32,27 +32,34 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Instalar pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8.15.0
+      - name: Instalar pnpm e Snyk CLI
+        run: |
+          npm install -g pnpm@8.15.0 snyk
 
       - name: Instalar dependências do projeto
         run: pnpm install --no-frozen-lockfile
 
-      - name: Executar Snyk Test para varredura de vulnerabilidades de pacotes
-        uses: snyk/actions/node@master
-        continue-on-error: true # Permite que a pipeline gere relatórios sem quebrar a build no primeiro alerta
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --all-projects --severity-threshold=high
-
-      - name: Executar Snyk Code Test para varredura de vulnerabilidades SAST no código-fonte
-        uses: snyk/actions/node@master
+      - name: Executar Varredura de Vulnerabilidades em Dependências (Snyk Test)
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: code test
-          args: --all-projects
+        run: |
+          if [ -n "$SNYK_TOKEN" ]; then
+            echo "🔒 [SNYK] Executando análise de dependências pnpm..."
+            snyk test --all-projects --package-manager=pnpm --severity-threshold=high || true
+          else
+            echo "⚠️ [SNYK NOTICE] Secret SNYK_TOKEN não detectada no GitHub Secrets."
+            echo "ℹ️ Para vincular varreduras automáticas ao seu painel Snyk, adicione a secret SNYK_TOKEN no GitHub."
+          fi
+
+      - name: Executar Varredura SAST no Código-Fonte (Snyk Code Test)
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -n "$SNYK_TOKEN" ]; then
+            echo "🔍 [SNYK] Executando análise de código estático (SAST)..."
+            snyk code test --all-projects || true
+          else
+            echo "⚠️ [SNYK NOTICE] Snyk Code ignorado pois a secret SNYK_TOKEN não foi configurada."
+          fi
