@@ -60,7 +60,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
           const userProfile: Profile = profile || {
             id: session.user.id,
@@ -68,6 +68,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             email: session.user.email || '',
             full_name: session.user.user_metadata?.full_name || '',
             role: (session.user.user_metadata?.role as any) || 'Member',
+            requires_password_change: session.user.user_metadata?.requires_password_change === true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
@@ -77,14 +78,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           return;
         }
 
-        const savedSession = localStorage.getItem('synapse_active_session');
-        if (savedSession && isMounted) {
-          const parsed = JSON.parse(savedSession);
-          if (parsed && parsed.email) {
-            onLoginSuccess(parsed);
-            return;
-          }
-        }
+        // Se não houver sessão no Supabase Auth, limpar cache de sessão local para permitir login limpo
+        localStorage.removeItem('synapse_active_session');
       } catch (err) {
         console.warn('Erro ao verificar sessão ativa:', err);
       } finally {
@@ -167,7 +162,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         if (existingProfile) {
           console.warn(`⚠️ [DUPLICATE SIGNUP ATTEMPT] E-mail ${cleanEmail} já cadastrado no banco.`);
-          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada no Synapse. Por favor, digite sua senha para entrar.');
+          setErrorMessage('⚠️ Este e-mail já possui uma conta cadastrada no Synapse. Por favor, informe sua senha para entrar.');
           setIsSignUp(false); // Retorna imediatamente para a tela de login inicial
           setPassword('');
           setConfirmPassword('');
@@ -206,6 +201,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           return;
         }
 
+        if (error) {
+          setErrorMessage(`⚠️ Erro no cadastro: ${error.message}`);
+          setIsLoading(false);
+          return;
+        }
+
         const registeredUser = data.user;
         const userId = registeredUser?.id && registeredUser.id.length === 36 ? registeredUser.id : crypto.randomUUID();
 
@@ -229,22 +230,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       // 🔑 FLUXO DE LOGIN NORMAL
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim().toLowerCase(),
           password,
         });
 
         if (error) {
-          console.warn('Supabase Auth error (fallback local):', error.message);
-          if (selectedPlanPriceId) {
-            const checkoutSuccess = await triggerStripeCheckout(`usr-${Date.now()}`, email);
-            if (checkoutSuccess) return;
-            return;
-          }
-          fallbackLocalLogin(email, fullName);
+          console.warn('Supabase Auth error:', error.message);
+          setErrorMessage('⚠️ E-mail ou senha incorretos. Por favor, verifique suas credenciais.');
+          setIsLoading(false);
           return;
         }
 
-        if (data.user) {
+        if (data?.user) {
           if (selectedPlanPriceId) {
             const checkoutSuccess = await triggerStripeCheckout(data.user.id, data.user.email || email);
             if (checkoutSuccess) return;
@@ -259,14 +256,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             .from('profiles')
             .select('*, requires_password_change')
             .eq('id', data.user.id)
-            .single();
+            .maybeSingle();
 
           console.log('🔑 [LOGIN PAGE] Perfil lido do Supabase:', dbProfile, 'Erro:', profileErr);
 
           // Se a linha ainda não existir no banco, faz o UPSERT inicial para garantir a existência do perfil
           if (!dbProfile) {
             const metaFlag = data.user.user_metadata?.requires_password_change;
-            const isReqReset = typeof metaFlag === 'boolean' ? metaFlag : true;
+            const isReqReset = typeof metaFlag === 'boolean' ? metaFlag : false;
             const { data: createdProfile } = await supabase
               .from('profiles')
               .upsert({
@@ -296,7 +293,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             role: isMasterEmail ? 'Master' : (dbProfile?.role || (data.user.user_metadata?.role as any) || 'Member'),
             subscription_status: isMasterEmail ? 'active' : (dbProfile?.subscription_status || 'active'),
             subscription_plan: isMasterEmail ? 'Pro' : (dbProfile?.subscription_plan || 'Pro'),
-            requires_password_change: dbProfile?.requires_password_change ?? data.user.user_metadata?.requires_password_change ?? false,
+            requires_password_change: dbProfile?.requires_password_change === true || data.user.user_metadata?.requires_password_change === true,
             avatar_url: dbProfile?.avatar_url || '',
             phone: dbProfile?.phone || '',
             created_at: dbProfile?.created_at || new Date().toISOString(),

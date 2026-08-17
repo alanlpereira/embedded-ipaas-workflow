@@ -314,7 +314,7 @@ function WorkflowAppContent() {
         if (!dbProfile && userId) {
           const { data: { session: currentSession } } = await supabase.auth.getSession();
           const metaFlag = (currentSession?.user?.user_metadata as any)?.requires_password_change;
-          const isReqReset = typeof metaFlag === 'boolean' ? metaFlag : true;
+          const isReqReset = typeof metaFlag === 'boolean' ? metaFlag : false;
           const { data: createdProf } = await supabase
             .from('profiles')
             .upsert({
