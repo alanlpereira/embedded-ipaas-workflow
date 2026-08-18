@@ -1,11 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
-  HelpCircle, Send, Bot, User, Loader2, Sparkles, ArrowLeft, 
-  Scale, Users, UserCheck, ShieldCheck, PhoneCall, ChevronRight, 
+  HelpCircle, Send, Loader2, Sparkles, ArrowLeft, 
+  Scale, Users, UserCheck, PhoneCall, ChevronRight, 
   Search, ExternalLink, RefreshCw, MessageSquare
 } from 'lucide-react';
 import { ViewTab } from './Navbar';
+
+const WHATSAPP_HUMAN_SUPPORT_URL = 'https://wa.me/5532988654825?text=Ol%C3%A1!%20Gostaria%20de%20solicitar%20ajuda%20humana%20para%20o%20sistema%20Synapse.';
 
 interface HelpSubTopic {
   id: string;
@@ -135,18 +137,20 @@ const FAQ_TREE: HelpCategory[] = [
     ]
   },
   {
-    id: 'support',
-    title: 'Assinatura & Suporte Humano',
-    description: 'Planos, limites e atendimento via WhatsApp',
-    icon: <PhoneCall className="w-4 h-4 text-amber-400" />,
+    id: 'human-support',
+    title: 'Atendimento Humano no WhatsApp',
+    description: 'Fale diretamente com nossa equipe (+55 32 98865-4825)',
+    icon: <PhoneCall className="w-4 h-4 text-emerald-400" />,
+    badge: 'WhatsApp',
     topics: [
       {
-        id: 'support-whatsapp',
-        title: 'Como falar com um especialista humano no WhatsApp?',
-        summary: 'Nossa equipe de atendimento corporativo está disponível no WhatsApp para suporte técnico avançado ou dúvidas financeiras.',
+        id: 'support-direct',
+        title: 'Solicite ajuda humana com um especialista no WhatsApp',
+        summary: 'Sua dúvida não foi resolvida? Clique no botão abaixo para iniciar uma conversa imediata com um atendente no WhatsApp.',
         steps: [
-          'Clique no botão de atendimento rápido abaixo para abrir diretamente o WhatsApp corporativo.',
-          'Horário de atendimento: Segunda a Sexta, das 09h às 18h (Horário de Brasília).'
+          'Clique em "Solicite ajuda humana" para abrir a conversa no WhatsApp.',
+          'Número de Atendimento: +55 (32) 98865-4825.',
+          'Horário de Atendimento: Segunda a Sexta, das 09h às 18h.'
         ],
         isWhatsAppAction: true
       }
@@ -240,21 +244,35 @@ export const HelpDeskChat: React.FC<HelpDeskChatProps> = ({ onBack, isCompact = 
                 Central de Ajuda & Guia do Sistema
               </h1>
               <p className="text-xs text-slate-400">
-                Selecione uma categoria abaixo para navegar de forma rápida e limpa.
+                Navegue pelos tópicos ou solicite suporte humano diretamente.
               </p>
             </div>
           </div>
 
-          {(selectedCategory || isSearchMode) && (
-            <button
-              type="button"
-              onClick={resetToRoot}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-xs font-semibold text-slate-300 transition cursor-pointer"
+          <div className="flex items-center gap-2">
+            {/* BOTÃO OBRIGATÓRIO DE SUPORTE HUMANO NO HEADER */}
+            <a
+              href={WHATSAPP_HUMAN_SUPPORT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition transform hover:-translate-y-0.5 cursor-pointer shrink-0"
+              title="Abrir WhatsApp corporativo (+55 32 98865-4825)"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Início</span>
-            </button>
-          )}
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline-block">Solicite ajuda humana</span>
+            </a>
+
+            {(selectedCategory || isSearchMode) && (
+              <button
+                type="button"
+                onClick={resetToRoot}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-semibold text-slate-300 transition cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Início</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Breadcrumb de Navegação */}
@@ -296,185 +314,242 @@ export const HelpDeskChat: React.FC<HelpDeskChatProps> = ({ onBack, isCompact = 
         </div>
 
         {/* CONTAINER DINÂMICO DE NAVEGAÇÃO */}
-        <div className="flex-1 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col overflow-y-auto backdrop-blur-md shadow-2xl min-h-[360px] no-scrollbar">
+        <div className="flex-1 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between overflow-y-auto backdrop-blur-md shadow-2xl min-h-[360px] no-scrollbar">
           
-          {/* NÍVEL 1: SE NENHUMA CATEGORIA ESTIVER SELECIONADA E NÃO ESTIVER BUSCANDO */}
-          {!selectedCategory && !isSearchMode && (
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Selecione o módulo ou assunto desejado:
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {FAQ_TREE.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className="flex items-start justify-between p-4 bg-slate-950/90 hover:bg-slate-800/80 border border-slate-800 hover:border-cyan-500/40 rounded-xl transition text-left group cursor-pointer shadow-md"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="p-2.5 rounded-xl bg-slate-900 group-hover:scale-105 transition-transform shrink-0 border border-slate-800">
-                        {cat.icon}
+          <div>
+            {/* NÍVEL 1: SE NENHUMA CATEGORIA ESTIVER SELECIONADA E NÃO ESTIVER BUSCANDO */}
+            {!selectedCategory && !isSearchMode && (
+              <div className="space-y-3">
+                
+                {/* CARD DE DESTAQUE FIXO: SOLICITE AJUDA HUMANA */}
+                <a
+                  href={WHATSAPP_HUMAN_SUPPORT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start justify-between p-4 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-500/40 rounded-xl transition text-left group cursor-pointer shadow-lg"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 group-hover:scale-105 transition-transform shrink-0 border border-emerald-500/30">
+                      <PhoneCall className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-extrabold text-white group-hover:text-emerald-300 transition-colors">
+                          Solicite ajuda humana
+                        </h3>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.2 rounded font-bold">
+                          WhatsApp (+55 32 98865-4825)
+                        </span>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
-                            {cat.title}
-                          </h3>
-                          {cat.badge && (
-                            <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.2 rounded font-mono font-bold">
-                              {cat.badge}
-                            </span>
-                          )}
+                      <p className="text-xs text-emerald-200/80 mt-1 leading-relaxed">
+                        Prefere falar diretamente com um especialista? Clique aqui para mandar uma mensagem no WhatsApp.
+                      </p>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-emerald-400 shrink-0 ml-2 mt-1" />
+                </a>
+
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider my-2">
+                  Ou explore os tópicos por módulo do sistema:
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {FAQ_TREE.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat)}
+                      className="flex items-start justify-between p-4 bg-slate-950/90 hover:bg-slate-800/80 border border-slate-800 hover:border-cyan-500/40 rounded-xl transition text-left group cursor-pointer shadow-md"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="p-2.5 rounded-xl bg-slate-900 group-hover:scale-105 transition-transform shrink-0 border border-slate-800">
+                          {cat.icon}
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                          {cat.description}
-                        </p>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
+                              {cat.title}
+                            </h3>
+                            {cat.badge && (
+                              <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.2 rounded font-mono font-bold">
+                                {cat.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                            {cat.description}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors shrink-0 ml-2 mt-1" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NÍVEL 2: CATEGORIA SELECIONADA, EXIBINDO SUBMENUS */}
-          {selectedCategory && !selectedTopic && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
-                    {selectedCategory.icon}
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-white">{selectedCategory.title}</h2>
-                    <p className="text-xs text-slate-400">{selectedCategory.description}</p>
-                  </div>
+                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors shrink-0 ml-2 mt-1" />
+                    </button>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory(null)}
-                  className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
-                >
-                  ← Voltar às categorias
-                </button>
               </div>
+            )}
 
-              <div className="space-y-2">
-                {selectedCategory.topics.map((topic) => (
+            {/* NÍVEL 2: CATEGORIA SELECIONADA, EXIBINDO SUBMENUS */}
+            {selectedCategory && !selectedTopic && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                      {selectedCategory.icon}
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-white">{selectedCategory.title}</h2>
+                      <p className="text-xs text-slate-400">{selectedCategory.description}</p>
+                    </div>
+                  </div>
                   <button
-                    key={topic.id}
                     type="button"
-                    onClick={() => setSelectedTopic(topic)}
-                    className="w-full flex items-center justify-between p-3.5 bg-slate-950/90 hover:bg-slate-800/80 border border-slate-800 hover:border-cyan-500/40 rounded-xl transition text-left group cursor-pointer"
+                    onClick={() => setSelectedCategory(null)}
+                    className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 group-hover:scale-125 transition-transform" />
-                      <span className="text-xs font-semibold text-slate-200 group-hover:text-cyan-300 transition-colors">
-                        {topic.title}
+                    ← Voltar às categorias
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {selectedCategory.topics.map((topic) => (
+                    <button
+                      key={topic.id}
+                      type="button"
+                      onClick={() => setSelectedTopic(topic)}
+                      className="w-full flex items-center justify-between p-3.5 bg-slate-950/90 hover:bg-slate-800/80 border border-slate-800 hover:border-cyan-500/40 rounded-xl transition text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 group-hover:scale-125 transition-transform" />
+                        <span className="text-xs font-semibold text-slate-200 group-hover:text-cyan-300 transition-colors">
+                          {topic.title}
+                        </span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* NÍVEL 3: TÓPICO SELECIONADO, EXIBINDO EXPLICAÇÃO SINTÉTICA + BOTÃO DE AÇÃO */}
+            {selectedTopic && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 className="text-sm font-bold text-cyan-300 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-cyan-400" />
+                    {selectedTopic.title}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTopic(null)}
+                    className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
+                  >
+                    ← Voltar aos tópicos
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed font-medium bg-slate-950/60 border border-slate-800 p-3 rounded-xl">
+                  {selectedTopic.summary}
+                </p>
+
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Passos Recomendados:
+                  </div>
+                  {selectedTopic.steps.map((step, sIdx) => (
+                    <div key={sIdx} className="flex items-start gap-2.5 bg-slate-950/80 border border-slate-800/80 p-3 rounded-xl text-xs text-slate-200">
+                      <span className="w-5 h-5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center font-mono font-bold shrink-0 text-[10px]">
+                        {sIdx + 1}
                       </span>
+                      <span className="leading-relaxed">{step}</span>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* NÍVEL 3: TÓPICO SELECIONADO, EXIBINDO EXPLICAÇÃO SINTÉTICA + BOTÃO DE AÇÃO */}
-          {selectedTopic && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h3 className="text-sm font-bold text-cyan-300 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
-                  {selectedTopic.title}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTopic(null)}
-                  className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
-                >
-                  ← Voltar aos tópicos
-                </button>
-              </div>
-
-              <p className="text-xs text-slate-300 leading-relaxed font-medium bg-slate-950/60 border border-slate-800 p-3 rounded-xl">
-                {selectedTopic.summary}
-              </p>
-
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Passos Recomendados:
+                  ))}
                 </div>
-                {selectedTopic.steps.map((step, sIdx) => (
-                  <div key={sIdx} className="flex items-start gap-2.5 bg-slate-950/80 border border-slate-800/80 p-3 rounded-xl text-xs text-slate-200">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center font-mono font-bold shrink-0 text-[10px]">
-                      {sIdx + 1}
-                    </span>
-                    <span className="leading-relaxed">{step}</span>
-                  </div>
-                ))}
-              </div>
 
-              {/* BOTÕES DE AÇÃO DIRETA */}
-              <div className="pt-2 flex flex-wrap gap-2">
-                {selectedTopic.targetTab && (
-                  <button
-                    type="button"
-                    onClick={() => handleExecuteNavigation(selectedTopic.targetTab)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-blue-600/20 transition cursor-pointer transform hover:-translate-y-0.5"
-                  >
-                    <span>🚀 Ir para a Tela no Sistema</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                {/* BOTÕES DE AÇÃO DIRETA */}
+                <div className="pt-2 flex flex-wrap gap-2">
+                  {selectedTopic.targetTab && (
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteNavigation(selectedTopic.targetTab)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-blue-600/20 transition cursor-pointer transform hover:-translate-y-0.5"
+                    >
+                      <span>🚀 Ir para a Tela no Sistema</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
 
-                {selectedTopic.isWhatsAppAction && (
                   <a
-                    href="https://wa.me/5532988654825"
+                    href={WHATSAPP_HUMAN_SUPPORT_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/30 transition cursor-pointer transform hover:-translate-y-0.5"
                   >
-                    <span>💬 Abrir WhatsApp Corporativo</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Solicite ajuda humana (WhatsApp)</span>
                   </a>
+                </div>
+              </div>
+            )}
+
+            {/* MODO BUSCA LIVRE EM TEXTO */}
+            {isSearchMode && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="text-xs font-bold text-cyan-300 flex items-center gap-2">
+                    <Search className="w-4 h-4 text-cyan-400" />
+                    Resultado da Consulta: "{searchQuery}"
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetToRoot}
+                    className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
+                  >
+                    ← Voltar
+                  </button>
+                </div>
+
+                {isAiLoading ? (
+                  <div className="flex items-center gap-3 p-4 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-300">
+                    <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                    <span>Consultando os manuais da plataforma...</span>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-950/90 border border-slate-800 rounded-xl text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
+                    {aiAnswer}
+                  </div>
                 )}
-              </div>
-            </div>
-          )}
 
-          {/* MODO BUSCA LIVRE EM TEXTO */}
-          {isSearchMode && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div className="text-xs font-bold text-cyan-300 flex items-center gap-2">
-                  <Search className="w-4 h-4 text-cyan-400" />
-                  Resultado da Consulta: "{searchQuery}"
+                <div className="pt-2">
+                  <a
+                    href={WHATSAPP_HUMAN_SUPPORT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/30 transition cursor-pointer"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Solicite ajuda humana no WhatsApp</span>
+                  </a>
                 </div>
-                <button
-                  type="button"
-                  onClick={resetToRoot}
-                  className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
-                >
-                  ← Voltar
-                </button>
               </div>
+            )}
+          </div>
 
-              {isAiLoading ? (
-                <div className="flex items-center gap-3 p-4 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-300">
-                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-                  <span>Consultando os manuais da plataforma...</span>
-                </div>
-              ) : (
-                <div className="p-4 bg-slate-950/90 border border-slate-800 rounded-xl text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
-                  {aiAnswer}
-                </div>
-              )}
-            </div>
-          )}
+          {/* RODAPÉ PERSISTENTE DE SUPORTE HUMANO (EXIBIDO EM TODAS AS NAVEGAÇÕES) */}
+          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 shrink-0">
+            <span className="text-[11px] text-slate-400 font-medium">
+              Precisa de atendimento personalizado?
+            </span>
+            <a
+              href={WHATSAPP_HUMAN_SUPPORT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer shrink-0"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Solicite ajuda humana</span>
+            </a>
+          </div>
 
         </div>
 
