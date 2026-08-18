@@ -1701,7 +1701,7 @@ function WorkflowAppContent() {
       )}
 
       {currentTab === 'helpdesk' && (
-        <HelpDeskChat />
+        <HelpDeskChat onNavigate={(tab) => setCurrentTab(tab)} />
       )}
 
       {currentTab === 'tenantAdmin' && (

@@ -289,7 +289,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       </div>
 
       {/* 💬 WIDGET FLUTUANTE GLOBAL DE AJUDA COM IA */}
-      <FloatingHelpWidget onOpenFullHelpDesk={() => onNavigate('helpdesk')} />
+      <FloatingHelpWidget
+        onOpenFullHelpDesk={() => onNavigate('helpdesk')}
+        onNavigate={(tab) => onNavigate(tab)}
+      />
     </div>
   );
 };

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { X, Maximize2, Sparkles, Bot } from 'lucide-react';
 import { HelpDeskChat } from './HelpDeskChat';
+import { ViewTab } from './Navbar';
 
 interface FloatingHelpWidgetProps {
   onOpenFullHelpDesk?: () => void;
+  onNavigate?: (tab: ViewTab) => void;
 }
 
-export const FloatingHelpWidget: React.FC<FloatingHelpWidgetProps> = ({ onOpenFullHelpDesk }) => {
+export const FloatingHelpWidget: React.FC<FloatingHelpWidgetProps> = ({ onOpenFullHelpDesk, onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -27,12 +29,12 @@ export const FloatingHelpWidget: React.FC<FloatingHelpWidgetProps> = ({ onOpenFu
               </div>
               <div>
                 <h3 className="text-xs font-extrabold text-white flex items-center gap-1.5 tracking-tight">
-                  Assistente Virtual Synapse
+                  Guia Interativo Synapse
                   <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded font-mono font-bold">
                     Online
                   </span>
                 </h3>
-                <p className="text-[10px] text-slate-400">Tire dúvidas de navegação, perfil e PJe</p>
+                <p className="text-[10px] text-slate-400">Navegue por tópicos ou consulte o assistente</p>
               </div>
             </div>
 
@@ -54,16 +56,22 @@ export const FloatingHelpWidget: React.FC<FloatingHelpWidgetProps> = ({ onOpenFu
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition cursor-pointer"
-                title="Fechar Chat de Ajuda"
+                title="Fechar Guia de Ajuda"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Corpo do Chat Integrado */}
+          {/* Corpo do Guia Interativo Integrado */}
           <div className="flex-1 overflow-hidden">
-            <HelpDeskChat isCompact={true} />
+            <HelpDeskChat
+              isCompact={true}
+              onNavigate={(targetTab) => {
+                setIsOpen(false);
+                if (onNavigate) onNavigate(targetTab);
+              }}
+            />
           </div>
         </div>
       )}
@@ -73,7 +81,7 @@ export const FloatingHelpWidget: React.FC<FloatingHelpWidgetProps> = ({ onOpenFu
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
         className="group relative flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-full shadow-2xl shadow-blue-600/40 border border-cyan-400/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-        title="Ajuda com IA & Suporte Synapse"
+        title="Guia Interativo de Ajuda"
       >
         <div className="relative">
           <Bot className="w-5 h-5 text-white" />
