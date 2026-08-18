@@ -67,39 +67,165 @@ function formatDateCompact(d: Date): string {
   return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
 }
 
-// GERADOR AGNÓSTICO DE LINKS E DADOS DE CALENDÁRIO (ICS / Apple / Google / Outlook / Office 365)
+// GERADOR AGNÓSTICO DE LINKS E DADOS DE CALENDÁRIO COM EXTRAÇÃO DINÂMICA DE DATAS E TERMOS PROCESSUAIS
 function buildAgnosticCalendarUrls(processNumber: string, actionText: string, dataBaseStr: string, deadlineIsoStr?: string | null) {
-  let dStart: Date = new Date();
-  if (dataBaseStr) {
-    if (dataBaseStr.includes('/')) {
-      const [d, m, y] = dataBaseStr.split('/');
-      dStart = new Date(`${y}-${m}-${d}T17:00:00Z`);
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(dataBaseStr)) {
-      dStart = new Date(`${dataBaseStr}T17:00:00Z`);
-    } else {
-      dStart = new Date(dataBaseStr);
+  const combinedText = `${actionText || ''} ${deadlineIsoStr || ''} ${dataBaseStr || ''}`.trim();
+  const lowerText = combinedText.toLowerCase();
+
+  // 1. Identificação do Termo Processual / Nome do Evento (ex: Audiência, Contestação, Juntada)
+  let actionName = '';
+  if (lowerText.includes('audiência de conciliação') || lowerText.includes('conciliação')) {
+    actionName = 'Audiência de Conciliação';
+  } else if (lowerText.includes('audiência de instrução') || lowerText.includes('instrução e julgamento')) {
+    actionName = 'Audiência de Instrução e Julgamento';
+  } else if (lowerText.includes('audiência de custódia')) {
+    actionName = 'Audiência de Custódia';
+  } else if (lowerText.includes('audiência')) {
+    actionName = 'Audiência Judicial';
+  } else if (lowerText.includes('contestação') || lowerText.includes('contestar')) {
+    actionName = 'Apresentação de Contestação';
+  } else if (lowerText.includes('juntada de documento') || lowerText.includes('juntada de documentos') || lowerText.includes('juntada')) {
+    actionName = 'Juntada de Documentos';
+  } else if (lowerText.includes('réplica') || lowerText.includes('impugnação à contestação')) {
+    actionName = 'Réplica à Contestação';
+  } else if (lowerText.includes('alegações finais') || lowerText.includes('memoriais')) {
+    actionName = 'Alegações Finais';
+  } else if (lowerText.includes('recurso de apelação') || lowerText.includes('apelação')) {
+    actionName = 'Recurso de Apelação';
+  } else if (lowerText.includes('agravo de instrumento') || lowerText.includes('agravo')) {
+    actionName = 'Agravo de Instrumento';
+  } else if (lowerText.includes('embargos de declaração') || lowerText.includes('embargos')) {
+    actionName = 'Embargos de Declaração';
+  } else if (lowerText.includes('laudo pericial') || lowerText.includes('perícia')) {
+    actionName = 'Manifestação sobre Laudo Pericial';
+  } else if (lowerText.includes('especificação de provas') || lowerText.includes('especificar provas')) {
+    actionName = 'Especificação de Provas';
+  } else if (lowerText.includes('cumprimento de despacho') || lowerText.includes('despacho')) {
+    actionName = 'Cumprimento de Despacho';
+  } else if (lowerText.includes('pagamento de custas') || lowerText.includes('guia de custas') || lowerText.includes('custas')) {
+    actionName = 'Pagamento de Custas';
+  } else if (actionText && actionText.length > 3 && actionText.length < 45) {
+    actionName = actionText;
+  } else {
+    actionName = 'Prazo Processual PJe';
+  }
+
+  // 2. Extração da Data Alvo (Data Futura mencionada no Resumo / Texto)
+  let targetDate: Date | null = null;
+  let targetHour = 17;
+  let targetMinute = 0;
+
+  const timeMatch = combinedText.match(/\b([01]?\d|2[0-3])[:hH]([0-5]\d)?\b/);
+  if (timeMatch) {
+    targetHour = parseInt(timeMatch[1], 10);
+    targetMinute = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+  } else if (actionName.includes('Audiência')) {
+    targetHour = 14;
+  }
+
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+
+  // Formato BR (DD/MM/YYYY)
+  const dateRegexBr = /\b(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])\/(\d{4})\b/g;
+  let brMatch;
+  while ((brMatch = dateRegexBr.exec(combinedText)) !== null) {
+    const [, day, month, year] = brMatch;
+    const candidate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), targetHour, targetMinute);
+    if (candidate >= todayDate) {
+      targetDate = candidate;
+      break;
     }
   }
-  if (isNaN(dStart.getTime())) dStart = new Date();
 
-  let dFinal: Date;
-  if (deadlineIsoStr && !isNaN(new Date(deadlineIsoStr).getTime())) {
-    dFinal = new Date(deadlineIsoStr);
-  } else {
-    dFinal = new Date(dStart.getTime() + 15 * 86400000);
+  // Formato ISO (YYYY-MM-DD)
+  if (!targetDate) {
+    const dateRegexIso = /\b(\d{4})-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])\b/g;
+    let isoMatch;
+    while ((isoMatch = dateRegexIso.exec(combinedText)) !== null) {
+      const [, year, month, day] = isoMatch;
+      const candidate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), targetHour, targetMinute);
+      if (candidate >= todayDate) {
+        targetDate = candidate;
+        break;
+      }
+    }
   }
+
+  // Formato por Extenso ("25 de agosto de 2026", "5 de setembro")
+  if (!targetDate) {
+    const monthMapExt: Record<string, number> = {
+      'janeiro': 0, 'fevereiro': 1, 'março': 2, 'marco': 2, 'abril': 3,
+      'maio': 4, 'junho': 5, 'julho': 6, 'agosto': 7,
+      'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
+    };
+    const dateExtensoRegex = /\b(0?[1-9]|[12]\d|3[01])\s+de\s+([a-zA-ZçÇ]+)(?:\s+de\s+(\d{4}))?\b/gi;
+    let extMatch;
+    while ((extMatch = dateExtensoRegex.exec(combinedText)) !== null) {
+      const day = parseInt(extMatch[1], 10);
+      const monthName = extMatch[2].toLowerCase();
+      const year = extMatch[3] ? parseInt(extMatch[3], 10) : todayDate.getFullYear();
+      
+      if (monthMapExt[monthName] !== undefined) {
+        const candidate = new Date(year, monthMapExt[monthName], day, targetHour, targetMinute);
+        if (candidate >= todayDate) {
+          targetDate = candidate;
+          break;
+        }
+      }
+    }
+  }
+
+  // Prazos Relativos ("15 dias", "5 dias", "10 dias uteis")
+  if (!targetDate) {
+    const daysMatch = combinedText.match(/\b(\d+)\s*(dias|dia)\b/i);
+    if (daysMatch) {
+      const numDays = parseInt(daysMatch[1], 10);
+      let baseDate = new Date();
+      if (dataBaseStr) {
+        if (dataBaseStr.includes('/')) {
+          const [d, m, y] = dataBaseStr.split('/');
+          baseDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(dataBaseStr)) {
+          const [y, m, d] = dataBaseStr.split('-');
+          baseDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+        }
+      }
+      targetDate = new Date(baseDate.getTime() + numDays * 86400000);
+      targetDate.setHours(targetHour, targetMinute, 0, 0);
+    }
+  }
+
+  // Fallback: 15 dias a partir da data de origem
+  if (!targetDate) {
+    let baseDate = new Date();
+    if (dataBaseStr) {
+      if (dataBaseStr.includes('/')) {
+        const [d, m, y] = dataBaseStr.split('/');
+        baseDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(dataBaseStr)) {
+        const [y, m, d] = dataBaseStr.split('-');
+        baseDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+      }
+    }
+    targetDate = new Date(baseDate.getTime() + 15 * 86400000);
+    targetDate.setHours(targetHour, targetMinute, 0, 0);
+  }
+
+  const dStart = targetDate;
+  const dFinal = new Date(dStart.getTime() + 60 * 60 * 1000);
 
   const startCompact = formatDateCompact(dStart);
   const endCompact = formatDateCompact(dFinal);
   const startIso = dStart.toISOString();
   const endIso = dFinal.toISOString();
 
-  const title = `⚖️ [Prazo Fatal PJe] Processo ${processNumber || ''}`;
-  const details = `Ação Necessária: ${actionText || 'Verificar intimação no PJe'}.\nProcesso: ${processNumber}.`;
+  const title = `⚖️ [Prazo PJe] ${actionName} - Proc. ${processNumber || ''}`;
+  const details = `Evento Processual: ${actionName}\nAção Necessária: ${actionText || 'Verificar intimação no PJe'}\nProcesso: ${processNumber}.\nData do Prazo: ${dStart.toLocaleDateString('pt-BR')} às ${dStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
   const location = 'PJe CNJ / Tribunal de Justiça';
 
   const cleanNum = String(processNumber || '').replace(/\D/g, '') || 'proc';
-  const icsStr = generateICS(processNumber, actionText, dFinal.toISOString());
+  const icsStr = generateICS(processNumber, `${actionName} - ${actionText}`, dFinal.toISOString());
   const icsBase64 = btoa(unescape(encodeURIComponent(icsStr || '')));
 
   const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startCompact}/${endCompact}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
@@ -116,7 +242,7 @@ function buildAgnosticCalendarUrls(processNumber: string, actionText: string, da
     icsDataUrl,
     icsStr,
     icsBase64,
-    fileName: `prazo_${cleanNum}.ics`,
+    fileName: `prazo_${actionName.toLowerCase().replace(/\s+/g, '_')}_${cleanNum}.ics`,
   };
 }
 
