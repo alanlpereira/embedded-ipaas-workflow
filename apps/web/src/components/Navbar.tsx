@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon, Pencil, CreditCard } from 'lucide-react';
+import { Workflow, Save, Play, Globe, LayoutDashboard, Users, LogOut, ArrowLeft, Code, LayoutTemplate, History, Activity, Building2, ShieldCheck, Building, Radio, Download, Upload, Sparkles, Lock, Settings, Menu, X, Sun, Moon, Pencil, CreditCard, HelpCircle } from 'lucide-react';
 import { Profile } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -232,6 +232,28 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <CreditCard size={15} style={{ color: '#10b981' }} />
           Planos & Assinaturas
+        </button>
+
+        <button
+          onClick={() => onNavigate('helpdesk')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            background: currentTab === 'helpdesk' ? 'var(--bg-tertiary)' : 'transparent',
+            color: currentTab === 'helpdesk' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+            border: currentTab === 'helpdesk' ? '1px solid var(--border-color)' : '1px solid transparent',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <HelpCircle size={15} style={{ color: '#38bdf8' }} />
+          Ajuda & Suporte
         </button>
 
         {isAdminOrMaster && (
