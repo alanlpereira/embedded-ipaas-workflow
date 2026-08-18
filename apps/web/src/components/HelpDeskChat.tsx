@@ -1,78 +1,124 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { HelpCircle, Send, Bot, User, Loader2, Sparkles, BookOpen, ArrowLeft, Compass, Settings, KeyRound, FileSearch, Scale, CreditCard } from 'lucide-react';
+import { HelpCircle, Send, Bot, User, Loader2, Sparkles, ArrowLeft, Compass, Settings, KeyRound, FileSearch, Scale, CreditCard, ChevronRight } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
-  provider?: string;
-  model?: string;
 }
 
-const renderFormattedText = (text: string) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
+const formatMessageText = (text: string) => {
+  // 1. Clean up any raw internal tags if present
+  let cleaned = text
+    .replace(/\[Manual:[^\]]+\]/g, '')
+    .replace(/Categoria:[^\n]+\n/g, '')
+    .replace(/Com base na Base de Conhecimento RAG do Synapse:\s*/gi, '')
+    .replace(/Aqui está a orientação da plataforma Synapse para você:\s*/gi, '')
+    .trim();
 
-  return parts.map((part, index) => {
-    if (part.match(/https?:\/\/[^\s]+/)) {
-      const isWhatsApp = part.includes('wa.me') || part.includes('whatsapp');
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const lines = cleaned.split('\n');
+
+  return lines.map((line, lineIdx) => {
+    const trimmed = line.trim();
+    if (!trimmed) return <div key={lineIdx} className="h-2" />;
+
+    // Detect WhatsApp link
+    if (trimmed.includes('wa.me') || trimmed.includes('whatsapp')) {
+      const match = trimmed.match(urlRegex);
+      const url = match ? match[0] : 'https://wa.me/5532988654825';
       return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={
-            isWhatsApp
-              ? "inline-flex items-center gap-1.5 px-3 py-1.5 my-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md transition"
-              : "text-blue-400 hover:underline font-medium"
-          }
-        >
-          {isWhatsApp ? '💬 Falar com Especialista no WhatsApp' : part}
-        </a>
+        <div key={lineIdx} className="my-2.5">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5"
+          >
+            <span>💬 Falar com Atendimento Humano no WhatsApp</span>
+          </a>
+        </div>
       );
     }
-    return <span key={index}>{part}</span>;
+
+    // Bold parsing
+    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+    const formattedLine = parts.map((part, pIdx) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={pIdx} className="font-semibold text-cyan-300">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+
+    // List item
+    if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || /^\d+\./.test(trimmed)) {
+      return (
+        <div key={lineIdx} className="flex items-start gap-2 my-1 pl-1 text-slate-200">
+          <span className="text-cyan-400 font-bold text-xs shrink-0 mt-0.5">•</span>
+          <span className="flex-1">{formattedLine}</span>
+        </div>
+      );
+    }
+
+    return (
+      <p key={lineIdx} className="my-1 leading-relaxed text-slate-200">
+        {formattedLine}
+      </p>
+    );
   });
 };
 
 interface QuickTopic {
-  label: string;
+  id: string;
+  title: string;
+  description: string;
   icon: React.ReactNode;
   prompt: string;
 }
 
-const PRESET_TOPICS: QuickTopic[] = [
+const QUICK_TOPICS: QuickTopic[] = [
   {
-    label: 'Navegação no Sistema',
-    icon: <Compass className="w-3.5 h-3.5 text-cyan-400" />,
+    id: 'nav',
+    title: 'Navegação no App',
+    description: 'Telas, abas e menus',
+    icon: <Compass className="w-4 h-4 text-cyan-400" />,
     prompt: 'Como navegar no sistema Synapse e quais são as principais telas?'
   },
   {
-    label: 'Configuração do Sistema',
-    icon: <Settings className="w-3.5 h-3.5 text-blue-400" />,
+    id: 'cfg',
+    title: 'Configurar OAB & Perfil',
+    description: 'Preenchimento e preferências',
+    icon: <Settings className="w-4 h-4 text-blue-400" />,
     prompt: 'Como configurar a minha OAB, perfil e preferências do sistema?'
   },
   {
-    label: 'Resetar Senha',
-    icon: <KeyRound className="w-3.5 h-3.5 text-purple-400" />,
+    id: 'pwd',
+    title: 'Resetar Senha',
+    description: 'Passo a passo de troca',
+    icon: <KeyRound className="w-4 h-4 text-purple-400" />,
     prompt: 'Como reseto a minha senha de acesso?'
   },
   {
-    label: 'Intimações PJe',
-    icon: <FileSearch className="w-3.5 h-3.5 text-emerald-400" />,
+    id: 'pje',
+    title: 'Buscar Intimações PJe',
+    description: 'Consultas no PJe Comunica',
+    icon: <FileSearch className="w-4 h-4 text-emerald-400" />,
     prompt: 'Como consultar intimações e processos no PJe Comunica?'
   },
   {
-    label: 'Legal Copilot (IA)',
-    icon: <Scale className="w-3.5 h-3.5 text-amber-400" />,
+    id: 'copilot',
+    title: 'Legal Copilot (IA)',
+    description: 'Peças com Claude 3.5',
+    icon: <Scale className="w-4 h-4 text-amber-400" />,
     prompt: 'Como gerar peças jurídicas com o Legal Copilot (Claude 3.5)?'
   },
   {
-    label: 'Planos & Assinaturas',
-    icon: <CreditCard className="w-3.5 h-3.5 text-pink-400" />,
+    id: 'plan',
+    title: 'Planos & Preços',
+    description: 'Tabela de limites e valores',
+    icon: <CreditCard className="w-4 h-4 text-pink-400" />,
     prompt: 'Quais são os planos de assinatura, preços e limites de IA?'
   }
 ];
@@ -87,10 +133,8 @@ export const HelpDeskChat: React.FC<HelpDeskChatProps> = ({ onBack, isCompact = 
     {
       id: 'welcome-1',
       sender: 'assistant',
-      text: 'Olá! Sou o Assistente Virtual do Help Desk Synapse. Como posso ajudar com dúvidas sobre navegação, configuração do sistema ou procedimentos?',
-      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      provider: 'google_gemini_rag',
-      model: 'gemini-1.5-flash'
+      text: 'Olá! Sou o **Assistente Virtual Synapse**.\n\nComo posso ajudar você hoje? Clique em um dos tópicos abaixo ou digite sua dúvida.',
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [inputPrompt, setInputPrompt] = useState('');
@@ -134,10 +178,8 @@ export const HelpDeskChat: React.FC<HelpDeskChatProps> = ({ onBack, isCompact = 
       const botMsg: ChatMessage = {
         id: `bot-${Date.now()}`,
         sender: 'assistant',
-        text: data.reply || 'Não foi possível obter a resposta do manual.',
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        provider: data.providerUsed || 'google_gemini_rag',
-        model: data.modelUsed || 'gemini-1.5-flash'
+        text: data.reply || 'Não foi possível obter a resposta.',
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       };
 
       setMessages(prev => [...prev, botMsg]);
@@ -146,7 +188,7 @@ export const HelpDeskChat: React.FC<HelpDeskChatProps> = ({ onBack, isCompact = 
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         sender: 'assistant',
-        text: `⚠️ Desculpe, ocorreu um erro ao consultar os manuais: ${err.message || 'Tente novamente.'}`,
+        text: `⚠️ Desculpe, ocorreu uma falha temporária ao consultar o assistente: ${err.message || 'Tente novamente.'}`,
         timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -161,133 +203,138 @@ export const HelpDeskChat: React.FC<HelpDeskChatProps> = ({ onBack, isCompact = 
   };
 
   return (
-    <div className={isCompact ? "h-full bg-slate-950 text-slate-100 flex flex-col font-sans p-3" : "min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 flex flex-col font-sans"}>
-      <div className={isCompact ? "flex-1 flex flex-col space-y-3 overflow-hidden" : "max-w-4xl mx-auto w-full flex-1 flex flex-col space-y-4"}>
+    <div className={isCompact ? "h-full bg-slate-950 text-slate-100 flex flex-col font-sans p-3 overflow-hidden" : "min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 flex flex-col font-sans"}>
+      <div className={isCompact ? "flex-1 flex flex-col space-y-3 overflow-hidden h-full" : "max-w-4xl mx-auto w-full flex-1 flex flex-col space-y-4"}>
         
-        {/* Header Corporativo do Help Desk (Apenas no modo Full Page) */}
+        {/* Header Corporativo (Full Page) */}
         {!isCompact && (
-          <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-2xl p-4 md:p-6 backdrop-blur-md shadow-xl">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (onBack) {
-                    onBack();
-                  } else if (typeof window !== 'undefined') {
-                    window.history.back();
-                  }
-                }}
-                className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
-                title="Voltar"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div className="p-2.5 bg-blue-600/10 border border-blue-500/20 rounded-xl text-blue-400">
-                <HelpCircle className="w-6 h-6" />
+          <div className="flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-6 backdrop-blur-xl shadow-2xl">
+            <div className="flex items-center gap-3.5">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                  title="Voltar"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              )}
+              <div className="p-3 bg-blue-600/10 border border-blue-500/20 rounded-2xl text-blue-400 shadow-inner">
+                <Bot className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                  Help Desk & Suporte RAG
-                  <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium">
-                    Gemini 768d RAG
+                <h1 className="text-xl font-extrabold text-white flex items-center gap-2 tracking-tight">
+                  Central de Ajuda & Suporte
+                  <span className="flex items-center gap-1 text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Online
                   </span>
                 </h1>
-                <p className="text-xs text-slate-400">
-                  Tire dúvidas sobre navegação, configurações do sistema e procedimentos com suporte de IA vetorial.
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Orientação direta sobre uso, navegação e configurações do Synapse IPaaS Legal.
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Chips de Assuntos Pré-Configurados (Quick Topics) */}
-        <div className="bg-slate-900/40 border border-slate-800/60 rounded-xl p-2.5">
-          <div className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 mb-2 flex items-center gap-1.5 px-1">
-            <Sparkles className="w-3 h-3 text-cyan-400" />
-            <span>Assuntos Pré-Configurados (Clique para Consultar IA):</span>
+        {/* Tópicos Rápidos Selecionáveis */}
+        <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3 backdrop-blur-md">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5 px-1">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Assuntos Frequentes:</span>
           </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            {PRESET_TOPICS.map((topic, idx) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {QUICK_TOPICS.map((topic) => (
               <button
-                key={idx}
+                key={topic.id}
                 type="button"
                 onClick={() => executeSend(topic.prompt)}
                 disabled={sending}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 rounded-lg text-xs font-semibold text-slate-200 transition shrink-0 cursor-pointer disabled:opacity-50"
+                className="flex items-center justify-between p-2.5 bg-slate-950/80 hover:bg-slate-800/90 border border-slate-800/90 hover:border-blue-500/40 rounded-xl transition text-left group cursor-pointer disabled:opacity-50"
               >
-                {topic.icon}
-                <span>{topic.label}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 rounded-lg bg-slate-900 group-hover:scale-105 transition-transform shrink-0">
+                    {topic.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-300 transition-colors">
+                      {topic.title}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      {topic.description}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-cyan-400 transition-colors shrink-0 ml-1" />
               </button>
             ))}
           </div>
         </div>
 
-        {/* Caixas de Chat e Histórico */}
-        <div className={isCompact ? "flex-1 bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex flex-col justify-between overflow-hidden backdrop-blur-sm" : "flex-1 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-6 flex flex-col justify-between space-y-4 min-h-[500px] backdrop-blur-sm shadow-xl"}>
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[580px]">
+        {/* Container Principal de Mensagens */}
+        <div className="flex-1 bg-slate-900/70 border border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between min-h-[380px] overflow-hidden backdrop-blur-xl shadow-2xl">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[520px] no-scrollbar">
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex gap-2.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.sender === 'assistant' && (
-                  <div className="w-7 h-7 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                    <Bot className="w-3.5 h-3.5" />
+                  <div className="w-8 h-8 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 mt-0.5 shadow-md">
+                    <Bot className="w-4 h-4" />
                   </div>
                 )}
 
-                <div className={`max-w-[85%] rounded-2xl p-3 space-y-1.5 text-xs leading-relaxed ${
+                <div className={`max-w-[88%] rounded-2xl p-4 text-xs leading-relaxed ${
                   msg.sender === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-600/20'
-                    : 'bg-slate-950/90 border border-slate-800 text-slate-200 rounded-tl-none shadow-md'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-none shadow-lg shadow-blue-600/20 font-medium'
+                    : 'bg-slate-950/90 border border-slate-800/90 text-slate-100 rounded-tl-none shadow-md space-y-1'
                 }`}>
-                  <p className="whitespace-pre-wrap">{renderFormattedText(msg.text)}</p>
+                  {formatMessageText(msg.text)}
                   
-                  <div className="flex items-center justify-between gap-4 text-[9px] opacity-70 border-t border-white/10 pt-1 font-mono">
+                  <div className="flex items-center justify-end gap-2 text-[10px] text-slate-400 opacity-75 pt-2 font-mono">
                     <span>{msg.timestamp}</span>
-                    {msg.provider && (
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <BookOpen className="w-2.5 h-2.5" /> {msg.provider} ({msg.model})
-                      </span>
-                    )}
                   </div>
                 </div>
 
                 {msg.sender === 'user' && (
-                  <div className="w-7 h-7 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0 mt-0.5">
-                    <User className="w-3.5 h-3.5" />
+                  <div className="w-8 h-8 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0 mt-0.5 shadow-md">
+                    <User className="w-4 h-4" />
                   </div>
                 )}
               </div>
             ))}
 
             {sending && (
-              <div className="flex gap-2.5 items-center text-slate-400 text-xs py-2">
-                <div className="w-7 h-7 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <div className="flex gap-3 items-center text-slate-400 text-xs py-2">
+                <div className="w-8 h-8 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 </div>
-                <span>Buscando manuais vetoriais no PostgreSQL...</span>
+                <span className="font-medium text-slate-300 animate-pulse">Consultando assistente virtual...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Form de envio de mensagem */}
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2 border-t border-slate-800/80 mt-2">
+          {/* Campo de Envio de Mensagem */}
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-3 border-t border-slate-800/80 mt-3">
             <input
               type="text"
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder="Digite sua dúvida (Ex: Como configurar o sistema?)..."
+              placeholder="Digite sua dúvida sobre o sistema..."
               disabled={sending}
-              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+              className="flex-1 bg-slate-950 border border-slate-800 focus:border-cyan-500/60 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none transition shadow-inner"
             />
             <button
               type="submit"
               disabled={sending || !inputPrompt.trim()}
-              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white p-2.5 rounded-xl shadow-lg shadow-blue-600/20 transition flex items-center justify-center cursor-pointer"
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 disabled:opacity-40 text-white px-4 py-3 rounded-xl shadow-lg shadow-blue-600/20 transition flex items-center justify-center font-bold text-xs gap-1.5 cursor-pointer disabled:cursor-not-allowed"
             >
-              <Send className="w-4 h-4" />
+              <span>Enviar</span>
+              <Send className="w-3.5 h-3.5" />
             </button>
           </form>
         </div>

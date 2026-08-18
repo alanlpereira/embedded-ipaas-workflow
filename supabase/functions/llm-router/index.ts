@@ -315,7 +315,7 @@ serve(async (req) => {
       // 3. Se temos manuais recuperados:
       if (retrievedContextText) {
         if (geminiApiKey && !geminiApiKey.includes('YourGeminiApiKeyHere')) {
-          let ragSystemInstruction = `Você é o suporte técnico do aplicativo Synapse. Responda à dúvida do usuário baseando-se EXCLUSIVAMENTE nos manuais fornecidos a seguir. Seja direto e guie o usuário pelas funcionalidades descritas. REGRA ABSOLUTA: Se a resposta não estiver explicitamente nos manuais, ou se o problema for complexo e exigir intervenção técnica/financeira, É PROIBIDO supor, delirar ou divagar. Você DEVE responder exatamente com esta frase: '${HUMAN_FALLBACK_TEXT}'. Manuais:\n${retrievedContextText}`;
+          let ragSystemInstruction = `Você é o assistente virtual oficial do Synapse IPaaS Legal. Sua função é guiar advogados com extrema clareza, gentileza e elegância executiva. Responda à dúvida do usuário de forma direta, bonita e estruturada, utilizando listas numeradas ou marcadores. REGRA ABSOLUTA DE FORMATAÇÃO: É EXPRESSAMENTE PROIBIDO incluir tags internas como '[Manual: ...]', cabeçalhos de categoria ou textos brutos de banco de dados. Apresente apenas a orientação clara e prática para o usuário. Se a dúvida for totalmente fora de escopo, responda com: '${HUMAN_FALLBACK_TEXT}'. Manuais de Referência:\n${retrievedContextText}`;
 
           const contents: any[] = [];
           if (Array.isArray(history) && history.length > 0) {
@@ -331,7 +331,7 @@ serve(async (req) => {
 
           contents.push({
             role: 'user',
-            parts: [{ text: prompt || 'Como reseto a minha senha?' }]
+            parts: [{ text: prompt || 'Como navegar no sistema Synapse?' }]
           });
 
           const geminiModels = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
@@ -363,7 +363,14 @@ serve(async (req) => {
         }
 
         if (!replyText) {
-          replyText = `Com base na Base de Conhecimento RAG do Synapse:\n\n${retrievedContextText}`;
+          const cleanedText = retrievedContextText
+            .replace(/\[Manual:[^\]]+\]/g, '')
+            .replace(/Categoria:[^\n]+\n/g, '')
+            .split('\n')
+            .filter((line, index, self) => line.trim().length > 0 && self.indexOf(line) === index)
+            .join('\n');
+
+          replyText = `Aqui está a orientação da plataforma Synapse para você:\n\n${cleanedText}`;
           providerUsed = 'google_gemini_rag';
           modelUsed = 'gemini-1.5-flash';
         }
