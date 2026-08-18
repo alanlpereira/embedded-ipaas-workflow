@@ -282,7 +282,7 @@ serve(async (req) => {
 
       // 2. Busca de Palavras-Chave de Tópicos Válidos se a busca por vetor não encontrar
       if (!retrievedContextText && prompt) {
-        const topicKeywords = ['login', 'cadastro', 'perfil', 'onboarding', 'oab', 'master', 'member', 'assinatura', 'plano', 'billing', 'stripe', 'preço', 'valor', 'cartão', 'recusado', 'pagamento', 'peça', 'peças', 'claude', 'anthropic', 'suporte', 'ajuda', 'senha', 'reset', 'resetar', 'esqueci', 'redefinir', 'troca', 'trocar', 'acesso', 'entrar', 'intimação', 'intimações', 'processo', 'pje', 'consulta', 'copilot', 'gerar'];
+        const topicKeywords = ['login', 'cadastro', 'perfil', 'onboarding', 'oab', 'master', 'member', 'assinatura', 'plano', 'billing', 'stripe', 'preço', 'valor', 'cartão', 'recusado', 'pagamento', 'peça', 'peças', 'claude', 'anthropic', 'suporte', 'ajuda', 'senha', 'reset', 'resetar', 'esqueci', 'redefinir', 'troca', 'trocar', 'acesso', 'entrar', 'intimação', 'intimações', 'processo', 'pje', 'consulta', 'copilot', 'gerar', 'navegar', 'navegação', 'tela', 'telas', 'menu', 'módulo', 'módulos', 'dashboard', 'configurar', 'configuração', 'configurações'];
         const promptLower = prompt.toLowerCase();
         const hasTopicMatch = topicKeywords.some(tk => promptLower.includes(tk));
 

@@ -37,6 +37,7 @@ import { ExecutionsPage } from './components/ExecutionsPage';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { AdminKnowledgePage } from './components/AdminKnowledgePage';
 import { HelpDeskChat } from './components/HelpDeskChat';
+import { FloatingHelpWidget } from './components/FloatingHelpWidget';
 import { Profile, WorkflowNode, WorkflowEdge, NodeType, Flowchart } from '@ipaas/shared-types';
 import { supabase } from './lib/supabase';
 import { getApiUrl } from './lib/api';
@@ -1835,6 +1836,11 @@ function WorkflowAppContent() {
           }}
           onClose={() => setSelectedNode(null)}
         />
+      )}
+
+      {/* Botão e Widget Flutuante Global de Ajuda com IA */}
+      {currentProfile && (
+        <FloatingHelpWidget onOpenFullHelpDesk={() => setCurrentTab('helpdesk')} />
       )}
     </AppLayout>
   );
