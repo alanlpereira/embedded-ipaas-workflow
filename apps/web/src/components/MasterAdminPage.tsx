@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2, ToggleLeft, ToggleRight, Mail, Phone, UserPlus } from 'lucide-react';
+import { ShieldCheck, Plus, Edit2, Zap, DollarSign, Users, Activity, Building, Lock, Sparkles, Copy, Check, X, Clock, Scale, Trash2, ToggleLeft, ToggleRight, Mail, Phone, UserPlus, BarChart2 } from 'lucide-react';
 import { Profile, PlanTier, UserRole } from '@ipaas/shared-types';
 import { useLanguage } from '../i18n/LanguageContext';
 import { EditionBadge } from './EditionBadge';
 import { AiAnalyticsDashboard } from './AiAnalyticsDashboard';
+import { UserTelemetrySection } from './UserTelemetrySection';
 import { getApiUrl } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
@@ -121,6 +122,7 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   const [newAdminName, setNewAdminName] = useState('');
   const [newPlanTier, setNewPlanTier] = useState<PlanTier>('LegalOps');
 
+  const [userModalTab, setUserModalTab] = useState<'overrides' | 'telemetry'>('overrides');
   const [dbUsers, setDbUsers] = useState<ExtendedProfile[]>([]);
 
   // Estados de Provisionamento Manual de Usuários
@@ -1185,16 +1187,57 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
       {/* Modal Overrides de Usuário (Painel Master) */}
       {editingUser && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '28px', width: '90%', maxWidth: '480px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', width: '92%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Zap size={20} color="var(--accent-cyan)" />
-                Gerenciar Overrides — {editingUser.full_name || editingUser.email}
+                Gestão do Usuário — {editingUser.full_name || editingUser.email}
               </h3>
               <button onClick={() => setEditingUser(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
-            <form onSubmit={handleSaveUserOverrides} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Alternador de Abas: Overrides vs Telemetria */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              <button
+                id="tab-btn-overrides"
+                type="button"
+                onClick={() => setUserModalTab('overrides')}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  background: userModalTab === 'overrides' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                  color: userModalTab === 'overrides' ? '#38bdf8' : '#94a3b8',
+                  border: userModalTab === 'overrides' ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid transparent',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                ⚙️ Overrides & Permissões
+              </button>
+              <button
+                id="tab-btn-telemetry"
+                type="button"
+                onClick={() => setUserModalTab('telemetry')}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  background: userModalTab === 'telemetry' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                  color: userModalTab === 'telemetry' ? '#38bdf8' : '#94a3b8',
+                  border: userModalTab === 'telemetry' ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid transparent',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                📊 Estatísticas de Uso (Telemetria)
+              </button>
+            </div>
+
+            {userModalTab === 'telemetry' ? (
+              <UserTelemetrySection userId={editingUser.id} userEmail={editingUser.email} />
+            ) : (
+              <form onSubmit={handleSaveUserOverrides} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Edição do App / Plano & Role */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
@@ -1323,6 +1366,7 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                 </div>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}

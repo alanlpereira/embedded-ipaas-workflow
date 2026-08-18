@@ -409,6 +409,28 @@ serve(async (req) => {
         } else {
           console.log(`✅ [LLM-ROUTER BILLING SUCESSO] ai_monthly_usage atualizado no Supabase DB! Novo valor: ${updatedUsage}`);
         }
+
+        // 📊 REGRA DE TELEMETRIA (EVENT SOURCING): Gravação de evento em public.user_activity_logs
+        const mappedEventType = action_type === 'help'
+          ? 'help_interaction'
+          : (prompt.toLowerCase().includes('peça') || prompt.toLowerCase().includes('petição') || prompt.toLowerCase().includes('contestação') || prompt.toLowerCase().includes('recurso')
+              ? 'document_generated'
+              : 'ai_command');
+
+        const estimatedTokens = Math.min(10000, Math.max(150, (replyText.length * 2) + (prompt.length * 2)));
+
+        const { error: telemErr } = await supabaseAdmin.from('user_activity_logs').insert({
+          user_id: targetUserId,
+          event_type: mappedEventType,
+          token_count: estimatedTokens,
+          created_at: new Date().toISOString()
+        });
+
+        if (telemErr) {
+          console.warn('⚠️ [LLM-ROUTER TELEMETRIA WARN] Falha ao inserir log de telemetria:', telemErr.message);
+        } else {
+          console.log(`📊 [LLM-ROUTER TELEMETRIA SUCESSO] Evento '${mappedEventType}' gravado em user_activity_logs (${estimatedTokens} tokens).`);
+        }
       } catch (billingErr: any) {
         console.warn('⚠️ [LLM-ROUTER BILLING EXCEPTION]:', billingErr?.message);
       }
