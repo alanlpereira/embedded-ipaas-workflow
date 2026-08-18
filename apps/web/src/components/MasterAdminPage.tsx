@@ -124,6 +124,7 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
 
   const [userModalTab, setUserModalTab] = useState<'overrides' | 'telemetry'>('overrides');
   const [dbUsers, setDbUsers] = useState<ExtendedProfile[]>([]);
+  const [selectedTelemetryUserId, setSelectedTelemetryUserId] = useState<string>('');
 
   // Estados de Provisionamento Manual de Usuários
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
@@ -188,8 +189,11 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
         ? rpcProfiles
         : (await supabase.from('profiles').select('*')).data;
 
-      if (list) {
+      if (list && list.length > 0) {
         setDbUsers(list);
+        if (!selectedTelemetryUserId) {
+          setSelectedTelemetryUserId(list[0].id);
+        }
         console.log(`⚡ [RPC MASTER DEFINER] ${list.length} perfis recuperados via RPC get_all_profiles().`);
       }
     } catch (err) {
@@ -721,6 +725,60 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
         <AiAnalyticsDashboard />
       </div>
 
+      {/* 📊 SEÇÃO MASTER DE TELEMETRIA GRANULAR & EVENT SOURCING POR CLIENTE */}
+      <div id="section-telemetry-master" style={{ ...cardStyle, marginBottom: '28px', border: '1px solid rgba(56, 189, 248, 0.3)', background: 'linear-gradient(135deg, rgba(8, 12, 20, 0.95) 0%, rgba(15, 23, 42, 0.9) 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+          <div>
+            <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.5px' }}>
+              <BarChart2 size={22} color="#38bdf8" />
+              Telemetria Granular & Event Sourcing (Analytics de Consumo por Cliente)
+            </h3>
+            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>
+              Selecione qualquer usuário/cliente para visualizar o consumo detalhado por período (e-mails, WhatsApp, peças geradas, comandos IA e tokens).
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 700, color: '#38bdf8' }}>Cliente Selecionado:</label>
+            <select
+              id="master-telemetry-user-select"
+              value={selectedTelemetryUserId}
+              onChange={(e) => setSelectedTelemetryUserId(e.target.value)}
+              style={{
+                background: '#080c14',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: 700,
+                outline: 'none',
+                minWidth: '260px',
+                cursor: 'pointer'
+              }}
+            >
+              {dbUsers.length === 0 && <option value="">Carregando usuários...</option>}
+              {dbUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  👤 {u.full_name || u.email} ({u.oab_number ? `OAB ${u.oab_number}` : u.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {selectedTelemetryUserId ? (
+          <UserTelemetrySection
+            userId={selectedTelemetryUserId}
+            userEmail={dbUsers.find(u => u.id === selectedTelemetryUserId)?.email}
+          />
+        ) : (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+            Nenhum cliente selecionado para exibição de telemetria.
+          </div>
+        )}
+      </div>
+
       {/* Seção 3: Tabela de Organizações */}
       <div style={cardStyle}>
         <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
@@ -1089,6 +1147,29 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                     <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '8px' }}>
                         <button
+                          onClick={() => {
+                            setSelectedTelemetryUserId(user.id);
+                            const el = document.getElementById('section-telemetry-master');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            background: 'rgba(56, 189, 248, 0.15)',
+                            border: '1px solid rgba(56, 189, 248, 0.35)',
+                            color: '#38bdf8',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <BarChart2 size={13} /> Telemetria
+                        </button>
+
+                        <button
                           onClick={() => setEditingUser(user)}
                           style={{
                             padding: '6px 12px',
@@ -1104,7 +1185,7 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
                             gap: '4px'
                           }}
                         >
-                          <Zap size={13} /> Gerenciar Overrides
+                          <Zap size={13} /> Overrides
                         </button>
 
                         <button
