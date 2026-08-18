@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2, User } from 'lucide-react';
+import { LayoutDashboard, Sparkles, Users, Workflow, LayoutTemplate, Settings, LogOut, Scale, ShieldCheck, Search, Bell, ChevronRight, Menu, X, Activity, Radio, Lock, Building2, User, HelpCircle } from 'lucide-react';
 import { ViewTab } from './Navbar';
 import { Profile, PlanTier } from '@ipaas/shared-types';
 import { EditionBadge } from './EditionBadge';
+import { FloatingHelpWidget } from './FloatingHelpWidget';
 
 interface AppLayoutProps {
   currentTab: ViewTab;
@@ -50,6 +51,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     { id: 'dashboard' as ViewTab, label: 'Portal de Processos', icon: <Scale size={18} />, badge: 'PJe Live', group: 'Módulo Jurídico' },
     { id: 'copilot' as ViewTab, label: 'Legal Copilot (IA)', icon: <Sparkles size={18} style={{ color: '#38bdf8' }} />, badge: 'Claude 3.5', group: 'Módulo Jurídico' },
     { id: 'clients' as ViewTab, label: 'Clientes & Casos', icon: <Users size={18} />, group: 'Módulo Jurídico' },
+    { id: 'helpdesk' as ViewTab, label: 'Help Desk & Suporte IA', icon: <HelpCircle size={18} style={{ color: '#38bdf8' }} />, badge: 'RAG 768d', group: 'Módulo Jurídico' },
     { id: 'profile' as ViewTab, label: 'Meu Perfil', icon: <User size={18} />, group: 'Módulo Jurídico' },
 
     // Módulo de Automação / Engenharia de Fluxos (BLOQUEADO PARA USUÁRIOS COMUNS - EXIBIDO APENAS PARA ADMIN/MASTER)
@@ -285,6 +287,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           {children}
         </main>
       </div>
+
+      {/* 💬 WIDGET FLUTUANTE GLOBAL DE AJUDA COM IA */}
+      <FloatingHelpWidget onOpenFullHelpDesk={() => onNavigate('helpdesk')} />
     </div>
   );
 };
