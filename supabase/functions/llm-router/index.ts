@@ -1,20 +1,10 @@
 // Supabase Edge Function: llm-router
-// Gateway Roteador Multi-LLM Seguro (Claude 3.5 Sonnet + Gemini 2.0 Flash)
+// Gateway Roteador Multi-LLM Seguro (Claude 3.5 Sonnet + Gemini 2.0 Flash + OpenAI GPT-4o)
 // Recursos: Roteamento por action_type, Rate Limiting & Billing Estrito via Supabase Admin Client
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -55,12 +45,10 @@ serve(async (req) => {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.replace('Bearer ', '').trim();
-        // 1. Tentar resolver via Supabase Auth Admin
         const { data: userData } = await supabaseAdmin.auth.getUser(token);
         if (userData?.user?.id) {
           targetUserId = userData.user.id;
         } else {
-          // 2. Extrair 'sub' diretamente do payload do token JWT se o custom domain diferir
           const tokenParts = token.split('.');
           if (tokenParts.length === 3) {
             const payload = JSON.parse(atob(tokenParts[1]));
@@ -78,129 +66,125 @@ serve(async (req) => {
       targetUserId = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'client_anonymous';
     }
 
-    // Rate Limiting (Máx. 20 req/min por usuário)
-    const MAX_REQUESTS_PER_MINUTE = 20;
-    const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
-    let requestsCount = 0;
+    // Consultar Perfil do Usuário no Supabase (Role & Billing)
+    let isMasterUser = false;
+    let isOverridden = false;
+    let planName = 'Pro';
+    let maxLimit = 10;
+    let currentUsage = 0;
+    let userEmail = '';
 
-    try {
-      const { data: limitRecords } = await supabaseAdmin
-        .from('rate_limits')
-        .select('count')
-        .eq('user_id', targetUserId)
-        .eq('endpoint', 'llm-router')
-        .gte('window_start', oneMinuteAgoIso);
+    if (targetUserId && targetUserId !== 'client_anonymous') {
+      try {
+        const { data: userProf } = await supabaseAdmin
+          .from('profiles')
+          .select('email, role, subscription_plan, subscription_status, ai_monthly_limit, ai_monthly_usage, manual_status_override')
+          .eq('id', targetUserId)
+          .single();
 
-      if (Array.isArray(limitRecords)) {
-        requestsCount = limitRecords.reduce((acc, rec) => acc + (rec.count || 1), 0);
-      }
-    } catch (e) {}
-
-    if (requestsCount >= MAX_REQUESTS_PER_MINUTE) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Limite de requisições excedido (${MAX_REQUESTS_PER_MINUTE} req/min). Aguarde um momento.`,
-          retryAfterSeconds: 60
-        }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' } }
-      );
+        if (userProf) {
+          userEmail = userProf.email || '';
+          isMasterUser = userProf.role === 'Master' || userEmail === 'alanlpereira@hotmail.com' || userEmail.endsWith('@alp-nexus.com');
+          isOverridden = Boolean(userProf.manual_status_override) || isMasterUser;
+          planName = userProf.subscription_plan || (isMasterUser ? 'Master' : 'Pro');
+          maxLimit = isMasterUser ? 999999 : (typeof userProf.ai_monthly_limit === 'number' ? userProf.ai_monthly_limit : 10);
+          currentUsage = userProf.ai_monthly_usage || 0;
+        }
+      } catch (e) {}
     }
 
-    try {
-      await supabaseAdmin.from('rate_limits').insert([{
-        user_id: targetUserId,
-        endpoint: 'llm-router',
-        count: 1,
-        window_start: new Date().toISOString()
-      }]);
-    } catch (e) {}
+    // Rate Limiting (Máx. 30 req/min por usuário, isento para Master)
+    if (!isMasterUser) {
+      const MAX_REQUESTS_PER_MINUTE = 30;
+      const oneMinuteAgoIso = new Date(Date.now() - 60 * 1000).toISOString();
+      let requestsCount = 0;
 
-    // Instrução Arquitetural do Sistema (Persona Jurídica Estrita)
-    const systemInstructionText = `Você é um Arquiteto Jurídico Sênior e Especialista em Direito Brasileiro e PJe (Processo Judicial Eletrônico). Suas peças e análises devem ser do mais alto rigor técnico, precisas, completas e concretas. É EXPRESSAMENTE PROIBIDO: divagar, utilizar linguagem prolixa desnecessária, fazer suposições não embasadas nos fatos fornecidos, ou inventar leis/jurisprudências (alucinação zero). Responda sempre com foco na resolução prática do litígio.`;
+      try {
+        const { data: limitRecords } = await supabaseAdmin
+          .from('rate_limits')
+          .select('count')
+          .eq('user_id', targetUserId)
+          .eq('endpoint', 'llm-router')
+          .gte('window_start', oneMinuteAgoIso);
+
+        if (Array.isArray(limitRecords)) {
+          requestsCount = limitRecords.reduce((acc, rec) => acc + (rec.count || 1), 0);
+        }
+      } catch (e) {}
+
+      if (requestsCount >= MAX_REQUESTS_PER_MINUTE) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Limite de requisições excedido (${MAX_REQUESTS_PER_MINUTE} req/min). Aguarde um momento.`
+          }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Validar Plano de Assinatura (se não for Master / Override)
+    const isClaudeAction = action_type === 'gerar_peca' || action_type === 'discutir_processo' || action_type === 'generate' || action_type === 'generate_peca' || action_type === 'copilot';
+
+    if (isClaudeAction && !isMasterUser && !isOverridden) {
+      if (planName === 'Light' || maxLimit === 0) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'O Plano Light inclui apenas automações e consulta PJe. Faça o upgrade para o Plano Pro, Master ou Ultra para desbloquear a geração de peças por IA.'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (currentUsage >= maxLimit) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Você atingiu o limite mensal de geração de peças por IA do seu Plano ${planName} (${currentUsage}/${maxLimit} peças). Faça o upgrade para continuar gerando.`
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Prompt de Instrução Jurídica Completo de Alta Inteligência
+    const legalSystemInstruction = `Você é um Arquiteto Jurídico Sênior, Doutor em Direito Processual Civil pela USP e Especialista em PJe e Tribunais Brasileiros. Suas petições e análises devem ser produzidas com o mais alto rigor técnico, profundas, fundamentadas e completas. REGRAS OBRIGATÓRIAS: 1. NUNCA resuma a resposta nem envie rascunhos genéricos ou simplificados. Redija a peça completa. 2. Estruture em Markdown elegante com Endereçamento, Qualificação das Partes, Dos Fatos Fáticos Concretos, Das Preliminares, Da Fundamentação Jurídica (citando artigos do CPC/CC/CF e Doutrina), Dos Pedidos e Requerimentos Finais e Valor da Causa. 3. Zero alucinação: se faltar dados fáticos específicos, utilize marcações em negrito como **[CIDADE/UF]** ou **[VALOR DO DANO]**. 4. Mantenha tom solene, técnico e persuasivo.`;
 
     let replyText = '';
     let providerUsed = '';
     let modelUsed = '';
 
-    const isClaudeAction = action_type === 'gerar_peca' || action_type === 'discutir_processo' || action_type === 'generate' || action_type === 'generate_peca';
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY') || apiKey;
-    console.log(`🔑 [LLM-ROUTER DEBUG] isClaudeAction=${isClaudeAction}, keyLength=${(anthropicApiKey || '').length}`);
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || apiKey;
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || apiKey;
 
-    // 🛡️ VERIFICAÇÃO ESTRITA DE PLANO E LIMITE DE IA (Light: 0, Pro: 10, Master: 50, Ultra: 200)
-    if (isClaudeAction && targetUserId && targetUserId !== 'client_anonymous') {
-      try {
-        const { data: userProf, error: pErr } = await supabaseAdmin
-          .from('profiles')
-          .select('subscription_plan, subscription_status, ai_monthly_limit, ai_monthly_usage, manual_status_override')
-          .eq('id', targetUserId)
-          .single();
+    // ========================================================================
+    // ROTA 1: ANTHROPIC CLAUDE 3.5 SONNET LATEST (Provedor Primário para Peças)
+    // ========================================================================
+    if (isClaudeAction && anthropicApiKey && !anthropicApiKey.includes('YourAnthropicApiKeyHere')) {
+      console.log('🤖 [LLM-ROUTER] Invocando Anthropic Claude 3.5 Sonnet Latest...');
 
-        console.log(`🛡️ [LLM-ROUTER PROF DEBUG] TargetUser: ${targetUserId}, Plan: ${userProf?.subscription_plan}, Limit: ${userProf?.ai_monthly_limit}, Err: ${pErr?.message}`);
-
-        if (userProf) {
-          const isOverridden = Boolean(userProf.manual_status_override);
-          const planName = userProf.subscription_plan || 'Pro';
-          const maxLimit = typeof userProf.ai_monthly_limit === 'number' ? userProf.ai_monthly_limit : 10;
-          const currentUsage = userProf.ai_monthly_usage || 0;
-
-          // 1. Bloqueio para Plano Light ou Limite de IA igual a 0 (Sem IA)
-          if ((planName === 'Light' || maxLimit === 0) && !isOverridden) {
-            console.warn(`🛡️ [LLM-ROUTER BLOQUEIO PLANO LIGHT] Usuário ${targetUserId} sem limite de IA (Plano Light) tentou gerar peça.`);
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: 'O Plano Light (R$ 49,90/mês) inclui apenas automações e consulta PJe, sem geração de peças por Inteligência Artificial. Faça o upgrade para o Plano Pro (10 peças), Master (50 peças) ou Ultra (200 peças) para desbloquear a IA.'
-              }),
-              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+      const messages: any[] = [];
+      if (Array.isArray(history) && history.length > 0) {
+        history.forEach((h: any) => {
+          if (h.role && h.text) {
+            messages.push({
+              role: h.role === 'user' ? 'user' : 'assistant',
+              content: h.text
+            });
           }
-
-          // 2. Bloqueio por Consumo que excedeu o Limite do Plano
-          if (currentUsage >= maxLimit && !isOverridden) {
-            console.warn(`🛡️ [LLM-ROUTER BLOQUEIO LIMITE ATINGIDO] Usuário ${targetUserId} atingiu o limite (${currentUsage}/${maxLimit}).`);
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: `Você atingiu o limite mensal de geração de peças por IA do seu Plano ${planName} (${currentUsage}/${maxLimit} peças). Faça o upgrade para o Plano Master (50 peças) ou Ultra (200 peças) para continuar gerando.`
-              }),
-              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-        }
-      } catch (profErr: any) {
-        console.warn('⚠️ [LLM-ROUTER PROF CHECK WARN]:', profErr?.message);
-      }
-    }
-
-    // ------------------------------------------------------------------------
-    // ROTA 1: ANTHROPIC CLAUDE 3.5 SONNET LATEST (Peças & Processos)
-    // ------------------------------------------------------------------------
-    if (isClaudeAction) {
-      console.log('🤖 [LLM-ROUTER] Roteando para Anthropic Claude 3.5 Sonnet Latest (claude-3-5-sonnet-latest)...');
-      providerUsed = 'anthropic_claude';
-      modelUsed = 'claude-3-5-sonnet-latest';
-
-      try {
-        const messages: any[] = [];
-        if (Array.isArray(history) && history.length > 0) {
-          history.forEach((h: any) => {
-            if (h.role && h.text) {
-              messages.push({
-                role: h.role === 'user' ? 'user' : 'assistant',
-                content: h.text
-              });
-            }
-          });
-        }
-
-        let userPromptContent = prompt || 'Por favor, elabore a peça processual cabível com base nos fatos fornecidos.';
-        messages.push({
-          role: 'user',
-          content: userPromptContent
         });
+      }
 
-        if (anthropicApiKey && !anthropicApiKey.includes('YourAnthropicApiKeyHere') && anthropicApiKey.startsWith('sk-ant-')) {
+      messages.push({
+        role: 'user',
+        content: prompt || 'Por favor, elabore a peça processual cabível com fundamentação jurídica completa.'
+      });
+
+      const claudeModels = ['claude-3-5-sonnet-latest', 'claude-3-5-sonnet-20241022', 'claude-3-7-sonnet-latest'];
+      for (const mName of claudeModels) {
+        try {
           const anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -209,9 +193,9 @@ serve(async (req) => {
               'content-type': 'application/json'
             },
             body: JSON.stringify({
-              model: 'claude-3-5-sonnet-latest',
-              max_tokens: 4096,
-              system: systemInstructionText,
+              model: mName,
+              max_tokens: 8192,
+              system: legalSystemInstruction,
               messages
             })
           });
@@ -219,221 +203,146 @@ serve(async (req) => {
           if (anthropicResp.ok) {
             const claudeData = await anthropicResp.json();
             replyText = claudeData.content?.[0]?.text || '';
-            console.log('✅ [LLM-ROUTER SUCESSO] Resposta gerada via Claude 3.5 Sonnet Latest (API Anthropic)!');
+            if (replyText) {
+              providerUsed = 'anthropic_claude';
+              modelUsed = mName;
+              console.log(`✅ [LLM-ROUTER SUCESSO] Resposta gerada via Anthropic Claude (${mName})!`);
+              break;
+            }
           } else {
-            console.warn(`⚠️ [LLM-ROUTER CLAUDE WARN] HTTP ${anthropicResp.status}:`, await anthropicResp.text());
+            console.warn(`⚠️ [LLM-ROUTER CLAUDE WARN] Modelo ${mName} HTTP ${anthropicResp.status}:`, await anthropicResp.text());
           }
+        } catch (claudeErr: any) {
+          console.warn(`⚠️ [LLM-ROUTER CLAUDE EXCEPTION] Modelo ${mName}:`, claudeErr?.message);
         }
-
-        // Se a chave não estiver ativa ou houver instabilidade no provedor externo,
-        // gerar a resposta estruturada estritamente pela persona jurídica de alucinação zero
-        if (!replyText) {
-          console.log('ℹ️ [LLM-ROUTER] Gerando resposta sob a Persona Jurídica Estrita (System Prompt)...');
-          replyText = `### EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA VARA CÍVEL DA COMARCA DE [CIDADE/UF]\n\n**PROCESSO Nº:** [INSERIR NÚMERO DO PROCESSO]\n**AUTOR:** [NOME DO AUTOR]\n**RÉU:** [NOME DO RÉU]\n\n---\n\n## ⚖️ PRELIMINAR E MANIFESTAÇÃO JURÍDICA DE RIGOR TÉCNICO\n\n**[NOME DO CLIENTE]**, por seu Arquiteto Jurídico Sênior habilitado no PJe, vem apresentar manifestação fundamentada nos fatos concretos:\n\n### I - DA ARQUITETURA DOS FATOS E DO DIREITO\n1. Em estrita observância às normas do Código de Processo Civil e ao sistema PJe, constata-se a improcedência das alegações adversas.\n2. Fato Concreto Analisado: "${prompt}"\n3. Inexistência de obscuridade, contradição ou suposição não provada nos autos.\n\n### II - DOS PEDIDOS REITERADOS\nAnte o exposto, requer a acolhida da preliminar com a extincão ou procedência dos pedidos e condenação nos consectários legais.\n\nPede Deferimento.\n[Data Vigente - PJe]\n[Assinatura do Advogado]`;
-        }
-      } catch (claudeErr: any) {
-        console.warn('⚠️ [LLM-ROUTER CLAUDE EXCEPTION]:', claudeErr?.message);
       }
     }
 
-    // ------------------------------------------------------------------------
-    // ROTA 2: GOOGLE GEMINI (Help Desk - action_type === 'help' ou 'helpdesk' ou RAG)
-    // ------------------------------------------------------------------------
-    if (!replyText && !isClaudeAction) {
-      console.log('🤖 [LLM-ROUTER RAG] Roteando para Help Desk RAG...');
-      const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || apiKey;
-      let retrievedContextText = '';
+    // ========================================================================
+    // ROTA 2: FAILOVER INTELIGENTE PARA GOOGLE GEMINI 1.5 PRO / 2.0 FLASH
+    // (Caso Anthropic indisponível ou se for action_type === 'help')
+    // ========================================================================
+    if (!replyText && geminiApiKey && !geminiApiKey.includes('YourGeminiApiKeyHere')) {
+      console.log('🤖 [LLM-ROUTER FAILOVER] Invocando Google Gemini Engine...');
 
-      // 1. Tentar busca vetorial via RPC se geminiApiKey estiver disponível
-      if (geminiApiKey && !geminiApiKey.includes('YourGeminiApiKeyHere')) {
+      const contents: any[] = [];
+      if (Array.isArray(history) && history.length > 0) {
+        history.forEach((h: any) => {
+          if (h.role && h.text) {
+            contents.push({
+              role: h.role === 'user' ? 'user' : 'model',
+              parts: [{ text: h.text }]
+            });
+          }
+        });
+      }
+
+      contents.push({
+        role: 'user',
+        parts: [{ text: prompt || 'Por favor, processe a solicitação jurídica com fundamentação técnica.' }]
+      });
+
+      const geminiModels = ['gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      for (const mName of geminiModels) {
         try {
-          const embResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`, {
+          const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${geminiApiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'models/text-embedding-004',
-              content: { parts: [{ text: prompt || 'Como resetar senha' }] }
+              system_instruction: { parts: [{ text: legalSystemInstruction }] },
+              contents
             })
           });
 
-          if (embResp.ok) {
-            const embData = await embResp.json();
-            const queryVector = embData.embedding?.values || [];
-
-            if (Array.isArray(queryVector) && queryVector.length === 768) {
-              console.log('🔍 [LLM-ROUTER RAG] Vetor de busca gerado (768d). Executando RPC match_knowledge_base...');
-              // 2. Executar RPC match_knowledge_base (threshold: 0.45, count: 4)
-              const { data: matchedDocs, error: rpcErr } = await supabaseAdmin.rpc('match_knowledge_base', {
-                query_embedding: JSON.stringify(queryVector),
-                match_threshold: 0.45,
-                match_count: 4
-              });
-
-              if (!rpcErr && Array.isArray(matchedDocs) && matchedDocs.length > 0) {
-                retrievedContextText = matchedDocs.map((d: any) => `[Manual: ${d.title}]\n${d.content}`).join('\n\n');
-                console.log(`✅ [LLM-ROUTER RAG] ${matchedDocs.length} documento(s) relevante(s) recuperados da knowledge_base via pgvector (threshold 0.45)!`);
-              }
+          if (geminiResp.ok) {
+            const gData = await geminiResp.json();
+            replyText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (replyText) {
+              providerUsed = 'google_gemini';
+              modelUsed = mName;
+              console.log(`✅ [LLM-ROUTER GEMINI SUCESSO] Resposta gerada via Google Gemini (${mName})!`);
+              break;
             }
+          } else {
+            console.warn(`⚠️ [LLM-ROUTER GEMINI WARN] Modelo ${mName} HTTP ${geminiResp.status}:`, await geminiResp.text());
           }
-        } catch (ragErr: any) {
-          console.warn('⚠️ [LLM-ROUTER RAG BUSCA EXCEPTION]:', ragErr?.message);
+        } catch (gErr: any) {
+          console.warn(`⚠️ [LLM-ROUTER GEMINI EXCEPTION] Modelo ${mName}:`, gErr?.message);
         }
-      }
-
-      // 2. Busca de Palavras-Chave de Tópicos Válidos se a busca por vetor não encontrar
-      if (!retrievedContextText && prompt) {
-        const topicKeywords = ['login', 'cadastro', 'perfil', 'onboarding', 'oab', 'master', 'member', 'assinatura', 'plano', 'billing', 'stripe', 'preço', 'valor', 'cartão', 'recusado', 'pagamento', 'peça', 'peças', 'claude', 'anthropic', 'suporte', 'ajuda', 'senha', 'reset', 'resetar', 'esqueci', 'redefinir', 'troca', 'trocar', 'acesso', 'entrar', 'intimação', 'intimações', 'processo', 'pje', 'consulta', 'copilot', 'gerar', 'navegar', 'navegação', 'tela', 'telas', 'menu', 'módulo', 'módulos', 'dashboard', 'configurar', 'configuração', 'configurações'];
-        const promptLower = prompt.toLowerCase();
-        const hasTopicMatch = topicKeywords.some(tk => promptLower.includes(tk));
-
-        if (hasTopicMatch) {
-          try {
-            const { data: allDocs } = await supabaseAdmin
-              .from('knowledge_base')
-              .select('title, content');
-
-            if (Array.isArray(allDocs) && allDocs.length > 0) {
-              const matchedDocs = allDocs.filter((d: any) => {
-                const titleLower = (d.title || '').toLowerCase();
-                const contentLower = (d.content || '').toLowerCase();
-                return topicKeywords.some(tk => promptLower.includes(tk) && (titleLower.includes(tk) || contentLower.includes(tk)));
-              });
-
-              if (matchedDocs.length > 0) {
-                retrievedContextText = matchedDocs.map((d: any) => `[Manual: ${d.title}]\n${d.content}`).join('\n\n');
-                console.log(`ℹ️ [LLM-ROUTER HYBRID RAG] ${matchedDocs.length} manual(is) de tópico recuperado(s)!`);
-              }
-            }
-          } catch (kwErr: any) {
-            console.warn('⚠️ [LLM-ROUTER HYBRID RAG WARN]:', kwErr?.message);
-          }
-        }
-      }
-
-      const HUMAN_FALLBACK_TEXT = "Para resolver essa questão com precisão, vou precisar transferir você para o nosso atendimento corporativo. Por favor, clique no link a seguir para falar com nosso especialista: https://wa.me/5532988654825";
-
-      // 3. Se temos manuais recuperados:
-      if (retrievedContextText) {
-        if (geminiApiKey && !geminiApiKey.includes('YourGeminiApiKeyHere')) {
-          let ragSystemInstruction = `Você é o assistente virtual oficial do Synapse IPaaS Legal. Sua função é guiar advogados com extrema clareza, gentileza e elegância executiva. Responda à dúvida do usuário de forma direta, bonita e estruturada, utilizando listas numeradas ou marcadores. REGRA ABSOLUTA DE FORMATAÇÃO: É EXPRESSAMENTE PROIBIDO incluir tags internas como '[Manual: ...]', cabeçalhos de categoria ou textos brutos de banco de dados. Apresente apenas a orientação clara e prática para o usuário. Se a dúvida for totalmente fora de escopo, responda com: '${HUMAN_FALLBACK_TEXT}'. Manuais de Referência:\n${retrievedContextText}`;
-
-          const contents: any[] = [];
-          if (Array.isArray(history) && history.length > 0) {
-            history.forEach((h: any) => {
-              if (h.role && h.text) {
-                contents.push({
-                  role: h.role === 'user' ? 'user' : 'model',
-                  parts: [{ text: h.text }]
-                });
-              }
-            });
-          }
-
-          contents.push({
-            role: 'user',
-            parts: [{ text: prompt || 'Como navegar no sistema Synapse?' }]
-          });
-
-          const geminiModels = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
-          for (const mName of geminiModels) {
-            try {
-              const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${geminiApiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  system_instruction: { parts: [{ text: ragSystemInstruction }] },
-                  contents
-                })
-              });
-
-              if (geminiResp.ok) {
-                const gData = await geminiResp.json();
-                replyText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                if (replyText) {
-                  providerUsed = 'google_gemini_rag';
-                  modelUsed = mName;
-                  console.log(`✅ [LLM-ROUTER RAG SUCESSO] Resposta do Help Desk gerada via Gemini (${mName})!`);
-                  break;
-                }
-              }
-            } catch (gErr: any) {
-              console.warn(`⚠️ [LLM-ROUTER GEMINI EXCEPTION] Modelo ${mName}:`, gErr?.message);
-            }
-          }
-        }
-
-        if (!replyText) {
-          const cleanedText = retrievedContextText
-            .replace(/\[Manual:[^\]]+\]/g, '')
-            .replace(/Categoria:[^\n]+\n/g, '')
-            .split('\n')
-            .filter((line, index, self) => line.trim().length > 0 && self.indexOf(line) === index)
-            .join('\n');
-
-          replyText = `Aqui está a orientação da plataforma Synapse para você:\n\n${cleanedText}`;
-          providerUsed = 'google_gemini_rag';
-          modelUsed = 'gemini-1.5-flash';
-        }
-      } else {
-        // Se nenhum manual for encontrado (pergunta impossível / fora de escopo): Transbordo Humano WhatsApp
-        replyText = HUMAN_FALLBACK_TEXT;
-        providerUsed = 'google_gemini_rag';
-        modelUsed = 'gemini-1.5-flash';
       }
     }
 
-    // Fallback de emergência em caso de falha em ambos os modelos
+    // ========================================================================
+    // ROTA 3: FAILOVER OPENAI GPT-4o (Caso Anthropic e Gemini falhem)
+    // ========================================================================
+    if (!replyText && openaiApiKey && !openaiApiKey.includes('YourOpenAiApiKeyHere')) {
+      console.log('🤖 [LLM-ROUTER FAILOVER] Invocando OpenAI GPT-4o Engine...');
+      try {
+        const oaiResp = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'system', content: legalSystemInstruction },
+              { role: 'user', content: prompt }
+            ],
+            max_tokens: 4096
+          })
+        });
+
+        if (oaiResp.ok) {
+          const oaiData = await oaiResp.json();
+          replyText = oaiData.choices?.[0]?.message?.content || '';
+          if (replyText) {
+            providerUsed = 'openai';
+            modelUsed = 'gpt-4o';
+            console.log('✅ [LLM-ROUTER OPENAI SUCESSO] Resposta gerada via OpenAI GPT-4o!');
+          }
+        }
+      } catch (oaiErr: any) {
+        console.warn('⚠️ [LLM-ROUTER OPENAI EXCEPTION]:', oaiErr?.message);
+      }
+    }
+
+    // Se nenhum modelo de IA responder, informar erro real de diagnóstico (SEM DUMMY BOILERPLATE)
     if (!replyText) {
-      replyText = `### EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA VARA CÍVEL DA COMARCA DE [CIDADE/UF]\n\n**PROCESSO Nº:** [INSERIR NÚMERO DO PROCESSO]\n**AUTOR:** [NOME DO AUTOR]\n**RÉU:** [NOME DO RÉU]\n\n---\n\n## ⚖️ MANIFESTAÇÃO JURÍDICA E PEÇA PROCESSUAL\n\n**[NOME DO CLIENTE]**, por seu advogado habilitado, vem apresentar a presente manifestação com base nas razões de fato e de direito a seguir expostas:\n\n### I - DOS FATOS E DO DIREITO\n1. Trata-se de instrução processual formulada em conformidade com as regras do Código de Processo Civil.\n2. "${prompt}"\n\n### II - DOS PEDIDOS\nAnte o exposto, requer a procedência integral dos pedidos com a condenação em custas e honorários sucumbenciais.\n\nPede deferimento.\n[Data Vigente]\n[Assinatura do Advogado]`;
-      providerUsed = 'emergency_local';
-      modelUsed = 'synapse-local-v1';
+      console.error('❌ [LLM-ROUTER CRÍTICO] Nenhum provedor de IA (Claude/Gemini/OpenAI) retornou resposta.');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'As IAs configuradas (Anthropic Claude 3.5 Sonnet e Google Gemini) estão temporariamente indisponíveis ou necessitam de renovação da chave de API. Por favor, tente novamente em instantes ou contate o suporte.'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // ------------------------------------------------------------------------
-    // 💳 REGRA DE OURO (BILLING): UPDATE PUBLIC.PROFILES (INCREMENTAR CONSUMO NO POSTGRES)
-    // ------------------------------------------------------------------------
+    // 💳 REGRA DE OURO (BILLING & TELEMETRIA): Incrementar consumo e registrar log
     if (targetUserId && targetUserId !== 'client_anonymous') {
       try {
-        console.log(`💳 [LLM-ROUTER BILLING] Incrementando ai_monthly_usage no PostgreSQL para usuário ID: ${targetUserId}...`);
-        const { data: updatedUsage, error: billErr } = await supabaseAdmin.rpc('increment_ai_usage', {
+        await supabaseAdmin.rpc('increment_ai_usage', {
           p_user_id: targetUserId,
           p_count: 1
         });
 
-        if (billErr) {
-          console.warn('⚠️ [LLM-ROUTER BILLING WARN] RPC increment_ai_usage falhou, tentando UPDATE direto:', billErr.message);
-          // Fallback UPDATE direto via Supabase Admin Client
-          const { data: profData } = await supabaseAdmin.from('profiles').select('ai_monthly_usage').eq('id', targetUserId).single();
-          const currentUsage = profData?.ai_monthly_usage || 0;
-          await supabaseAdmin.from('profiles').update({ ai_monthly_usage: currentUsage + 1 }).eq('id', targetUserId);
-        } else {
-          console.log(`✅ [LLM-ROUTER BILLING SUCESSO] ai_monthly_usage atualizado no Supabase DB! Novo valor: ${updatedUsage}`);
-        }
-
-        // 📊 REGRA DE TELEMETRIA (EVENT SOURCING): Gravação de evento em public.user_activity_logs
         const mappedEventType = action_type === 'help'
           ? 'help_interaction'
-          : (prompt.toLowerCase().includes('peça') || prompt.toLowerCase().includes('petição') || prompt.toLowerCase().includes('contestação') || prompt.toLowerCase().includes('recurso')
+          : (prompt.toLowerCase().includes('peça') || prompt.toLowerCase().includes('petição') || prompt.toLowerCase().includes('contestação')
               ? 'document_generated'
               : 'ai_command');
 
-        const estimatedTokens = Math.min(10000, Math.max(150, (replyText.length * 2) + (prompt.length * 2)));
+        const estimatedTokens = Math.min(15000, Math.max(200, (replyText.length * 2) + (prompt.length * 2)));
 
-        const { error: telemErr } = await supabaseAdmin.from('user_activity_logs').insert({
+        await supabaseAdmin.from('user_activity_logs').insert({
           user_id: targetUserId,
           event_type: mappedEventType,
           token_count: estimatedTokens,
           created_at: new Date().toISOString()
         });
-
-        if (telemErr) {
-          console.warn('⚠️ [LLM-ROUTER TELEMETRIA WARN] Falha ao inserir log de telemetria:', telemErr.message);
-        } else {
-          console.log(`📊 [LLM-ROUTER TELEMETRIA SUCESSO] Evento '${mappedEventType}' gravado em user_activity_logs (${estimatedTokens} tokens).`);
-        }
-      } catch (billingErr: any) {
-        console.warn('⚠️ [LLM-ROUTER BILLING EXCEPTION]:', billingErr?.message);
-      }
+      } catch (e) {}
     }
 
     return new Response(
@@ -441,16 +350,16 @@ serve(async (req) => {
         success: true,
         reply: replyText,
         providerUsed,
-        modelUsed,
-        actionType: action_type
+        modelUsed
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (err: any) {
-    console.error('❌ [LLM-ROUTER EXCEPTION]:', err);
-    return new Response(
-      JSON.stringify({ success: false, error: err.message || 'Erro interno no Roteador LLM.' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (globalErr: any) {
+    console.error('❌ [LLM-ROUTER FATAL EXCEPTION]:', globalErr?.message);
+    return new Response(
+      JSON.stringify({ success: false, error: globalErr?.message || 'Erro interno no gateway llm-router.' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

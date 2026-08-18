@@ -48,9 +48,6 @@ export class LegalAiService {
 
     console.log(`⚖️ [LegalAiService] Processando solicitação (${actionType}) via Roteador Seguro llm-router...`);
 
-    // ------------------------------------------------------------------------
-    // CAMADA 1: Invocação Segura do Gateway Multi-LLM (Supabase Edge Function llm-router)
-    // ------------------------------------------------------------------------
     try {
       const { data, error } = await supabase.functions.invoke('llm-router', {
         body: {
@@ -72,8 +69,8 @@ export class LegalAiService {
         };
       }
 
-      // Se a Edge Function retornou uma mensagem explícita de limitação de plano (Plano Light ou limite de peças atingido)
-      if (data?.error && (data.error.includes('Plano Light') || data.error.includes('limite mensal') || data.error.includes('upgrade'))) {
+      if (data?.error) {
+        console.warn('⚠️ [LegalAiService - llm-router Error JSON]:', data.error);
         return {
           success: false,
           reply: `⚠️ ${data.error}`,
@@ -84,84 +81,27 @@ export class LegalAiService {
 
       if (error) {
         console.warn('⚠️ [LegalAiService - llm-router Warn]:', error.message);
-      } else if (data?.error) {
-        console.warn('⚠️ [LegalAiService - llm-router Error JSON]:', data.error);
+        return {
+          success: false,
+          reply: `⚠️ Ocorreu um erro ao comunicar com a IA: ${error.message}`,
+          providerUsed: 'llm_router',
+          error: error.message
+        };
       }
     } catch (tier1Error: any) {
       console.warn('⚠️ [LegalAiService - llm-router Falha de Conexão]:', tier1Error?.message || tier1Error);
+      return {
+        success: false,
+        reply: `⚠️ Erro de conexão com o servidor de Inteligência Artificial: ${tier1Error?.message || 'Falha de rede.'}`,
+        providerUsed: 'llm_router',
+        error: tier1Error?.message || 'Falha de conexão'
+      };
     }
 
-    // ------------------------------------------------------------------------
-    // CAMADA 2: Failover de Emergência (Geração de Minuta Estruturada Local Offline)
-    // ------------------------------------------------------------------------
-    console.log('🛡️ [LegalAiService - Emergência] Ativando Motor de Minuta Jurídica Estruturada Local...');
-    const emergencyReply = LegalAiService.generateEmergencyDraft(prompt, fileUrls);
-
     return {
-      success: true,
-      reply: emergencyReply,
-      providerUsed: 'emergency_fallback',
-      modelUsed: 'synapse-legal-local-v1',
+      success: false,
+      reply: '⚠️ Não foi possível obter resposta da Inteligência Artificial. Por favor, tente novamente.',
+      providerUsed: 'llm_router'
     };
-  }
-
-  /**
-   * Gera uma minuta de emergência estruturada caso haja indisponibilidade de conexões de rede.
-   */
-  private static generateEmergencyDraft(userPrompt: string, fileUrls: string[]): string {
-    const isContestacao = userPrompt.toLowerCase().includes('contestação') || userPrompt.toLowerCase().includes('contestar');
-    const isRecurso = userPrompt.toLowerCase().includes('recurso') || userPrompt.toLowerCase().includes('agravo') || userPrompt.toLowerCase().includes('apelação');
-
-    let tipoPeca = 'PETIÇÃO INTERMEDIÁRIA / MANIFESTAÇÃO JURÍDICA';
-    if (isContestacao) tipoPeca = 'CONTESTAÇÃO C/C PEDIDO DE IMPUGNAÇÃO';
-    if (isRecurso) tipoPeca = 'MINUTA RECURSAL / APELAÇÃO CÍVEL';
-
-    return `### EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA VARA CÍVEL DA COMARCA DE [CIDADE/UF]
-
-**PROCESSO Nº:** [INSERIR NÚMERO DO PROCESSO]  
-**AUTOR:** [NOME DA PARTE AUTORA]  
-**RÉU/REQUERIDO:** [NOME DA PARTE RÉ]  
-
----
-
-## ⚖️ ${tipoPeca}
-
-**[NOME DO CLIENTE OU PARTE]**, já devidamente qualificado nos autos do processo em epígrafe, vem, respeitosamente, à presença de Vossa Excelência, por intermédio de seu advogado infra-assinado, apresentar a presente **${tipoPeca}**, com fulcro nos artigos do Código de Processo Civil vigente, pelos fatos e fundamentos jurídicos a seguir expostos:
-
----
-
-### I – DOS FATOS
-Trata-se de ação em que a parte exversa pretende o recebimento / acolhimento de pretensão exordial sem respaldo nos fatos ocorridos.
-Instrução e contexto analisados pelo parecerista:
-> "${userPrompt}"
-
-${fileUrls.length > 0 ? `\n*Documentos e anexos instruídos no parecer:*\n` + fileUrls.map((u, i) => `- Documento ${i + 1}: ${u}`).join('\n') : ''}
-
----
-
-### II – DO DIREITO E DA FUNDAMENTAÇÃO JURÍDICA
-1. **Da Inexistência de Responsabilidade ou Vício**:
-   Conforme preceitua a legislação pátria aplicável à espécie, a pretensão formulada pelo Autor não preenche os requisitos essenciais da probabilidade do direito e do perigo de dano.
-
-2. **Da Impugnação Específica aos Pedidos**:
-   Impugnam-se expressamente todos os fatos articulados na peça vestibular, haja vista que carecem de comprovação probatória idônea nos autos.
-
----
-
-### III – DOS PEDIDOS E REQUERIMENTOS FINAIS
-Ante o exposto, requer a Vossa Excelência:
-a) O recebimento e processamento da presente **${tipoPeca}**;
-b) No mérito, a **TOTAL IMPROCEDÊNCIA** de todos os pedidos formulados pela parte Autora;
-c) A condenação da parte adversa ao pagamento das custas processuais e honorários advocatícios sucumbenciais na forma do art. 85 do CPC;
-d) A produção de todas as provas em direito admitidas.
-
-Termos em que,  
-Pede e espera deferimento.
-
-**[Local], [Data Vigente].**
-
----
-**DR. RODRIGO MOURA RODRIGUES**  
-*Advogado Habilitado*`;
   }
 }
