@@ -41,9 +41,9 @@ const defaultOrganizations: ClientOrganizationItem[] = [
     active_status: 'ACTIVE',
     ai_tokens_limit: 500000,
     custom_token_override: 250000,
-    ai_tokens_used: 12500,
-    active_users_count: 3,
-    executions_count: 540,
+    ai_tokens_used: 0,
+    active_users_count: 2,
+    executions_count: 0,
     created_at: '2026-08-10',
   },
   {
@@ -53,46 +53,10 @@ const defaultOrganizations: ClientOrganizationItem[] = [
     active_status: 'ACTIVE',
     ai_tokens_limit: 1000000,
     custom_token_override: 500000,
-    ai_tokens_used: 142000,
-    active_users_count: 14,
-    executions_count: 3840,
-    created_at: '2026-08-01',
-  },
-  {
-    id: 'org-acme-corp',
-    name: 'Acme Logistics Ltda',
-    plan_tier: 'Axiom',
-    active_status: 'ACTIVE',
-    ai_tokens_limit: 200000,
-    custom_token_override: 10000,
-    ai_tokens_used: 48200,
-    active_users_count: 5,
-    executions_count: 1250,
-    created_at: '2026-08-02',
-  },
-  {
-    id: 'org-kinex-lab',
-    name: 'Kinex Tech Solutions',
-    plan_tier: 'Kinex',
-    active_status: 'ACTIVE',
-    ai_tokens_limit: 50000,
-    custom_token_override: 5000,
-    ai_tokens_used: 24000,
+    ai_tokens_used: 7728,
     active_users_count: 3,
-    executions_count: 890,
-    created_at: '2026-08-03',
-  },
-  {
-    id: 'org-forge-dev',
-    name: 'Forge Starter Studio',
-    plan_tier: 'Forge',
-    active_status: 'ACTIVE',
-    ai_tokens_limit: 10000,
-    custom_token_override: 0,
-    ai_tokens_used: 4800,
-    active_users_count: 2,
-    executions_count: 210,
-    created_at: '2026-08-04',
+    executions_count: 1,
+    created_at: '2026-08-01',
   },
 ];
 
@@ -195,6 +159,69 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
           setSelectedTelemetryUserId(list[0].id);
         }
         console.log(`⚡ [RPC MASTER DEFINER] ${list.length} perfis recuperados via RPC get_all_profiles().`);
+
+        // Recalcular estatísticas reais por Organização com base em profiles e user_activity_logs
+        try {
+          const { data: logsData } = await supabase.from('user_activity_logs').select('user_id, token_count');
+          const logs = logsData || [];
+
+          const legalOpsUsers = list.filter((p: any) => p.organization_id === 'org-legal-ops' || p.email?.includes('rodrigo.moura') || p.email === 'rodrigomr.advogado@gmail.com');
+          const alpNexusUsers = list.filter((p: any) => p.organization_id === 'org-alp-nexus' || p.email?.endsWith('@alp-nexus.com') || p.email === 'alanlpereira@hotmail.com');
+          const otherUsers = list.filter((p: any) => !legalOpsUsers.includes(p) && !alpNexusUsers.includes(p));
+
+          const legalOpsUserIds = new Set(legalOpsUsers.map((u: any) => u.id));
+          const alpNexusUserIds = new Set(alpNexusUsers.map((u: any) => u.id));
+
+          const legalOpsLogs = logs.filter(l => legalOpsUserIds.has(l.user_id));
+          const alpNexusLogs = logs.filter(l => alpNexusUserIds.has(l.user_id));
+          const otherLogs = logs.filter(l => !legalOpsUserIds.has(l.user_id) && !alpNexusUserIds.has(l.user_id));
+
+          const updatedOrgs: ClientOrganizationItem[] = [
+            {
+              id: 'org-legal-ops',
+              name: 'Advocacia Rodrigo Moura & Associados (Legal Ops)',
+              plan_tier: 'LegalOps',
+              active_status: 'ACTIVE',
+              ai_tokens_limit: 500000,
+              custom_token_override: 250000,
+              ai_tokens_used: legalOpsLogs.reduce((a, b) => a + (b.token_count || 0), 0),
+              active_users_count: Math.max(1, legalOpsUsers.length),
+              executions_count: legalOpsLogs.length,
+              created_at: '2026-08-10',
+            },
+            {
+              id: 'org-alp-nexus',
+              name: 'ALP Nexus Enterprise (Matriz Master)',
+              plan_tier: 'Synapse',
+              active_status: 'ACTIVE',
+              ai_tokens_limit: 1000000,
+              custom_token_override: 500000,
+              ai_tokens_used: alpNexusLogs.reduce((a, b) => a + (b.token_count || 0), 0),
+              active_users_count: Math.max(1, alpNexusUsers.length),
+              executions_count: alpNexusLogs.length,
+              created_at: '2026-08-01',
+            },
+          ];
+
+          if (otherUsers.length > 0) {
+            updatedOrgs.push({
+              id: 'org-outras-bancas',
+              name: 'Advogados & Bancas Habilitadas',
+              plan_tier: 'Synapse',
+              active_status: 'ACTIVE',
+              ai_tokens_limit: 100000,
+              custom_token_override: 0,
+              ai_tokens_used: otherLogs.reduce((a, b) => a + (b.token_count || 0), 0),
+              active_users_count: otherUsers.length,
+              executions_count: otherLogs.length,
+              created_at: '2026-08-05',
+            });
+          }
+
+          setOrgs(updatedOrgs);
+        } catch (orgsErr) {
+          console.warn('⚠️ Erro ao calcular estatísticas reais de organizações:', orgsErr);
+        }
       }
     } catch (err) {
       console.warn('⚠️ Erro ao invocar RPC get_all_profiles:', err);

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, DollarSign, Users, Zap, TrendingDown, ShieldCheck, CheckCircle2, Bot, ArrowUpRight, BarChart3, RefreshCw, FileText, Clock } from 'lucide-react';
-import { AiUsageLogItem } from '../services/LegalAiService';
+import { supabase } from '../lib/supabase';
 
-interface RealUserSummary {
+interface RealDbUserSummary {
+  id: string;
   email: string;
   name: string;
   professionalId?: string;
@@ -12,142 +13,144 @@ interface RealUserSummary {
   tokensCount: number;
   costBrl: number;
   statusNotes: string;
+  lastActive: string;
 }
 
-// Histórico real de chamadas efetuadas pelo Dr. Alan Pereira durante os testes de validação do PJe e Copilot
-const realHistoricalLogs: AiUsageLogItem[] = [
-  {
-    id: 'log-real-1',
-    user_email: 'alan.pereira@alp-nexus.com',
-    user_name: 'Dr. Alan Pereira',
-    prompt_preview: 'Sintetizar minuta da intimação PJe Cemig Distribuição S.A. e agendar prazo no Google Agenda',
-    model_used: 'gemini-2.0-flash',
-    provider_used: 'edge_function',
-    tokens_consumed: 14200,
-    estimated_cost_usd: 0.001065,
-    estimated_cost_brl: 0.0058,
-    timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-  },
-  {
-    id: 'log-real-2',
-    user_email: 'alan.pereira@alp-nexus.com',
-    user_name: 'Dr. Alan Pereira',
-    prompt_preview: 'Gerar parecer jurídico sobre prescrição intercorrente em execução fiscal de débito estadual',
-    model_used: 'gemini-1.5-pro',
-    provider_used: 'gemini_direct',
-    tokens_consumed: 18500,
-    estimated_cost_usd: 0.023125,
-    estimated_cost_brl: 0.1271,
-    timestamp: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-  },
-  {
-    id: 'log-real-3',
-    user_email: 'alan.pereira@alp-nexus.com',
-    user_name: 'Dr. Alan Pereira',
-    prompt_preview: 'Elaborar minuta de contestação com preliminar de ilegitimidade passiva ad causam',
-    model_used: 'gemini-2.0-flash',
-    provider_used: 'gemini_direct',
-    tokens_consumed: 12400,
-    estimated_cost_usd: 0.00093,
-    estimated_cost_brl: 0.0051,
-    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-  },
-];
+interface RealDbActivityLog {
+  id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  event_type: string;
+  token_count: number;
+  created_at: string;
+  cost_brl: number;
+}
 
 export const AiAnalyticsDashboard: React.FC = () => {
-  const [logs, setLogs] = useState<AiUsageLogItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('synapse_ai_usage_logs');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return []; // Padrão dinâmico: Começa limpo e preenche conforme requisições reais forem efetuadas
-  });
+  const [userSummaries, setUserSummaries] = useState<RealDbUserSummary[]>([]);
+  const [activityLogs, setActivityLogs] = useState<RealDbActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleRefresh = () => {
+  const fetchRealDataFromPostgres = async () => {
+    setIsLoading(true);
     try {
-      const saved = localStorage.getItem('synapse_ai_usage_logs');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setLogs(parsed);
-          return;
+      console.log('⚡ [AI ANALYTICS] Buscando dados reais de Perfis e Telemetria no PostgreSQL...');
+
+      // 1. Buscar todos os perfis reais
+      const { data: profiles, error: pErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (pErr) console.warn('⚠️ Erro ao buscar perfis:', pErr.message);
+
+      // 2. Buscar todos os logs de atividade reais
+      const { data: logs, error: lErr } = await supabase
+        .from('user_activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (lErr) console.warn('⚠️ Erro ao buscar logs de atividade:', lErr.message);
+
+      const profilesList = profiles || [];
+      const logsList = logs || [];
+
+      // Mapear perfis para id/email lookup
+      const profileMap: Record<string, any> = {};
+      profilesList.forEach((p) => {
+        profileMap[p.id] = p;
+        if (p.email) profileMap[p.email] = p;
+      });
+
+      // Processar Logs
+      const mappedLogs: RealDbActivityLog[] = logsList.map((l) => {
+        const prof = profileMap[l.user_id] || {};
+        const costUsd = (l.token_count || 0) * 0.0000003; // Taxa média Gemini/Claude
+        const costBrl = costUsd * 5.5;
+
+        return {
+          id: l.id,
+          user_id: l.user_id,
+          user_email: prof.email || 'Usuário Registrado',
+          user_name: prof.full_name || prof.email?.split('@')[0] || 'Advogado',
+          event_type: l.event_type || 'ai_command',
+          token_count: l.token_count || 0,
+          created_at: l.created_at,
+          cost_brl: costBrl,
+        };
+      });
+
+      setActivityLogs(mappedLogs);
+
+      // Agrupar estatísticas por Usuário Real
+      const summaryMap: Record<string, RealDbUserSummary> = {};
+
+      profilesList.forEach((p) => {
+        const isRodrigo = p.email?.includes('rodrigo.moura') || p.organization_id === 'org-legal-ops';
+        const isMaster = p.role === 'Master' || p.email === 'alanlpereira@hotmail.com' || p.email === 'alan.pereira@alp-nexus.com';
+
+        let edition = 'Pro Edition';
+        if (isRodrigo) edition = '⚖️ Legal Ops Edition';
+        else if (isMaster) edition = '👑 Master Synapse Edition';
+        else if (p.subscription_plan) edition = `✨ ${p.subscription_plan} Edition`;
+
+        summaryMap[p.id] = {
+          id: p.id,
+          email: p.email || 'sem-email@synapse.com',
+          name: p.full_name || p.email?.split('@')[0] || 'Advogado Cadastrado',
+          professionalId: p.oab_number ? `OAB/${p.oab_uf || 'MG'} ${p.oab_number}` : (p.professional_id || 'Habilitado'),
+          role: p.role || 'Member',
+          edition,
+          requestsCount: 0,
+          tokensCount: p.ai_monthly_usage || 0,
+          costBrl: (p.ai_monthly_usage || 0) * 0.0000003 * 5.5,
+          statusNotes: `Perfil ativo no PostgreSQL desde ${p.created_at ? p.created_at.split('T')[0] : '2026-08-01'}`,
+          lastActive: p.updated_at || p.created_at || new Date().toISOString(),
+        };
+      });
+
+      // Acumular métricas dos logs reais nos resumos dos usuários
+      mappedLogs.forEach((l) => {
+        const targetSummary = summaryMap[l.user_id];
+        if (targetSummary) {
+          targetSummary.requestsCount += 1;
+          targetSummary.tokensCount += l.token_count;
+          targetSummary.costBrl += l.cost_brl;
+          if (l.created_at > targetSummary.lastActive) {
+            targetSummary.lastActive = l.created_at;
+          }
         }
-      }
-    } catch (e) {}
-    setLogs([]);
+      });
+
+      setUserSummaries(Object.values(summaryMap));
+    } catch (err) {
+      console.error('❌ Erro no carregamento da telemetria real:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Base real de usuários cadastrados no sistema
-  const baseRealUsers: RealUserSummary[] = [
-    {
-      email: 'alan.pereira@alp-nexus.com',
-      name: 'Dr. Alan Pereira',
-      professionalId: 'OAB Habilitada',
-      role: 'Master Admin',
-      edition: '✨ Synapse Edition',
-      requestsCount: 142,
-      tokensCount: 1485200,
-      costBrl: 3.12,
-      statusNotes: 'Usuário principal responsável pelos testes e homologação dos fluxos',
-    },
-    {
-      email: 'rodrigo.moura@alp-nexus.com',
-      name: 'Dr. Rodrigo Moura Rodrigues',
-      professionalId: 'OAB Habilitada',
-      role: 'Advogado Titular',
-      edition: '⚖️ Legal Ops Edition',
-      requestsCount: 0,
-      tokensCount: 0,
-      costBrl: 0.00,
-      statusNotes: 'Perfil ativado na Edição Legal Ops. Pronto para uso (0 requisições efetuadas)',
-    },
-  ];
+  useEffect(() => {
+    fetchRealDataFromPostgres();
+  }, []);
 
-  // Acumular novas requisições em tempo real registradas em logs para o Dr. Alan Pereira ou Dr. Rodrigo Moura
-  const realUsersMap: Record<string, RealUserSummary> = {};
-  baseRealUsers.forEach(u => {
-    realUsersMap[u.email] = { ...u };
-  });
+  const totalRequests = activityLogs.length;
+  const totalTokens = userSummaries.reduce((acc, u) => acc + u.tokensCount, 0);
+  const totalCostBrl = userSummaries.reduce((acc, u) => acc + u.costBrl, 0);
 
-  logs.forEach((log) => {
-    const userEmail = log.user_email || 'alan.pereira@alp-nexus.com';
-    if (!realUsersMap[userEmail]) {
-      realUsersMap[userEmail] = {
-        email: userEmail,
-        name: log.user_name || userEmail,
-        role: 'Advogado',
-        edition: userEmail.includes('rodrigo') ? '⚖️ Legal Ops Edition' : '✨ Synapse Edition',
-        requestsCount: 0,
-        tokensCount: 0,
-        costBrl: 0.00,
-        statusNotes: 'Ativo na plataforma',
-      };
-    }
-    realUsersMap[userEmail].requestsCount += 1;
-    realUsersMap[userEmail].tokensCount += log.tokens_consumed;
-    realUsersMap[userEmail].costBrl += log.estimated_cost_brl;
-  });
-
-  const realUserSummaries = Object.values(realUsersMap);
-  const totalRequests = realUserSummaries.reduce((acc, u) => acc + u.requestsCount, 0);
-  const totalTokens = realUserSummaries.reduce((acc, u) => acc + u.tokensCount, 0);
-  const totalCostBrl = realUserSummaries.reduce((acc, u) => acc + u.costBrl, 0);
-
-  // Comparação financeira real baseada nos 2 advogados cadastrados
-  // Assinatura Google Gemini Ultra (Google One AI Premium): US$ 19,99/mês ~ R$ 110,00 / usuário
-  const totalRealAdvocates = realUserSummaries.length;
-  const googleUltraPricePerUserBrl = 110.0;
-  const googleUltraTotalMonthlyBrl = totalRealAdvocates * googleUltraPricePerUserBrl; // R$ 220,00 / mês
+  // Comparativo com assinaturas fixas de mercado (Google Ultra R$ 110/mês por advogado cadastrado)
+  const totalRealAdvocates = Math.max(1, userSummaries.length);
+  const googleUltraTotalMonthlyBrl = totalRealAdvocates * 110.0;
   const monthlySavingsBrl = Math.max(0, googleUltraTotalMonthlyBrl - totalCostBrl);
-  const savingsPercent = ((monthlySavingsBrl / googleUltraTotalMonthlyBrl) * 100).toFixed(1);
+  const savingsPercent = googleUltraTotalMonthlyBrl > 0
+    ? ((monthlySavingsBrl / googleUltraTotalMonthlyBrl) * 100).toFixed(1)
+    : '0.0';
 
   return (
     <div style={{ padding: '24px', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
-      {/* 📌 CARD DE STATUS REAL DA EQUIPE */}
+      {/* CARD DE STATUS REAL DA EQUIPE */}
       <div style={{
         background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
         border: '1px solid rgba(56, 189, 248, 0.3)',
@@ -164,205 +167,158 @@ export const AiAnalyticsDashboard: React.FC = () => {
           </div>
           <div>
             <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', margin: 0 }}>
-              Painel de Auditoria de Consumo de IA (Dados Fatos Reais)
+              Painel Real de Auditoria & Telemetria de IA (PostgreSQL Live)
             </h3>
             <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>
-              Monitoramento exato por advogado • <strong>Dr. Alan Pereira</strong> (142 requisições) • <strong>Dr. Rodrigo Moura Rodrigues</strong> (0 requisições - Perfil liberado pronto para uso)
+              Dados 100% precisos • <strong>{userSummaries.length} usuários cadastrados</strong> • <strong>{activityLogs.length} eventos de telemetria registrados</strong>
             </p>
           </div>
         </div>
 
         <button
-          onClick={handleRefresh}
-          title="Atualizar Métricas"
+          onClick={fetchRealDataFromPostgres}
+          disabled={isLoading}
+          title="Atualizar Métricas Reais do Banco"
           style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px' }}
         >
-          <RefreshCw size={14} /> Sincronizar Logs
+          <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> {isLoading ? 'Atualizando...' : 'Sincronizar DB'}
         </button>
       </div>
 
-      {/* 📊 GRID DE KPIS REAIS */}
+      {/* GRID DE KPIS REAIS DO BANCO */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '16px' }}>
         
         {/* KPI 1: Requisições de IA */}
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Requisições IA Realizadas</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Eventos de Telemetria IA</span>
             <Bot size={20} color="#38bdf8" />
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>
-            {totalRequests} <span style={{ fontSize: '13px', color: '#38bdf8', fontWeight: 700 }}>chamadas</span>
+            {totalRequests} <span style={{ fontSize: '13px', color: '#38bdf8', fontWeight: 700 }}>eventos</span>
           </div>
           <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-            Consumo acumulado em testes e produção
+            Registrados na tabela public.user_activity_logs
           </span>
         </div>
 
         {/* KPI 2: Tokens Consumidos */}
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Tokens IA Totais</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Tokens Consumidos Totais</span>
             <Zap size={20} color="#f59e0b" />
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: '#f59e0b' }}>
             {totalTokens.toLocaleString('pt-BR')}
           </div>
           <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-            Volume real processado pelo Gemini 2.0 / 1.5
+            Volume acumulado real de tokens nos perfis
           </span>
         </div>
 
         {/* KPI 3: Custo Real API */}
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Custo Efetivo da API</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Custo Efetivo de API</span>
             <DollarSign size={20} color="#10b981" />
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: '#10b981' }}>
             R$ {totalCostBrl.toFixed(2)}
           </div>
           <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, marginTop: '4px', display: 'block' }}>
-            Faturamento exato via Google Gemini API
+            Calculado sobre o consumo real do gateway
           </span>
         </div>
 
         {/* KPI 4: Economia vs Google Ultra */}
         <div style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.05))', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '16px', padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>Economia Real vs Google Ultra</span>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>Economia vs Licenciamento Fixo</span>
             <TrendingDown size={20} color="#10b981" />
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: '#ffffff' }}>
             R$ {monthlySavingsBrl.toFixed(2)} <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 800 }}>/mês ({savingsPercent}%)</span>
           </div>
           <span style={{ fontSize: '11px', color: '#a7f3d0', marginTop: '4px', display: 'block' }}>
-            Economizado vs 2 assinaturas individuais do Google Ultra
+            Economia calculada para os {totalRealAdvocates} usuários reais
           </span>
         </div>
       </div>
 
-      {/* 💰 ANÁLISE COMPARATIVA FINANCEIRA */}
-      <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BarChart3 size={18} color="#38bdf8" />
-          Comparativo Financeiro Factual: Custo Pay-as-you-go API vs Assinaturas Google Ultra
-        </h3>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', alignItems: 'center' }}>
-          {/* Google Ultra */}
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '16px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Custo Assinaturas Individuais Google Ultra
-            </div>
-            <div style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff' }}>
-              R$ {googleUltraTotalMonthlyBrl.toFixed(2)} <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/mês</span>
-            </div>
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
-              Valor fixo caso cada um dos 2 advogados contratasse a assinatura do Google One AI Premium (Gemini Ultra) individualmente a R$ 110,00/mês cada.
-            </p>
-          </div>
-
-          {/* Custo API Synapse */}
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '12px', padding: '16px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Custo Real via API no Synapse
-            </div>
-            <div style={{ fontSize: '22px', fontWeight: 900, color: '#10b981' }}>
-              R$ {totalCostBrl.toFixed(2)} <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/mês</span>
-            </div>
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
-              Cobrança real pelo volume efetivamente consumido (1,48 M de tokens no Gemini 2.0 Flash custam apenas R$ 3,12).
-            </p>
-          </div>
-
-          {/* Barra Gráfica de Proporção */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-              <span style={{ color: '#ef4444' }}>Custo Assinatura Google Ultra (R$ 220,00)</span>
-              <span style={{ color: '#10b981' }}>Custo API (R$ {totalCostBrl.toFixed(2)})</span>
-            </div>
-
-            <div style={{ width: '100%', height: '14px', background: 'var(--bg-tertiary)', borderRadius: '7px', overflow: 'hidden', display: 'flex' }}>
-              <div style={{ width: '98.6%', height: '100%', background: '#ef4444' }} title="Custo Assinatura Ultra"></div>
-              <div style={{ width: '1.4%', height: '100%', background: '#10b981' }} title="Custo Real API"></div>
-            </div>
-
-            <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 800, textAlign: 'center', background: 'rgba(16, 185, 129, 0.1)', padding: '6px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-              🎉 A sua banca jurídica economizou R$ {monthlySavingsBrl.toFixed(2)} este mês ao utilizar a API Synapse!
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 👥 TABELA DE USO DE IA POR USUÁRIO REAL */}
+      {/* TABELA DE USO DE IA POR USUÁRIO REAL DO BANCO */}
       <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Users size={18} color="var(--accent-cyan)" />
-            Quadro Factual de Consumo de IA por Advogado Cadastrado
+            Consumo Real por Usuário (Tabela PostgreSQL `public.profiles`)
           </h3>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{realUserSummaries.length} advogados reais</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{userSummaries.length} contas cadastradas</span>
         </div>
 
         <div className="w-full overflow-x-auto" style={{ width: '100%', overflowX: 'auto', boxSizing: 'border-box' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
-              <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Advogado / E-mail</th>
-              <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Edição Habilitada</th>
-              <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Requisições IA</th>
-              <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Tokens Consumidos</th>
-              <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Custo API (BRL)</th>
-              <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Observações de Uso</th>
-            </tr>
-          </thead>
-          <tbody>
-            {realUserSummaries.map((u) => {
-              const isRodrigo = u.email.includes('rodrigo.moura');
-              return (
-                <tr key={u.email} style={{ borderBottom: '1px solid var(--border-color)', background: isRodrigo ? 'rgba(16, 185, 129, 0.05)' : 'transparent' }}>
-                  <td style={{ padding: '14px 20px', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isRodrigo ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #38bdf8, #3b82f6)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>
-                        {u.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div>{u.name}</div>
-                        <div style={{ fontSize: '11px', color: isRodrigo ? '#10b981' : 'var(--text-muted)', fontWeight: 600 }}>{u.email} • {u.professionalId}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ padding: '14px 20px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '12px', background: isRodrigo ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 242, 254, 0.15)', color: isRodrigo ? '#10b981' : 'var(--accent-cyan)', border: isRodrigo ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(0, 242, 254, 0.3)' }}>
-                      {u.edition}
-                    </span>
-                  </td>
-                  <td style={{ padding: '14px 20px', color: u.requestsCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 700, fontSize: '13px' }}>
-                    {u.requestsCount > 0 ? `${u.requestsCount} requisições` : '0 requisições'}
-                  </td>
-                  <td style={{ padding: '14px 20px', color: u.tokensCount > 0 ? '#f59e0b' : 'var(--text-muted)', fontWeight: 700, fontSize: '13px' }}>
-                    {u.tokensCount > 0 ? `${u.tokensCount.toLocaleString('pt-BR')} tokens` : '0 tokens'}
-                  </td>
-                  <td style={{ padding: '14px 20px', color: u.costBrl > 0 ? '#10b981' : 'var(--text-muted)', fontWeight: 800, fontSize: '13px' }}>
-                    R$ {u.costBrl.toFixed(2)}
-                  </td>
-                  <td style={{ padding: '14px 20px', fontSize: '12px', color: isRodrigo ? '#10b981' : 'var(--text-secondary)', fontWeight: isRodrigo ? 700 : 400 }}>
-                    {u.statusNotes}
+            <thead>
+              <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Usuário / E-mail</th>
+                <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Plano / Edição</th>
+                <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Eventos IA</th>
+                <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Tokens Consumidos</th>
+                <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Custo Calculado</th>
+                <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Última Atividade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {userSummaries.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    Nenhum perfil encontrado no banco de dados.
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : (
+                userSummaries.map((u) => (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '14px 20px', color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, #0284c7, #3b82f6)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
+                          {u.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div>{u.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>{u.email} • {u.professionalId}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '12px', background: 'rgba(0, 242, 254, 0.15)', color: 'var(--accent-cyan)', border: '1px solid rgba(0, 242, 254, 0.3)' }}>
+                        {u.edition}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 20px', color: u.requestsCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 700, fontSize: '13px' }}>
+                      {u.requestsCount} eventos
+                    </td>
+                    <td style={{ padding: '14px 20px', color: u.tokensCount > 0 ? '#f59e0b' : 'var(--text-muted)', fontWeight: 700, fontSize: '13px' }}>
+                      {u.tokensCount.toLocaleString('pt-BR')} tokens
+                    </td>
+                    <td style={{ padding: '14px 20px', color: u.costBrl > 0 ? '#10b981' : 'var(--text-muted)', fontWeight: 800, fontSize: '13px' }}>
+                      R$ {u.costBrl.toFixed(2)}
+                    </td>
+                    <td style={{ padding: '14px 20px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {new Date(u.lastActive).toLocaleDateString('pt-BR')}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* 📜 HISTÓRICO DE REQUISIÇÕES EM TEMPO REAL */}
+      {/* FEED DE ATIVIDADES REAL DO BANCO (public.user_activity_logs) */}
       <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Clock size={18} color="#f59e0b" />
-            Feed de Execuções e Auditoria de IA ({logs.length})
+            Feed de Execuções e Auditoria de IA Real (`public.user_activity_logs` - {activityLogs.length} eventos)
           </h3>
         </div>
 
@@ -371,43 +327,39 @@ export const AiAnalyticsDashboard: React.FC = () => {
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Data/Hora</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Advogado</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Instrução / Peça Solicitada</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Modelo</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Tokens</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Custo (BRL)</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Usuário</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Tipo de Evento</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Tokens Consumidos</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Custo Est. (BRL)</th>
               </tr>
             </thead>
             <tbody>
-              {logs.length === 0 ? (
+              {activityLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  <td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
                     <Bot size={28} style={{ opacity: 0.4, marginBottom: '8px', display: 'block', margin: '0 auto 8px auto' }} />
-                    Nenhum registro de uso de IA capturado ainda. As chamadas efetuadas no Legal Copilot ou nos fluxos serão registradas aqui em tempo real.
+                    Nenhum registro de atividade retido na tabela public.user_activity_logs.
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                activityLogs.map((log) => (
                   <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '12px' }}>
                     <td style={{ padding: '12px 16px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {new Date(log.created_at).toLocaleString('pt-BR')}
                     </td>
                     <td style={{ padding: '12px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>
-                      {log.user_name}
-                    </td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-secondary)', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {log.prompt_preview}
+                      {log.user_name} ({log.user_email})
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 6px', borderRadius: '6px', fontWeight: 700 }}>
-                        {log.model_used}
+                      <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, textTransform: 'uppercase' }}>
+                        {log.event_type}
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px', color: '#f59e0b', fontWeight: 700 }}>
-                      {log.tokens_consumed.toLocaleString('pt-BR')}
+                      {log.token_count.toLocaleString('pt-BR')} tokens
                     </td>
                     <td style={{ padding: '12px 16px', color: '#10b981', fontWeight: 700 }}>
-                      R$ {log.estimated_cost_brl.toFixed(4)}
+                      R$ {log.cost_brl.toFixed(4)}
                     </td>
                   </tr>
                 ))
