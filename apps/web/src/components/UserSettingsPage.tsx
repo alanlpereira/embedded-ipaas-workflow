@@ -125,7 +125,7 @@ export const UserSettingsPage: React.FC<UserSettingsPageProps> = ({
   };
 
   return (
-    <div style={{ flex: 1, padding: '28px 24px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
+    <div style={{ flex: 1, padding: '28px 24px 120px 24px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

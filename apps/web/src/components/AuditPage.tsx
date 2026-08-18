@@ -89,7 +89,7 @@ export const AuditPage: React.FC<AuditPageProps> = ({ currentProfile, onInspectD
   });
 
   return (
-    <div style={{ flex: 1, padding: '32px 48px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
+    <div style={{ flex: 1, padding: '32px 48px 120px 48px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
       {/* Header da Página */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
         <div>

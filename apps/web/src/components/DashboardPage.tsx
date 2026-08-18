@@ -284,7 +284,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </aside>
 
       {/* 3. PAINEL CENTRAL DO DASHBOARD */}
-      <main style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+      <main style={{ flex: 1, padding: '32px 40px 120px 40px', overflowY: 'auto' }}>
         {/* Header Central */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
           <div>

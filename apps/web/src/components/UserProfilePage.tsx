@@ -192,7 +192,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '32px 20px', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '32px 20px 120px 20px', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
       
       {/* Toast Feedback */}
       {toastMessage && (

@@ -532,7 +532,7 @@ export const MasterAdminPage: React.FC<MasterAdminPageProps> = ({ currentProfile
   };
 
   return (
-    <div style={{ flex: 1, height: '100%', overflowY: 'auto', padding: '32px', background: 'var(--bg-primary)' }}>
+    <div style={{ flex: 1, height: '100%', overflowY: 'auto', padding: '32px 32px 120px 32px', background: 'var(--bg-primary)' }}>
       {/* Header Master */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
         <div>

@@ -417,7 +417,7 @@ export const LegalDashboardPage: React.FC<LegalDashboardPageProps> = ({
   });
 
   return (
-    <div ref={containerRef} className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
+    <div ref={containerRef} className="w-full max-w-full overflow-x-hidden min-w-0 box-border" style={{ flex: 1, padding: '24px 24px 120px 24px', width: '100%', maxWidth: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--bg-primary)', boxSizing: 'border-box' }}>
       <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
       {/* Toast */}
       {toastMessage && (
