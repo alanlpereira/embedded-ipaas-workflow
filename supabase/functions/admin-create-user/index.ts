@@ -189,29 +189,64 @@ serve(async (req) => {
       console.warn('⚠️ Erro ao atualizar perfil do novo usuário:', profileErr.message);
     }
 
-    // 5. Registra no console o Mock do envio de e-mail corporativo com as credenciais
-    console.log(`
-==================================================
-📧 [MOCK EMAIL CORPORATIVO DE PROVISIONAMENTO]
-==================================================
-Para: ${email}
-Assunto: Bem-vindo ao Synapse IPaaS Legal - Suas Credenciais Corporativas
+    // 5. Disparar e-mail de instrução e redefinição de senha real via Supabase Auth Mailer & Resend
+    let emailSent = false;
+    let emailStatusMessage = 'E-mail registrado e enviado com sucesso pelo provedor de autenticação.';
 
-Prezado(a) ${fullName},
+    try {
+      const { error: resetErr } = await supabaseAdmin.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: 'https://synapse.alp-nexus.com/reset-password'
+      });
+      if (!resetErr) {
+        emailSent = true;
+        console.log(`✅ [SUPABASE AUTH MAILER] E-mail de credenciais/redefinição enviado com sucesso para ${email.trim()}!`);
+      } else {
+        console.warn(`⚠️ [SUPABASE AUTH MAILER WARN]:`, resetErr.message);
+        emailStatusMessage = `Cadastro realizado. Notificação por e-mail: ${resetErr.message}`;
+      }
+    } catch (mailErr: any) {
+      console.warn(`⚠️ Exceção ao despachar e-mail via Supabase Auth:`, mailErr?.message);
+    }
 
-Sua conta de acesso ao Synapse IPaaS Legal foi criada pelo Administrador Master.
-
-• Link de Acesso: https://synapse.alp-nexus.com
-• E-mail: ${email}
-• Senha Temporária: ${temp_password}
-• Número OAB: ${cleanOab || 'Não informado'}
-
-⚠️ IMPORTANTE: No seu primeiro acesso, você será redirecionado para redefinir sua senha obrigatoriamente por motivos de segurança.
-
-Atenciosamente,
-Equipe Synapse IPaaS Legal
-==================================================
-    `);
+    // Envio complementar via Resend API (se chave disponível)
+    const resendApiKey = Deno.env.get('RESEND_API_KEY') || '';
+    if (resendApiKey && resendApiKey.startsWith('re_')) {
+      try {
+        const resendResp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'Synapse Legal Ops <onboarding@resend.dev>',
+            to: [email.trim()],
+            subject: '🏛️ Bem-vindo ao Synapse IPaaS Legal Ops - Suas Credenciais Corporativas',
+            html: `
+              <div style="font-family: Arial, sans-serif; background-color: #080c14; color: #f8fafc; padding: 32px; border-radius: 16px;">
+                <h2 style="color: #38bdf8;">🏛️ Bem-vindo ao Synapse IPaaS Legal Ops</h2>
+                <p>Prezado(a) <strong>${fullName}</strong>,</p>
+                <p>Sua conta corporativa de acesso foi criada com sucesso pelo Administrador Master.</p>
+                <div style="background-color: #0f172a; padding: 20px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.3); margin: 20px 0;">
+                  <p><strong>Link de Acesso:</strong> <a href="https://synapse.alp-nexus.com" style="color: #38bdf8;">https://synapse.alp-nexus.com</a></p>
+                  <p><strong>E-mail:</strong> ${email.trim()}</p>
+                  <p><strong>Senha Temporária:</strong> <code>${temp_password}</code></p>
+                  <p><strong>OAB:</strong> OAB/${parsedUf} ${parsedOabNum || 'Habilitada'}</p>
+                </div>
+                <p style="color: #f59e0b;">⚠️ <strong>Segurança:</strong> No seu primeiro acesso, altere sua senha por motivos de segurança.</p>
+              </div>
+            `
+          })
+        });
+        if (resendResp.ok) {
+          emailSent = true;
+          emailStatusMessage = 'E-mail corporativo enviado e entregue com sucesso via Resend API.';
+          console.log(`✅ [RESEND MAILER SUCESSO] E-mail entregue para ${email.trim()}!`);
+        }
+      } catch (rErr: any) {
+        console.warn('⚠️ Exceção ao despachar via Resend:', rErr?.message);
+      }
+    }
 
     return new Response(
       JSON.stringify({
